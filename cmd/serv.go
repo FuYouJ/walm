@@ -133,7 +133,11 @@ func (sc *ServCmd) run() error {
 		return err
 	}
 
-	registryClient := helmImpl.NewRegistryClient(config.ChartImageConfig)
+	registryClient, err := helmImpl.NewRegistryClient(config.ChartImageConfig)
+	if err != nil {
+		logrus.Errorf("failed to create registry client : %s", err.Error())
+		return err
+	}
 	kubeClients := k8sHelm.NewHelmKubeClient(kubeConfig, kubeContest)
 	helm, err := helmImpl.NewHelm(config.RepoList, registryClient, k8sCache, kubeClients)
 	if err != nil {

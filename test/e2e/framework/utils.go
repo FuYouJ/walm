@@ -29,7 +29,8 @@ import (
 	"path/filepath"
 	"WarpCloud/walm/pkg/helm/impl"
 	"helm.sh/helm/pkg/chart/loader"
-	"helm.sh/helm/pkg/registry"
+	//"helm.sh/helm/pkg/registry"
+	"helm.sh/helm/internal/experimental/registry"
 )
 
 var k8sClient *kubernetes.Clientset
@@ -409,7 +410,10 @@ func InitFramework() error {
 
 	chartImage := GetTestChartImage()
 	logrus.Infof("start to push chart image %s to registry", chartImage)
-	registryClient := impl.NewRegistryClient(setting.Config.ChartImageConfig)
+	registryClient, err := impl.NewRegistryClient(setting.Config.ChartImageConfig)
+	if err != nil {
+		return err
+	}
 
 	testChart, err := loader.Load(testChartPath)
 	if err != nil {

@@ -23,7 +23,8 @@ var _ = Describe("HelmChart", func() {
 	BeforeEach(func() {
 		stopChan = make(chan struct{})
 		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), 0, stopChan)
-		registryClient := impl.NewRegistryClient(setting.Config.ChartImageConfig)
+		registryClient, err := impl.NewRegistryClient(setting.Config.ChartImageConfig)
+		Expect(err).NotTo(HaveOccurred())
 
 		helm, err = impl.NewHelm(setting.Config.RepoList, registryClient, k8sCache, framework.GetKubeClient())
 		Expect(err).NotTo(HaveOccurred())

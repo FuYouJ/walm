@@ -523,7 +523,7 @@ func NewHelm(repoList []*setting.ChartRepo, registryClient *registry.Client, k8s
 
 }
 
-func NewRegistryClient(chartImageConfig *setting.ChartImageConfig) *registry.Client {
+func NewRegistryClient(chartImageConfig *setting.ChartImageConfig) (*registry.Client, error) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -531,15 +531,10 @@ func NewRegistryClient(chartImageConfig *setting.ChartImageConfig) *registry.Cli
 
 	option := &registry.ClientOptions{
 		Out: os.Stdout,
-		Resolver: registry.Resolver{
-			Resolver: registry.Resolver{Resolver: docker.NewResolver(docker.ResolverOptions{
-				Client: client,
-			})},
-		},
-		CacheRootDir: "/helm-cache",
+		Resolver: docker.NewResolver(docker.ResolverOptions{
+			Client: client,
+		}),
 	}
-	if chartImageConfig != nil && chartImageConfig.CacheRootDir != "" {
-		option.CacheRootDir = chartImageConfig.CacheRootDir
-	}
+
 	return registry.NewClient(option)
 }
