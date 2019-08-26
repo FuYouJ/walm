@@ -1,3 +1,0 @@
-Error: "helm upgrade" requires 2 arguments
-
-Usage:  helm upgrade [RELEASE] [CHART] [flags]

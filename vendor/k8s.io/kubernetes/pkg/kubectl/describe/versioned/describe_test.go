@@ -28,7 +28,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv1 "k8s.io/api/autoscaling/v1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
-	"k8s.io/api/core/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -52,7 +51,7 @@ type describeClient struct {
 }
 
 func TestDescribePod(t *testing.T) {
-	deletionTimestamp := metav1.Time{Time: time.Now().UTC().AddDate(10, 0, 0)}
+	deletionTimestamp := metav1.Time{Time: time.Now().UTC().AddDate(-10, 0, 0)}
 	gracePeriod := int64(1234)
 	condition1 := corev1.PodConditionType("condition1")
 	condition2 := corev1.PodConditionType("condition2")
@@ -719,6 +718,22 @@ func TestDescribeContainers(t *testing.T) {
 			expectedElements: []string{"Mounts", "mounted-volume", "/opt/", "(ro)"},
 		},
 
+		// volumeMounts subPath
+		{
+			container: corev1.Container{
+				Name:  "test",
+				Image: "image",
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "mounted-volume",
+						MountPath: "/opt/",
+						SubPath:   "foo",
+					},
+				},
+			},
+			expectedElements: []string{"Mounts", "mounted-volume", "/opt/", "(rw,path=\"foo\")"},
+		},
+
 		// volumeDevices
 		{
 			container: corev1.Container{
@@ -922,7 +937,7 @@ func TestGetPodsTotalRequests(t *testing.T) {
 func TestPersistentVolumeDescriber(t *testing.T) {
 	block := corev1.PersistentVolumeBlock
 	file := corev1.PersistentVolumeFilesystem
-	deletionTimestamp := metav1.Time{Time: time.Now().UTC().AddDate(10, 0, 0)}
+	deletionTimestamp := metav1.Time{Time: time.Now().UTC().AddDate(-10, 0, 0)}
 	testCases := []struct {
 		name               string
 		plugin             string
@@ -1290,7 +1305,7 @@ func TestPersistentVolumeClaimDescriber(t *testing.T) {
 	file := corev1.PersistentVolumeFilesystem
 	goldClassName := "gold"
 	now := time.Now()
-	deletionTimestamp := metav1.Time{Time: time.Now().UTC().AddDate(10, 0, 0)}
+	deletionTimestamp := metav1.Time{Time: time.Now().UTC().AddDate(-10, 0, 0)}
 	testCases := []struct {
 		name               string
 		pvc                *corev1.PersistentVolumeClaim
@@ -1490,9 +1505,9 @@ func TestDescribeDeployment(t *testing.T) {
 		Spec: appsv1.DeploymentSpec{
 			Replicas: utilpointer.Int32Ptr(1),
 			Selector: &metav1.LabelSelector{},
-			Template: v1.PodTemplateSpec{
-				Spec: v1.PodSpec{
-					Containers: []v1.Container{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{Image: "mytest-image:latest"},
 					},
 				},
@@ -1865,7 +1880,94 @@ func TestDescribeHorizontalPodAutoscaler(t *testing.T) {
 			},
 		},
 		{
-			"object source type (no current)",
+			"object source type target average value (no current)",
+			autoscalingv2beta2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
+						Name: "some-rc",
+						Kind: "ReplicationController",
+					},
+					MinReplicas: &minReplicasVal,
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2beta2.MetricSpec{
+						{
+							Type: autoscalingv2beta2.ObjectMetricSourceType,
+							Object: &autoscalingv2beta2.ObjectMetricSource{
+								DescribedObject: autoscalingv2beta2.CrossVersionObjectReference{
+									Name: "some-service",
+									Kind: "Service",
+								},
+								Metric: autoscalingv2beta2.MetricIdentifier{
+									Name: "some-service-metric",
+								},
+								Target: autoscalingv2beta2.MetricTarget{
+									Type:         autoscalingv2beta2.AverageValueMetricType,
+									AverageValue: resource.NewMilliQuantity(100, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+				Status: autoscalingv2beta2.HorizontalPodAutoscalerStatus{
+					CurrentReplicas: 4,
+					DesiredReplicas: 5,
+				},
+			},
+		},
+		{
+			"object source type target average value (with current)",
+			autoscalingv2beta2.HorizontalPodAutoscaler{
+				Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
+						Name: "some-rc",
+						Kind: "ReplicationController",
+					},
+					MinReplicas: &minReplicasVal,
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2beta2.MetricSpec{
+						{
+							Type: autoscalingv2beta2.ObjectMetricSourceType,
+							Object: &autoscalingv2beta2.ObjectMetricSource{
+								DescribedObject: autoscalingv2beta2.CrossVersionObjectReference{
+									Name: "some-service",
+									Kind: "Service",
+								},
+								Metric: autoscalingv2beta2.MetricIdentifier{
+									Name: "some-service-metric",
+								},
+								Target: autoscalingv2beta2.MetricTarget{
+									Type:         autoscalingv2beta2.AverageValueMetricType,
+									AverageValue: resource.NewMilliQuantity(100, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+				Status: autoscalingv2beta2.HorizontalPodAutoscalerStatus{
+					CurrentReplicas: 4,
+					DesiredReplicas: 5,
+					CurrentMetrics: []autoscalingv2beta2.MetricStatus{
+						{
+							Type: autoscalingv2beta2.ObjectMetricSourceType,
+							Object: &autoscalingv2beta2.ObjectMetricStatus{
+								DescribedObject: autoscalingv2beta2.CrossVersionObjectReference{
+									Name: "some-service",
+									Kind: "Service",
+								},
+								Metric: autoscalingv2beta2.MetricIdentifier{
+									Name: "some-service-metric",
+								},
+								Current: autoscalingv2beta2.MetricValueStatus{
+									AverageValue: resource.NewMilliQuantity(50, resource.DecimalSI),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			"object source type target value (no current)",
 			autoscalingv2beta2.HorizontalPodAutoscaler{
 				Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
 					ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
@@ -1900,7 +2002,7 @@ func TestDescribeHorizontalPodAutoscaler(t *testing.T) {
 			},
 		},
 		{
-			"object source type (with current)",
+			"object source type target value (with current)",
 			autoscalingv2beta2.HorizontalPodAutoscaler{
 				Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
 					ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
@@ -2492,7 +2594,11 @@ func TestDescribeUnstructuredContent(t *testing.T) {
 	}{
 		{
 			expected: `API Version:	v1
-Dummy 2:	present
+Dummy - Dummy:	present
+dummy-dummy@dummy:	present
+dummy/dummy:	present
+dummy2:	present
+Dummy Dummy:	present
 Items:
   Item Bool:	true
   Item Int:	42
@@ -2530,10 +2636,14 @@ URL:	http://localhost
 	w := NewPrefixWriter(out)
 	obj := &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "v1",
-			"kind":       "Test",
-			"dummy1":     "present",
-			"dummy2":     "present",
+			"apiVersion":        "v1",
+			"kind":              "Test",
+			"dummyDummy":        "present",
+			"dummy/dummy":       "present",
+			"dummy-dummy@dummy": "present",
+			"dummy-dummy":       "present",
+			"dummy1":            "present",
+			"dummy2":            "present",
 			"metadata": map[string]interface{}{
 				"name":              "MyName",
 				"namespace":         "MyNamespace",
@@ -2977,12 +3087,6 @@ func TestDescribeStatefulSet(t *testing.T) {
 	}
 }
 
-// boolPtr returns a pointer to a bool
-func boolPtr(b bool) *bool {
-	o := b
-	return &o
-}
-
 func TestControllerRef(t *testing.T) {
 	var replicas int32 = 1
 	f := fake.NewSimpleClientset(
@@ -3012,7 +3116,7 @@ func TestControllerRef(t *testing.T) {
 				Name:            "barpod",
 				Namespace:       "foo",
 				Labels:          map[string]string{"abc": "xyz"},
-				OwnerReferences: []metav1.OwnerReference{{Name: "bar", UID: "123456", Controller: boolPtr(true)}},
+				OwnerReferences: []metav1.OwnerReference{{Name: "bar", UID: "123456", Controller: utilpointer.BoolPtr(true)}},
 			},
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Pod",
@@ -3049,7 +3153,7 @@ func TestControllerRef(t *testing.T) {
 				Name:            "buzpod",
 				Namespace:       "foo",
 				Labels:          map[string]string{"abc": "xyz"},
-				OwnerReferences: []metav1.OwnerReference{{Name: "buz", UID: "654321", Controller: boolPtr(true)}},
+				OwnerReferences: []metav1.OwnerReference{{Name: "buz", UID: "654321", Controller: utilpointer.BoolPtr(true)}},
 			},
 			TypeMeta: metav1.TypeMeta{
 				Kind: "Pod",

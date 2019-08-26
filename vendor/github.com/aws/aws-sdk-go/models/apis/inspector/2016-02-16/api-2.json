@@ -39,8 +39,7 @@
         {"shape":"InvalidInputException"},
         {"shape":"LimitExceededException"},
         {"shape":"AccessDeniedException"},
-        {"shape":"NoSuchEntityException"},
-        {"shape":"InvalidCrossAccountRoleException"}
+        {"shape":"NoSuchEntityException"}
       ]
     },
     "CreateAssessmentTemplate":{
@@ -577,8 +576,7 @@
       "type":"string",
       "enum":[
         "HEALTHY",
-        "UNHEALTHY",
-        "UNKNOWN"
+        "UNHEALTHY"
       ]
     },
     "AgentHealthCode":{
@@ -619,14 +617,8 @@
       "type":"structure",
       "required":["agentId"],
       "members":{
-        "hostname":{"shape":"Hostname"},
         "agentId":{"shape":"AgentId"},
-        "autoScalingGroup":{"shape":"AutoScalingGroup"},
-        "agentHealth":{"shape":"AgentHealth"},
-        "agentVersion":{"shape":"AgentVersion"},
-        "operatingSystem":{"shape":"OperatingSystem"},
-        "kernelVersion":{"shape":"KernelVersion"},
-        "ipv4Address":{"shape":"Ipv4Address"}
+        "autoScalingGroup":{"shape":"AutoScalingGroup"}
       }
     },
     "AgentPreviewList":{
@@ -634,11 +626,6 @@
       "member":{"shape":"AgentPreview"},
       "max":100,
       "min":0
-    },
-    "AgentVersion":{
-      "type":"string",
-      "max":128,
-      "min":1
     },
     "AgentsAlreadyRunningAssessmentException":{
       "type":"structure",
@@ -666,7 +653,6 @@
       "max":300,
       "min":1
     },
-    "ArnCount":{"type":"integer"},
     "AssessmentRulesPackageArnList":{
       "type":"list",
       "member":{"shape":"Arn"},
@@ -865,6 +851,7 @@
       "required":[
         "arn",
         "name",
+        "resourceGroupArn",
         "createdAt",
         "updatedAt"
       ],
@@ -902,7 +889,6 @@
         "durationInSeconds",
         "rulesPackageArns",
         "userAttributesForFindings",
-        "assessmentRunCount",
         "createdAt"
       ],
       "members":{
@@ -912,8 +898,6 @@
         "durationInSeconds":{"shape":"AssessmentRunDuration"},
         "rulesPackageArns":{"shape":"AssessmentTemplateRulesPackageArnList"},
         "userAttributesForFindings":{"shape":"UserAttributeList"},
-        "lastAssessmentRunArn":{"shape":"Arn"},
-        "assessmentRunCount":{"shape":"ArnCount"},
         "createdAt":{"shape":"Timestamp"}
       }
     },
@@ -1002,7 +986,10 @@
     "Bool":{"type":"boolean"},
     "CreateAssessmentTargetRequest":{
       "type":"structure",
-      "required":["assessmentTargetName"],
+      "required":[
+        "assessmentTargetName",
+        "resourceGroupArn"
+      ],
       "members":{
         "assessmentTargetName":{"shape":"AssessmentTargetName"},
         "resourceGroupArn":{"shape":"Arn"}
@@ -1495,11 +1482,6 @@
       "max":50,
       "min":0
     },
-    "KernelVersion":{
-      "type":"string",
-      "max":128,
-      "min":1
-    },
     "LimitExceededErrorCode":{
       "type":"string",
       "enum":[
@@ -1723,11 +1705,6 @@
     "NumericVersion":{
       "type":"integer",
       "min":0
-    },
-    "OperatingSystem":{
-      "type":"string",
-      "max":256,
-      "min":1
     },
     "PaginationToken":{
       "type":"string",
@@ -2049,7 +2026,8 @@
       "type":"structure",
       "required":[
         "assessmentTargetArn",
-        "assessmentTargetName"
+        "assessmentTargetName",
+        "resourceGroupArn"
       ],
       "members":{
         "assessmentTargetArn":{"shape":"Arn"},

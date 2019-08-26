@@ -119,13 +119,13 @@ func TestHandlerScope(t *testing.T) {
 			_, err = otherScopeClient.Update(cr, metav1.UpdateOptions{}, "scale")
 			assert.True(t, apierrors.IsNotFound(err))
 
-			_, err = otherScopeClient.Patch(name, types.MergePatchType, []byte(`{"metadata":{"annotations":{"test":"1"}}}`), metav1.UpdateOptions{})
+			_, err = otherScopeClient.Patch(name, types.MergePatchType, []byte(`{"metadata":{"annotations":{"test":"1"}}}`), metav1.PatchOptions{})
 			assert.True(t, apierrors.IsNotFound(err))
 
-			_, err = otherScopeClient.Patch(name, types.MergePatchType, []byte(`{"metadata":{"annotations":{"test":"1"}}}`), metav1.UpdateOptions{}, "status")
+			_, err = otherScopeClient.Patch(name, types.MergePatchType, []byte(`{"metadata":{"annotations":{"test":"1"}}}`), metav1.PatchOptions{}, "status")
 			assert.True(t, apierrors.IsNotFound(err))
 
-			_, err = otherScopeClient.Patch(name, types.MergePatchType, []byte(`{"metadata":{"annotations":{"test":"1"}}}`), metav1.UpdateOptions{}, "scale")
+			_, err = otherScopeClient.Patch(name, types.MergePatchType, []byte(`{"metadata":{"annotations":{"test":"1"}}}`), metav1.PatchOptions{}, "scale")
 			assert.True(t, apierrors.IsNotFound(err))
 
 			err = otherScopeClient.Delete(name, &metav1.DeleteOptions{})

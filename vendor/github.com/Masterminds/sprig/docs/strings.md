@@ -30,6 +30,14 @@ Trim just the suffix from a string:
 trimSuffix "-" "hello-"
 ```
 
+## trimPrefix
+
+Trim just the prefix from a string:
+
+```
+trimPrefix "-" "-hello"
+```
+
 The above returns `hello`
 
 ## upper
@@ -81,7 +89,7 @@ The above returns `hellohellohello`
 Get a substring from a string. It takes three parameters:
 
 - start (int)
-- length (int)
+- end (int)
 - string (string)
 
 ```
@@ -153,8 +161,8 @@ The above returns `FT`
 
 ## randAlphaNum, randAlpha, randNumeric, and randAscii
 
-These four functions generate random strings, but with different base character
-sets:
+These four functions generate cryptographically secure (uses ```crypto/rand```)
+random strings, but with different base character sets:
 
 - `randAlphaNum` uses `0-9a-zA-Z`
 - `randAlpha` uses `a-zA-Z`
@@ -314,7 +322,7 @@ camelcase "http_server"
 
 This above will produce `HttpServer`.
 
-## kebabCase
+## kebabcase
 
 Convert string from camelCase to kebab-case.
 
@@ -323,6 +331,24 @@ kebabcase "FirstName"
 ```
 
 This above will produce `first-name`.
+
+## swapcase
+
+Swap the case of a string using a word based algorithm.
+
+Conversion algorithm:
+
+- Upper case character converts to Lower case 
+- Title case character converts to Lower case 
+- Lower case character after Whitespace or at start converts to Title case 
+- Other Lower case character converts to Upper case 
+- Whitespace is defined by unicode.IsSpace(char).
+
+```
+swapcase "This Is A.Test"
+```
+
+This above will produce `tHIS iS a.tEST`.
 
 ## shuffle
 
@@ -339,20 +365,21 @@ The above will randomize the letters in `hello`, perhaps producing `oelhl`.
 
 ## regexMatch
 
-Returns true if the input string mratches the regular expression.
+Returns true if the input string contains any match of the regular expression.
 
 ```
-regexMatch "[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}" "test@acme.com"
+regexMatch "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$" "test@acme.com"
 ```
 
 The above produces `true`
 
 ## regexFindAll
 
-Returns a slice of all matches of the regular expression in the input string
+Returns a slice of all matches of the regular expression in the input string.
+The last parameter n determines the number of substrings to return, where -1 means return all matches
 
 ```
-regexFindAll "[2,4,6,8]" "123456789 
+regexFindAll "[2,4,6,8]" "123456789" -1
 ```
 
 The above produces `[2 4 6 8]`
