@@ -4,8 +4,8 @@ import (
 	"testing"
 	"WarpCloud/walm/pkg/models/release"
 	"github.com/stretchr/testify/assert"
-	"k8s.io/helm/pkg/walm"
-	"k8s.io/helm/pkg/walm/plugins"
+	"helm.sh/helm/pkg/walm"
+	"helm.sh/helm/pkg/walm/plugins"
 )
 
 func Test_BuildReleasePluginsByConfigValues(t *testing.T) {

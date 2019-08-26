@@ -9,10 +9,10 @@ import (
 var Config WalmConfig
 
 type HttpConfig struct {
-	HTTPPort     int           `json:"port,default=9999"`
-	TLS          bool          `json:"tls"`
-	TlsKey       string        `json:"tlsKey"`
-	TlsCert      string        `json:"tlsCert"`
+	HTTPPort int    `json:"port,default=9999"`
+	TLS      bool   `json:"tls"`
+	TlsKey   string `json:"tlsKey"`
+	TlsCert  string `json:"tlsCert"`
 }
 
 type ChartRepo struct {
@@ -21,7 +21,8 @@ type ChartRepo struct {
 }
 
 type KubeConfig struct {
-	Config string `json:"config"`
+	Config  string `json:"config"`
+	Context string `json:"context"`
 }
 
 type RedisConfig struct {
@@ -47,15 +48,15 @@ type TaskConfig struct {
 }
 
 type WalmConfig struct {
-	Debug         bool           `json:"debug"`
-	LogConfig     *LogConfig     `json:"logConfig"`
-	HttpConfig    *HttpConfig    `json:"serverConfig"`
-	RepoList      []*ChartRepo   `json:"repoList"`
-	KubeConfig    *KubeConfig    `json:"kubeConfig"`
-	RedisConfig   *RedisConfig   `json:"redisConfig"`
-	KafkaConfig   *KafkaConfig   `json:"kafkaConfig"`
-	TaskConfig    *TaskConfig    `json:"taskConfig"`
-	JsonnetConfig *JsonnetConfig `json:"jsonnetConfig"`
+	Debug            bool              `json:"debug"`
+	LogConfig        *LogConfig        `json:"logConfig"`
+	HttpConfig       *HttpConfig       `json:"serverConfig"`
+	RepoList         []*ChartRepo      `json:"repoList"`
+	KubeConfig       *KubeConfig       `json:"kubeConfig"`
+	RedisConfig      *RedisConfig      `json:"redisConfig"`
+	KafkaConfig      *KafkaConfig      `json:"kafkaConfig"`
+	TaskConfig       *TaskConfig       `json:"taskConfig"`
+	JsonnetConfig    *JsonnetConfig    `json:"jsonnetConfig"`
 	ChartImageConfig *ChartImageConfig `json:"chartImageConfig"`
 
 	//only for test
@@ -63,7 +64,7 @@ type WalmConfig struct {
 }
 
 type ChartImageConfig struct {
-	CacheRootDir string  `json:"cacheRootDir"`
+	CacheRootDir string `json:"cacheRootDir"`
 }
 
 type LogConfig struct {

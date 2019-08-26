@@ -7,15 +7,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io/ioutil"
-	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/helm/pkg/action"
-	"k8s.io/helm/pkg/chart"
-	"k8s.io/helm/pkg/chart/loader"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/hapi/release"
-	"k8s.io/helm/pkg/storage"
-	"k8s.io/helm/pkg/storage/driver"
-	"k8s.io/helm/pkg/tiller/environment"
+	"helm.sh/helm/pkg/action"
+	"helm.sh/helm/pkg/chart"
+	"helm.sh/helm/pkg/chart/loader"
+	"helm.sh/helm/pkg/chartutil"
+	"helm.sh/helm/pkg/release"
+	"helm.sh/helm/pkg/storage"
+	"helm.sh/helm/pkg/storage/driver"
 	"os"
 	"path"
 	"path/filepath"
@@ -28,6 +26,7 @@ import (
 	"encoding/json"
 	"github.com/ghodss/yaml"
 	"github.com/sergi/go-diff/diffmatchpatch"
+	kubefake "helm.sh/helm/pkg/kube/fake"
 )
 
 var longLintHelp = `
@@ -313,13 +312,10 @@ func (lint *lintOptions) loadJsonnetAppLib(ch *chart.Chart) error {
 
 func mockInst() *action.Install {
 	// dry-run using the Kubernetes mock
-	disc := fake.NewSimpleClientset().Discovery()
-
 	customConfig := &action.Configuration{
 		// Add mock objects in here so it doesn't use Kube API server
 		Releases:   storage.Init(driver.NewMemory()),
-		KubeClient: &environment.PrintingKubeClient{Out: ioutil.Discard},
-		Discovery:  disc,
+		KubeClient: &kubefake.PrintingKubeClient{Out: ioutil.Discard},
 		Log: func(format string, v ...interface{}) {
 			fmt.Fprintf(os.Stdout, format, v...)
 		},

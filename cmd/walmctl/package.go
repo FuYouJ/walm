@@ -6,9 +6,8 @@ import (
 	"github.com/spf13/cobra"
 	"io"
 	"io/ioutil"
-	"k8s.io/helm/pkg/chart/loader"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/ignore"
+	"helm.sh/helm/pkg/chart/loader"
+	"helm.sh/helm/pkg/chartutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,7 +121,7 @@ func (o *packageOptions) run() error {
 
 func appendHelmIgnoreFile(path string, ignoreFiles []string) error {
 
-	ifile := filepath.Join(path, ignore.HelmIgnore)
+	ifile := filepath.Join(path, ".helmignore")
 	f, err := os.OpenFile(ifile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0664)
 	if err != nil {
 		return err

@@ -28,8 +28,8 @@ import (
 	"github.com/go-resty/resty"
 	"path/filepath"
 	"WarpCloud/walm/pkg/helm/impl"
-	"k8s.io/helm/pkg/chart/loader"
-	"k8s.io/helm/pkg/registry"
+	"helm.sh/helm/pkg/chart/loader"
+	"helm.sh/helm/pkg/registry"
 )
 
 var k8sClient *kubernetes.Clientset
@@ -434,6 +434,10 @@ func InitFramework() error {
 	if setting.Config.KubeConfig != nil {
 		kubeConfig = setting.Config.KubeConfig.Config
 	}
+	kubeContext := ""
+	if setting.Config.KubeConfig != nil {
+		kubeContext = setting.Config.KubeConfig.Context
+	}
 
 	k8sClient, err = client.NewClient("", kubeConfig)
 	if err != nil {
@@ -447,7 +451,7 @@ func InitFramework() error {
 		return err
 	}
 
-	kubeClients = clienthelm.NewHelmKubeClient(kubeConfig)
+	kubeClients = clienthelm.NewHelmKubeClient(kubeConfig, kubeContext)
 
 	return nil
 }

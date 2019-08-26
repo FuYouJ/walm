@@ -106,6 +106,10 @@ func (sc *ServCmd) run() error {
 	if config.KubeConfig != nil {
 		kubeConfig = config.KubeConfig.Config
 	}
+	kubeContest := ""
+	if config.KubeConfig != nil {
+		kubeContest = config.KubeConfig.Context
+	}
 	k8sClient, err := client.NewClient("", kubeConfig)
 	if err != nil {
 		logrus.Errorf("failed to create k8s client : %s", err.Error())
@@ -130,7 +134,7 @@ func (sc *ServCmd) run() error {
 	}
 
 	registryClient := helmImpl.NewRegistryClient(config.ChartImageConfig)
-	kubeClients := k8sHelm.NewHelmKubeClient(kubeConfig)
+	kubeClients := k8sHelm.NewHelmKubeClient(kubeConfig, kubeContest)
 	helm, err := helmImpl.NewHelm(config.RepoList, registryClient, k8sCache, kubeClients)
 	if err != nil {
 		logrus.Errorf("failed to create helm manager: %s", err.Error())
