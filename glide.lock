@@ -1,5 +1,5 @@
-hash: b3c83c61d68f754f3a43d7abdc2c496a97704e7ab5c12f0a77e22677dfcf3768
-updated: 2019-08-26T18:10:45.085835991+08:00
+hash: 0f99fe7307c8e3c74e3c3f63e42bc9d593684631f6f75a125ad5bca501e6bff6
+updated: 2019-08-27T11:45:07.440867864+08:00
 imports:
 - name: github.com/asaskevich/govalidator
   version: f61b66f89f4a311bef65f13e575bcf1a2ffadda6
@@ -37,7 +37,7 @@ imports:
   - service/sqs/sqsiface
   - service/sts
 - name: github.com/Azure/go-ansiterm
-  version: 19f72df4d05d31cbe1c56bfc8045c96babff6c7e
+  version: d6e3b3328b783f23731bc4d058875b0371ff8109
   subpackages:
   - winterm
 - name: github.com/bitly/go-simplejson
@@ -95,7 +95,7 @@ imports:
 - name: github.com/dgrijalva/jwt-go
   version: 06ea1031745cb8b3dab3f6a236daf2b0aa468b7e
 - name: github.com/docker/cli
-  version: 058a4af0bdb4eebf84249f1d74175473769db6c4
+  version: f2163dd6a7da19754d81e13665b95e38dd5abc69
   subpackages:
   - cli/config
   - cli/config/configfile
@@ -117,7 +117,7 @@ imports:
   - registry/storage/cache/memory
   - uuid
 - name: github.com/docker/docker
-  version: be7ac8be2ae072032a4005e8f232be3fc57e4127
+  version: 50e63adf30d33fc1547527a4097c796cbe4b770f
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -131,7 +131,6 @@ imports:
   - api/types/swarm/runtime
   - api/types/versions
   - errdefs
-  - opts
   - pkg/homedir
   - pkg/idtools
   - pkg/ioutils
@@ -158,10 +157,6 @@ imports:
   - tlsconfig
 - name: github.com/docker/go-units
   version: 9e638d38cf6977a37a8ea0078f3ee75a7cdb2dd1
-- name: github.com/docker/libnetwork
-  version: 6edb83eaba190ffcf71281ebc504a2f82532c418
-  subpackages:
-  - ipamutils
 - name: github.com/docker/spdystream
   version: 449fdfce4d962303d702fec724ef0ad181c92528
   subpackages:
@@ -338,7 +333,7 @@ imports:
   subpackages:
   - pkg/guid
 - name: github.com/Microsoft/hcsshim
-  version: d64a16fba14c833a539fcff9a2eabc3191d5db30
+  version: e141610227250972242dbeb8e9bb8f1bef304045
   subpackages:
   - internal/cow
   - internal/hcs
@@ -408,7 +403,7 @@ imports:
   - specs-go
   - specs-go/v1
 - name: github.com/opencontainers/runc
-  version: 3525eddec5418b1e12118fe9f40c9a1cb41e0fb6
+  version: c61c7370f9605aaabf2d8819c899e18d8b40604e
   subpackages:
   - libcontainer/system
   - libcontainer/user
@@ -606,7 +601,7 @@ imports:
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: 5ffe3083946d5603a0578721101dc8165b1d5b5f
+  version: df014850f6dee74ba2fc94874043a9f3f75fbfd8
   subpackages:
   - codes
   - status
@@ -636,7 +631,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
 - name: helm.sh/helm
-  version: 7ca4f116e123f730cdc538908b9ea48de1b6ed6a
+  version: 2fbfe63f6c29fde846542bcf51af1fab10b1a1b1
   repo: ssh://git@172.16.1.41:10022/yang.cong/helm.git
   subpackages:
   - internal/experimental/registry

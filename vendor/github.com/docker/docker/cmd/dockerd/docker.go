@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/docker/docker/cli"
 	"github.com/docker/docker/daemon/config"
@@ -15,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newDaemonCommand() (*cobra.Command, error) {
+func newDaemonCommand() *cobra.Command {
 	opts := newDaemonOptions(config.New())
 
 	cmd := &cobra.Command{
@@ -35,18 +36,12 @@ func newDaemonCommand() (*cobra.Command, error) {
 
 	flags := cmd.Flags()
 	flags.BoolP("version", "v", false, "Print version information and quit")
-	defaultDaemonConfigFile, err := getDefaultDaemonConfigFile()
-	if err != nil {
-		return nil, err
-	}
 	flags.StringVar(&opts.configFile, "config-file", defaultDaemonConfigFile, "Daemon configuration file")
 	opts.InstallFlags(flags)
-	if err := installConfigFlags(opts.daemonConfig, flags); err != nil {
-		return nil, err
-	}
+	installConfigFlags(opts.daemonConfig, flags)
 	installServiceFlags(flags)
 
-	return cmd, nil
+	return cmd
 }
 
 func init() {
@@ -69,19 +64,18 @@ func main() {
 	// Set terminal emulation based on platform as required.
 	_, stdout, stderr := term.StdStreams()
 
-	initLogging(stdout, stderr)
-
-	onError := func(err error) {
-		fmt.Fprintf(stderr, "%s\n", err)
-		os.Exit(1)
+	// @jhowardmsft - maybe there is a historic reason why on non-Windows, stderr is used
+	// here. However, on Windows it makes no sense and there is no need.
+	if runtime.GOOS == "windows" {
+		logrus.SetOutput(stdout)
+	} else {
+		logrus.SetOutput(stderr)
 	}
 
-	cmd, err := newDaemonCommand()
-	if err != nil {
-		onError(err)
-	}
+	cmd := newDaemonCommand()
 	cmd.SetOutput(stdout)
 	if err := cmd.Execute(); err != nil {
-		onError(err)
+		fmt.Fprintf(stderr, "%s\n", err)
+		os.Exit(1)
 	}
 }

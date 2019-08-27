@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/containerd/containerd/content"
-	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/platforms"
 	"github.com/containerd/containerd/rootfs"
 	"github.com/docker/docker/distribution"
@@ -24,7 +23,6 @@ import (
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/executor"
 	"github.com/moby/buildkit/exporter"
-	localexporter "github.com/moby/buildkit/exporter/local"
 	"github.com/moby/buildkit/frontend"
 	gw "github.com/moby/buildkit/frontend/gateway/client"
 	"github.com/moby/buildkit/session"
@@ -44,31 +42,22 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const labelCreatedAt = "buildkit/createdat"
-
-// LayerAccess provides access to a moby layer from a snapshot
-type LayerAccess interface {
-	GetDiffIDs(ctx context.Context, key string) ([]layer.DiffID, error)
-	EnsureLayer(ctx context.Context, key string) ([]layer.DiffID, error)
-}
-
 // Opt defines a structure for creating a worker.
 type Opt struct {
 	ID                string
 	Labels            map[string]string
 	GCPolicy          []client.PruneInfo
+	SessionManager    *session.Manager
 	MetadataStore     *metadata.Store
 	Executor          executor.Executor
 	Snapshotter       snapshot.Snapshotter
 	ContentStore      content.Store
 	CacheManager      cache.Manager
 	ImageSource       source.Source
+	Exporters         map[string]exporter.Exporter
 	DownloadManager   distribution.RootFSDownloadManager
 	V2MetadataService distmetadata.V2MetadataService
 	Transport         nethttp.RoundTripper
-	Exporter          exporter.Exporter
-	Layers            LayerAccess
-	Platforms         []ocispec.Platform
 }
 
 // Worker is a local worker instance with dedicated snapshotter, cache, and so on.
@@ -110,8 +99,9 @@ func NewWorker(opt Opt) (*Worker, error) {
 	}
 
 	ss, err := local.NewSource(local.Opt{
-		CacheAccessor: cm,
-		MetadataStore: opt.MetadataStore,
+		SessionManager: opt.SessionManager,
+		CacheAccessor:  cm,
+		MetadataStore:  opt.MetadataStore,
 	})
 	if err == nil {
 		sm.Register(ss)
@@ -137,10 +127,8 @@ func (w *Worker) Labels() map[string]string {
 
 // Platforms returns one or more platforms supported by the image.
 func (w *Worker) Platforms() []ocispec.Platform {
-	if len(w.Opt.Platforms) == 0 {
-		return []ocispec.Platform{platforms.DefaultSpec()}
-	}
-	return w.Opt.Platforms
+	// does not handle lcow
+	return []ocispec.Platform{platforms.DefaultSpec()}
 }
 
 // GCPolicy returns automatic GC Policy
@@ -158,15 +146,13 @@ func (w *Worker) LoadRef(id string, hidden bool) (cache.ImmutableRef, error) {
 }
 
 // ResolveOp converts a LLB vertex into a LLB operation
-func (w *Worker) ResolveOp(v solver.Vertex, s frontend.FrontendLLBBridge, sm *session.Manager) (solver.Op, error) {
+func (w *Worker) ResolveOp(v solver.Vertex, s frontend.FrontendLLBBridge) (solver.Op, error) {
 	if baseOp, ok := v.Sys().(*pb.Op); ok {
 		switch op := baseOp.Op.(type) {
 		case *pb.Op_Source:
-			return ops.NewSourceOp(v, op, baseOp.Platform, w.SourceManager, sm, w)
+			return ops.NewSourceOp(v, op, baseOp.Platform, w.SourceManager, w)
 		case *pb.Op_Exec:
-			return ops.NewExecOp(v, op, baseOp.Platform, w.CacheManager, sm, w.MetadataStore, w.Executor, w)
-		case *pb.Op_File:
-			return ops.NewFileOp(v, op, w.CacheManager, w.MetadataStore, w)
+			return ops.NewExecOp(v, op, w.CacheManager, w.Opt.SessionManager, w.MetadataStore, w.Executor, w)
 		case *pb.Op_Build:
 			return ops.NewBuildOp(v, op, s, w)
 		}
@@ -175,13 +161,13 @@ func (w *Worker) ResolveOp(v solver.Vertex, s frontend.FrontendLLBBridge, sm *se
 }
 
 // ResolveImageConfig returns image config for an image
-func (w *Worker) ResolveImageConfig(ctx context.Context, ref string, opt gw.ResolveImageConfigOpt, sm *session.Manager) (digest.Digest, []byte, error) {
+func (w *Worker) ResolveImageConfig(ctx context.Context, ref string, opt gw.ResolveImageConfigOpt) (digest.Digest, []byte, error) {
 	// ImageSource is typically source/containerimage
 	resolveImageConfig, ok := w.ImageSource.(resolveImageConfig)
 	if !ok {
 		return "", nil, errors.Errorf("worker %q does not implement ResolveImageConfig", w.ID())
 	}
-	return resolveImageConfig.ResolveImageConfig(ctx, ref, opt, sm)
+	return resolveImageConfig.ResolveImageConfig(ctx, ref, opt)
 }
 
 // Exec executes a process directly on a worker
@@ -205,51 +191,17 @@ func (w *Worker) Prune(ctx context.Context, ch chan client.UsageInfo, info ...cl
 }
 
 // Exporter returns exporter by name
-func (w *Worker) Exporter(name string, sm *session.Manager) (exporter.Exporter, error) {
-	switch name {
-	case "moby":
-		return w.Opt.Exporter, nil
-	case client.ExporterLocal:
-		return localexporter.New(localexporter.Opt{
-			SessionManager: sm,
-		})
-	default:
+func (w *Worker) Exporter(name string) (exporter.Exporter, error) {
+	exp, ok := w.Exporters[name]
+	if !ok {
 		return nil, errors.Errorf("exporter %q could not be found", name)
 	}
+	return exp, nil
 }
 
 // GetRemote returns a remote snapshot reference for a local one
 func (w *Worker) GetRemote(ctx context.Context, ref cache.ImmutableRef, createIfNeeded bool) (*solver.Remote, error) {
-	var diffIDs []layer.DiffID
-	var err error
-	if !createIfNeeded {
-		diffIDs, err = w.Layers.GetDiffIDs(ctx, ref.ID())
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		if err := ref.Finalize(ctx, true); err != nil {
-			return nil, err
-		}
-		diffIDs, err = w.Layers.EnsureLayer(ctx, ref.ID())
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	descriptors := make([]ocispec.Descriptor, len(diffIDs))
-	for i, dgst := range diffIDs {
-		descriptors[i] = ocispec.Descriptor{
-			MediaType: images.MediaTypeDockerSchema2Layer,
-			Digest:    digest.Digest(dgst),
-			Size:      -1,
-		}
-	}
-
-	return &solver.Remote{
-		Descriptors: descriptors,
-		Provider:    &emptyProvider{},
-	}, nil
+	return nil, errors.Errorf("getremote not implemented")
 }
 
 // FromRemote converts a remote snapshot reference to a local one
@@ -285,32 +237,11 @@ func (w *Worker) FromRemote(ctx context.Context, remote *solver.Remote) (cache.I
 	}
 	defer release()
 
-	if len(rootFS.DiffIDs) != len(layers) {
-		return nil, errors.Errorf("invalid layer count mismatch %d vs %d", len(rootFS.DiffIDs), len(layers))
+	ref, err := w.CacheManager.GetFromSnapshotter(ctx, string(rootFS.ChainID()), cache.WithDescription(fmt.Sprintf("imported %s", remote.Descriptors[len(remote.Descriptors)-1].Digest)))
+	if err != nil {
+		return nil, err
 	}
-
-	for i := range rootFS.DiffIDs {
-		tm := time.Now()
-		if tmstr, ok := remote.Descriptors[i].Annotations[labelCreatedAt]; ok {
-			if err := (&tm).UnmarshalText([]byte(tmstr)); err != nil {
-				return nil, err
-			}
-		}
-		descr := fmt.Sprintf("imported %s", remote.Descriptors[i].Digest)
-		if v, ok := remote.Descriptors[i].Annotations["buildkit/description"]; ok {
-			descr = v
-		}
-		ref, err := w.CacheManager.GetFromSnapshotter(ctx, string(layer.CreateChainID(rootFS.DiffIDs[:i+1])), cache.WithDescription(descr), cache.WithCreationTime(tm))
-		if err != nil {
-			return nil, err
-		}
-		if i == len(remote.Descriptors)-1 {
-			return ref, nil
-		}
-		defer ref.Release(context.TODO())
-	}
-
-	return nil, errors.Errorf("unreachable")
+	return ref, nil
 }
 
 type discardProgress struct{}
@@ -407,12 +338,5 @@ func oneOffProgress(ctx context.Context, id string) func(err error) error {
 }
 
 type resolveImageConfig interface {
-	ResolveImageConfig(ctx context.Context, ref string, opt gw.ResolveImageConfigOpt, sm *session.Manager) (digest.Digest, []byte, error)
-}
-
-type emptyProvider struct {
-}
-
-func (p *emptyProvider) ReaderAt(ctx context.Context, dec ocispec.Descriptor) (content.ReaderAt, error) {
-	return nil, errors.Errorf("ReaderAt not implemented for empty provider")
+	ResolveImageConfig(ctx context.Context, ref string, opt gw.ResolveImageConfigOpt) (digest.Digest, []byte, error)
 }

@@ -50,7 +50,9 @@ func TestUpdateRestartWithAutoRemove(t *testing.T) {
 	client := testEnv.APIClient()
 	ctx := context.Background()
 
-	cID := container.Run(t, ctx, client, container.WithAutoRemove)
+	cID := container.Run(t, ctx, client, func(c *container.TestContainerConfig) {
+		c.HostConfig.AutoRemove = true
+	})
 
 	_, err := client.ContainerUpdate(ctx, cID, containertypes.UpdateConfig{
 		RestartPolicy: containertypes.RestartPolicy{

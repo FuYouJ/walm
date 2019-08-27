@@ -42,7 +42,6 @@ import (
 	"github.com/moby/buildkit/util/resolver"
 	"github.com/moby/buildkit/util/tracing"
 	"github.com/sirupsen/logrus"
-
 	// register graph drivers
 	_ "github.com/docker/docker/daemon/graphdriver/register"
 	"github.com/docker/docker/daemon/stats"
@@ -51,7 +50,6 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/libcontainerd"
-	libcontainerdtypes "github.com/docker/docker/libcontainerd/types"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/pkg/plugingetter"
@@ -107,7 +105,7 @@ type Daemon struct {
 	pluginManager         *plugin.Manager
 	linkIndex             *linkIndex
 	containerdCli         *containerd.Client
-	containerd            libcontainerdtypes.Client
+	containerd            libcontainerd.Client
 	defaultIsolation      containertypes.Isolation // Default isolation mode on Windows
 	clusterProvider       cluster.Provider
 	cluster               Cluster
@@ -353,11 +351,11 @@ func (daemon *Daemon) restore() error {
 						logrus.WithField("container", c.ID).WithField("state", s).
 							Info("restored container paused")
 						switch s {
-						case libcontainerdtypes.StatusPaused, libcontainerdtypes.StatusPausing:
+						case libcontainerd.StatusPaused, libcontainerd.StatusPausing:
 							// nothing to do
-						case libcontainerdtypes.StatusStopped:
+						case libcontainerd.StatusStopped:
 							alive = false
-						case libcontainerdtypes.StatusUnknown:
+						case libcontainerd.StatusUnknown:
 							logrus.WithField("container", c.ID).
 								Error("Unknown status for container during restore")
 						default:
@@ -802,7 +800,6 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		logrus.Warnf("Failed to configure golang's threads limit: %v", err)
 	}
 
-	// ensureDefaultAppArmorProfile does nothing if apparmor is disabled
 	if err := ensureDefaultAppArmorProfile(); err != nil {
 		logrus.Errorf(err.Error())
 	}
@@ -924,9 +921,11 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		if err != nil {
 			return nil, err
 		}
+	}
 
-		// As layerstore initialization may set the driver
-		d.graphDrivers[operatingSystem] = layerStores[operatingSystem].DriverName()
+	// As layerstore initialization may set the driver
+	for os := range d.graphDrivers {
+		d.graphDrivers[os] = layerStores[os].DriverName()
 	}
 
 	// Configure and validate the kernels security support. Note this is a Linux/FreeBSD
@@ -955,7 +954,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		return nil, err
 	}
 
-	uuid, err := loadOrCreateUUID(filepath.Join(config.Root, "engine_uuid"))
+	trustKey, err := loadOrCreateTrustKey(config.TrustKeyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -1000,7 +999,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		return nil, errors.New("Devices cgroup isn't mounted")
 	}
 
-	d.ID = uuid
+	d.ID = trustKey.PublicKey().KeyID()
 	d.repository = daemonRepo
 	d.containers = container.NewMemoryStore()
 	if d.containersReplica, err = container.NewViewDB(); err != nil {
@@ -1031,6 +1030,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		MaxConcurrentUploads:      *config.MaxConcurrentUploads,
 		ReferenceStore:            rs,
 		RegistryService:           registryService,
+		TrustKey:                  trustKey,
 	})
 
 	go d.execCommandGC()

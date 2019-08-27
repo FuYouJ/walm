@@ -18,8 +18,6 @@ OPTIONS:
                    The default is "Core".
   -y <yumconf>     The path to the yum config to install packages from. The
                    default is /etc/yum.conf for Centos/RHEL and /etc/dnf/dnf.conf for Fedora
-  -t <tag>         Specify Tag information.
-                   default is reffered at /etc/{redhat,system}-release
 EOOPTS
     exit 1
 }
@@ -31,8 +29,7 @@ if [ -f /etc/dnf/dnf.conf ] && command -v dnf &> /dev/null; then
 	alias yum=dnf
 fi
 install_groups="Core"
-version=
-while getopts ":y:p:g:t:h" opt; do
+while getopts ":y:p:g:h" opt; do
     case $opt in
         y)
             yum_config=$OPTARG
@@ -45,9 +42,6 @@ while getopts ":y:p:g:t:h" opt; do
             ;;
         g)
             install_groups="$OPTARG"
-            ;;
-        t)
-            version="$OPTARG"
             ;;
         \?)
             echo "Invalid option: -$OPTARG"
@@ -121,15 +115,14 @@ rm -rf "$target"/sbin/sln
 rm -rf "$target"/etc/ld.so.cache "$target"/var/cache/ldconfig
 mkdir -p --mode=0755 "$target"/var/cache/ldconfig
 
-if [ -z "$version" ]; then
-    for file in "$target"/etc/{redhat,system}-release
-    do
-        if [ -r "$file" ]; then
-            version="$(sed 's/^[^0-9\]*\([0-9.]\+\).*$/\1/' "$file")"
-            break
-        fi
-    done
-fi
+version=
+for file in "$target"/etc/{redhat,system}-release
+do
+    if [ -r "$file" ]; then
+        version="$(sed 's/^[^0-9\]*\([0-9.]\+\).*$/\1/' "$file")"
+        break
+    fi
+done
 
 if [ -z "$version" ]; then
     echo >&2 "warning: cannot autodetect OS version, using '$name' as tag"

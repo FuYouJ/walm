@@ -24,14 +24,14 @@
 # the case. Therefore, you don't have to disable it anymore.
 #
 
-FROM golang:1.12.1 AS base
+FROM golang:1.11.5 AS base
 # allow replacing httpredir or deb mirror
 ARG APT_MIRROR=deb.debian.org
 RUN sed -ri "s/(httpredir|deb).debian.org/$APT_MIRROR/g" /etc/apt/sources.list
 
 FROM base AS criu
 # Install CRIU for checkpoint/restore support
-ENV CRIU_VERSION 3.11
+ENV CRIU_VERSION 3.6
 # Install dependency packages specific to criu
 RUN apt-get update && apt-get install -y \
 	libnet-dev \
@@ -49,6 +49,11 @@ RUN apt-get update && apt-get install -y \
 	&& make PREFIX=/build/ install-criu
 
 FROM base AS registry
+# Install two versions of the registry. The first is an older version that
+# only supports schema1 manifests. The second is a newer version that supports
+# both. This allows integration-cli tests to cover push/pull with both schema1
+# and schema2 manifests.
+ENV REGISTRY_COMMIT_SCHEMA1 ec87e9b6971d831f0eff752ddb54fb64693e51cd
 ENV REGISTRY_COMMIT 47a064d4195a9b56133891bbb13620c3ac83a827
 RUN set -x \
 	&& export GOPATH="$(mktemp -d)" \
@@ -56,6 +61,13 @@ RUN set -x \
 	&& (cd "$GOPATH/src/github.com/docker/distribution" && git checkout -q "$REGISTRY_COMMIT") \
 	&& GOPATH="$GOPATH/src/github.com/docker/distribution/Godeps/_workspace:$GOPATH" \
 		go build -buildmode=pie -o /build/registry-v2 github.com/docker/distribution/cmd/registry \
+	&& case $(dpkg --print-architecture) in \
+		amd64|ppc64*|s390x) \
+		(cd "$GOPATH/src/github.com/docker/distribution" && git checkout -q "$REGISTRY_COMMIT_SCHEMA1"); \
+		GOPATH="$GOPATH/src/github.com/docker/distribution/Godeps/_workspace:$GOPATH"; \
+			go build -buildmode=pie -o /build/registry-v2-schema1 github.com/docker/distribution/cmd/registry; \
+		;; \
+	   esac \
 	&& rm -rf "$GOPATH"
 
 
@@ -149,12 +161,7 @@ ENV INSTALL_BINARY_NAME=tini
 COPY hack/dockerfile/install/$INSTALL_BINARY_NAME.installer ./
 RUN PREFIX=/build ./install.sh $INSTALL_BINARY_NAME
 
-FROM base AS rootlesskit
-ENV INSTALL_BINARY_NAME=rootlesskit
-COPY hack/dockerfile/install/install.sh ./install.sh
-COPY hack/dockerfile/install/$INSTALL_BINARY_NAME.installer ./
-RUN PREFIX=/build/ ./install.sh $INSTALL_BINARY_NAME
-COPY ./contrib/dockerd-rootless.sh /build
+
 
 # TODO: Some of this is only really needed for testing, it would be nice to split this up
 FROM runtime-dev AS dev
@@ -203,9 +210,6 @@ RUN apt-get update && apt-get install -y \
 	zip \
 	bzip2 \
 	xz-utils \
-	libprotobuf-c1 \
-	libnet1 \
-	libnl-3-200 \
 	--no-install-recommends
 COPY --from=swagger /build/swagger* /usr/local/bin/
 COPY --from=frozen-images /build/ /docker-frozen-images
@@ -229,8 +233,6 @@ RUN cd /docker-py \
 	&& pip install paramiko==2.4.2 \
 	&& pip install yamllint==1.5.0 \
 	&& pip install -r test-requirements.txt
-COPY --from=rootlesskit /build/ /usr/local/bin/
-COPY --from=djs55/vpnkit@sha256:e508a17cfacc8fd39261d5b4e397df2b953690da577e2c987a47630cd0c42f8e /vpnkit /usr/local/bin/vpnkit.x86_64
 
 ENV PATH=/usr/local/cli:$PATH
 ENV DOCKER_BUILDTAGS apparmor seccomp selinux

@@ -10,7 +10,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/container"
-	libcontainerdtypes "github.com/docker/docker/libcontainerd/types"
+	"github.com/docker/docker/libcontainerd"
 	"github.com/docker/docker/restartmanager"
 	"github.com/sirupsen/logrus"
 )
@@ -27,14 +27,14 @@ func (daemon *Daemon) setStateCounter(c *container.Container) {
 }
 
 // ProcessEvent is called by libcontainerd whenever an event occurs
-func (daemon *Daemon) ProcessEvent(id string, e libcontainerdtypes.EventType, ei libcontainerdtypes.EventInfo) error {
+func (daemon *Daemon) ProcessEvent(id string, e libcontainerd.EventType, ei libcontainerd.EventInfo) error {
 	c, err := daemon.GetContainer(id)
 	if c == nil || err != nil {
 		return fmt.Errorf("no such container: %s", id)
 	}
 
 	switch e {
-	case libcontainerdtypes.EventOOM:
+	case libcontainerd.EventOOM:
 		// StateOOM is Linux specific and should never be hit on Windows
 		if runtime.GOOS == "windows" {
 			return errors.New("received StateOOM from libcontainerd on Windows. This should never happen")
@@ -48,7 +48,7 @@ func (daemon *Daemon) ProcessEvent(id string, e libcontainerdtypes.EventType, ei
 		}
 
 		daemon.LogContainerEvent(c, "oom")
-	case libcontainerdtypes.EventExit:
+	case libcontainerd.EventExit:
 		if int(ei.Pid) == c.Pid {
 			c.Lock()
 			_, _, err := daemon.containerd.DeleteTask(context.Background(), c.ID)
@@ -85,8 +85,6 @@ func (daemon *Daemon) ProcessEvent(id string, e libcontainerdtypes.EventType, ei
 			}
 			daemon.LogContainerEventWithAttributes(c, "die", attributes)
 			daemon.Cleanup(c)
-			daemon.setStateCounter(c)
-			cpErr := c.CheckpointTo(daemon.containersReplica)
 
 			if err == nil && restart {
 				go func() {
@@ -103,8 +101,6 @@ func (daemon *Daemon) ProcessEvent(id string, e libcontainerdtypes.EventType, ei
 					if err != nil {
 						c.Lock()
 						c.SetStopped(&exitStatus)
-						daemon.setStateCounter(c)
-						c.CheckpointTo(daemon.containersReplica)
 						c.Unlock()
 						defer daemon.autoRemove(c)
 						if err != restartmanager.ErrRestartCanceled {
@@ -114,7 +110,8 @@ func (daemon *Daemon) ProcessEvent(id string, e libcontainerdtypes.EventType, ei
 				}()
 			}
 
-			return cpErr
+			daemon.setStateCounter(c)
+			return c.CheckpointTo(daemon.containersReplica)
 		}
 
 		if execConfig := c.ExecCommands.Get(ei.ProcessID); execConfig != nil {
@@ -143,7 +140,7 @@ func (daemon *Daemon) ProcessEvent(id string, e libcontainerdtypes.EventType, ei
 				"exec-pid":  ei.Pid,
 			}).Warn("Ignoring Exit Event, no such exec command found")
 		}
-	case libcontainerdtypes.EventStart:
+	case libcontainerd.EventStart:
 		c.Lock()
 		defer c.Unlock()
 
@@ -162,7 +159,7 @@ func (daemon *Daemon) ProcessEvent(id string, e libcontainerdtypes.EventType, ei
 			daemon.LogContainerEvent(c, "start")
 		}
 
-	case libcontainerdtypes.EventPaused:
+	case libcontainerd.EventPaused:
 		c.Lock()
 		defer c.Unlock()
 
@@ -175,7 +172,7 @@ func (daemon *Daemon) ProcessEvent(id string, e libcontainerdtypes.EventType, ei
 			}
 			daemon.LogContainerEvent(c, "pause")
 		}
-	case libcontainerdtypes.EventResumed:
+	case libcontainerd.EventResumed:
 		c.Lock()
 		defer c.Unlock()
 

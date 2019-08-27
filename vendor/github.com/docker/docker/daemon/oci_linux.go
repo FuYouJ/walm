@@ -17,12 +17,10 @@ import (
 	"github.com/docker/docker/oci/caps"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/mount"
-	"github.com/docker/docker/rootless/specconv"
 	volumemounts "github.com/docker/docker/volume/mounts"
 	"github.com/opencontainers/runc/libcontainer/apparmor"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/devices"
-	rsystem "github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/runc/libcontainer/user"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -74,7 +72,9 @@ func setResources(s *specs.Spec, r containertypes.Resources) error {
 			ThrottleReadIOPSDevice:  readIOpsDevice,
 			ThrottleWriteIOPSDevice: writeIOpsDevice,
 		},
-		Pids: getPidsLimit(r),
+		Pids: &specs.LinuxPids{
+			Limit: r.PidsLimit,
+		},
 	}
 
 	if s.Linux.Resources != nil && len(s.Linux.Resources.Devices) > 0 {
@@ -85,11 +85,11 @@ func setResources(s *specs.Spec, r containertypes.Resources) error {
 	return nil
 }
 
-func (daemon *Daemon) setDevices(s *specs.Spec, c *container.Container) error {
+func setDevices(s *specs.Spec, c *container.Container) error {
 	// Build lists of devices allowed and created within the container.
 	var devs []specs.LinuxDevice
 	devPermissions := s.Linux.Resources.Devices
-	if c.HostConfig.Privileged && !rsystem.RunningInUserNS() {
+	if c.HostConfig.Privileged {
 		hostDevices, err := devices.HostDevices()
 		if err != nil {
 			return err
@@ -122,13 +122,6 @@ func (daemon *Daemon) setDevices(s *specs.Spec, c *container.Container) error {
 
 	s.Linux.Devices = append(s.Linux.Devices, devs...)
 	s.Linux.Resources.Devices = devPermissions
-
-	for _, req := range c.HostConfig.DeviceRequests {
-		if err := daemon.handleDevice(req, s); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -688,7 +681,13 @@ func (daemon *Daemon) populateCommonSpec(s *specs.Spec, c *container.Container) 
 	s.Process.Terminal = c.Config.Tty
 
 	s.Hostname = c.Config.Hostname
-	setLinuxDomainname(c, s)
+	// There isn't a field in the OCI for the NIS domainname, but luckily there
+	// is a sysctl which has an identical effect to setdomainname(2) so there's
+	// no explicit need for runtime support.
+	s.Linux.Sysctl = make(map[string]string)
+	if c.Config.Domainname != "" {
+		s.Linux.Sysctl["kernel.domainname"] = c.Config.Domainname
+	}
 
 	return nil
 }
@@ -752,7 +751,7 @@ func (daemon *Daemon) createSpec(c *container.Container) (retSpec *specs.Spec, e
 	if err := daemon.initCgroupsPath(parentPath); err != nil {
 		return nil, fmt.Errorf("linux init cgroups path: %v", err)
 	}
-	if err := daemon.setDevices(&s, c); err != nil {
+	if err := setDevices(&s, c); err != nil {
 		return nil, fmt.Errorf("linux runtime spec devices: %v", err)
 	}
 	if err := daemon.setRlimits(&s, c); err != nil {
@@ -819,16 +818,15 @@ func (daemon *Daemon) createSpec(c *container.Container) (retSpec *specs.Spec, e
 		return nil, fmt.Errorf("linux mounts: %v", err)
 	}
 
-	if s.Hooks == nil {
-		s.Hooks = &specs.Hooks{}
-	}
 	for _, ns := range s.Linux.Namespaces {
 		if ns.Type == "network" && ns.Path == "" && !c.Config.NetworkDisabled {
 			target := filepath.Join("/proc", strconv.Itoa(os.Getpid()), "exe")
-			s.Hooks.Prestart = append(s.Hooks.Prestart, specs.Hook{
-				Path: target,
-				Args: []string{"libnetwork-setkey", "-exec-root=" + daemon.configStore.GetExecRoot(), c.ID, daemon.netController.ID()},
-			})
+			s.Hooks = &specs.Hooks{
+				Prestart: []specs.Hook{{
+					Path: target,
+					Args: []string{"libnetwork-setkey", "-exec-root=" + daemon.configStore.GetExecRoot(), c.ID, daemon.netController.ID()},
+				}},
+			}
 		}
 	}
 
@@ -869,11 +867,6 @@ func (daemon *Daemon) createSpec(c *container.Container) (retSpec *specs.Spec, e
 		s.Linux.ReadonlyPaths = c.HostConfig.ReadonlyPaths
 	}
 
-	if daemon.configStore.Rootless {
-		if err := specconv.ToRootless(&s); err != nil {
-			return nil, err
-		}
-	}
 	return &s, nil
 }
 

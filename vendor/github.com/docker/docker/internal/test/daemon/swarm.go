@@ -111,14 +111,17 @@ func (d *Daemon) SwarmJoin(t assert.TestingT, req swarm.JoinRequest) {
 }
 
 // SwarmLeave forces daemon to leave current cluster.
-//
-// The passed in TestingT is only used to validate that the client was successfully created
-// Some tests rely on error checking the result of the actual unlock, so allow
-// the error to be returned.
-func (d *Daemon) SwarmLeave(t assert.TestingT, force bool) error {
-	cli := d.NewClientT(t)
+func (d *Daemon) SwarmLeave(force bool) error {
+	cli, err := d.NewClient()
+	if err != nil {
+		return fmt.Errorf("leaving swarm: failed to create client %v", err)
+	}
 	defer cli.Close()
-	return cli.SwarmLeave(context.Background(), force)
+	err = cli.SwarmLeave(context.Background(), force)
+	if err != nil {
+		err = fmt.Errorf("leaving swarm: %v", err)
+	}
+	return err
 }
 
 // SwarmInfo returns the swarm information of the daemon
@@ -133,15 +136,13 @@ func (d *Daemon) SwarmInfo(t assert.TestingT) swarm.Info {
 }
 
 // SwarmUnlock tries to unlock a locked swarm
-//
-// The passed in TestingT is only used to validate that the client was successfully created
-// Some tests rely on error checking the result of the actual unlock, so allow
-// the error to be returned.
-func (d *Daemon) SwarmUnlock(t assert.TestingT, req swarm.UnlockRequest) error {
-	cli := d.NewClientT(t)
+func (d *Daemon) SwarmUnlock(req swarm.UnlockRequest) error {
+	cli, err := d.NewClient()
+	if err != nil {
+		return fmt.Errorf("unlocking swarm: failed to create client %v", err)
+	}
 	defer cli.Close()
-
-	err := cli.SwarmUnlock(context.Background(), req)
+	err = cli.SwarmUnlock(context.Background(), req)
 	if err != nil {
 		err = errors.Wrap(err, "unlocking swarm")
 	}

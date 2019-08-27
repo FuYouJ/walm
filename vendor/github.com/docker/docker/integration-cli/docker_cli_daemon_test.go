@@ -35,6 +35,7 @@ import (
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/go-units"
 	"github.com/docker/libnetwork/iptables"
+	"github.com/docker/libtrust"
 	"github.com/go-check/check"
 	"github.com/kr/pty"
 	"golang.org/x/sys/unix"
@@ -123,9 +124,6 @@ func (s *DockerDaemonSuite) TestDaemonRestartUnlessStopped(c *check.C) {
 	out, err = s.d.Cmd("run", "-d", "--name", "top2", "--restart", "unless-stopped", "busybox:latest", "top")
 	c.Assert(err, check.IsNil, check.Commentf("run top2: %v", out))
 
-	out, err = s.d.Cmd("run", "-d", "--name", "exit", "--restart", "unless-stopped", "busybox:latest", "false")
-	c.Assert(err, check.IsNil, check.Commentf("run exit: %v", out))
-
 	testRun := func(m map[string]bool, prefix string) {
 		var format string
 		for name, shouldRun := range m {
@@ -141,10 +139,7 @@ func (s *DockerDaemonSuite) TestDaemonRestartUnlessStopped(c *check.C) {
 	}
 
 	// both running
-	testRun(map[string]bool{"top1": true, "top2": true, "exit": true}, "")
-
-	out, err = s.d.Cmd("stop", "exit")
-	c.Assert(err, check.IsNil, check.Commentf(out))
+	testRun(map[string]bool{"top1": true, "top2": true}, "")
 
 	out, err = s.d.Cmd("stop", "top1")
 	c.Assert(err, check.IsNil, check.Commentf("%s", out))
@@ -153,23 +148,20 @@ func (s *DockerDaemonSuite) TestDaemonRestartUnlessStopped(c *check.C) {
 	c.Assert(err, check.IsNil, check.Commentf("%s", out))
 
 	// both stopped
-	testRun(map[string]bool{"top1": false, "top2": false, "exit": false}, "")
+	testRun(map[string]bool{"top1": false, "top2": false}, "")
 
 	s.d.Restart(c)
 
 	// restart=always running
-	testRun(map[string]bool{"top1": true, "top2": false, "exit": false}, "After daemon restart: ")
+	testRun(map[string]bool{"top1": true, "top2": false}, "After daemon restart: ")
 
 	out, err = s.d.Cmd("start", "top2")
 	c.Assert(err, check.IsNil, check.Commentf("start top2: %v", out))
 
-	out, err = s.d.Cmd("start", "exit")
-	c.Assert(err, check.IsNil, check.Commentf("start exit: %v", out))
-
 	s.d.Restart(c)
 
 	// both running
-	testRun(map[string]bool{"top1": true, "top2": true, "exit": true}, "After second daemon restart: ")
+	testRun(map[string]bool{"top1": true, "top2": true}, "After second daemon restart: ")
 
 }
 
@@ -547,6 +539,23 @@ func (s *DockerDaemonSuite) TestDaemonAllocatesListeningPort(c *check.C) {
 		} else if !strings.Contains(output, "port is already allocated") {
 			c.Fatalf("Expected port is already allocated error: %q", output)
 		}
+	}
+}
+
+func (s *DockerDaemonSuite) TestDaemonKeyGeneration(c *check.C) {
+	// TODO: skip or update for Windows daemon
+	os.Remove("/etc/docker/key.json")
+	s.d.Start(c)
+	s.d.Stop(c)
+
+	k, err := libtrust.LoadKeyFile("/etc/docker/key.json")
+	if err != nil {
+		c.Fatalf("Error opening key file")
+	}
+	kid := k.KeyID()
+	// Test Key ID is a valid fingerprint (e.g. QQXN:JY5W:TBXI:MK3X:GX6P:PD5D:F56N:NHCS:LVRZ:JA46:R24J:XEFF)
+	if len(kid) != 59 {
+		c.Fatalf("Bad key ID: %s", kid)
 	}
 }
 
@@ -1174,6 +1183,59 @@ func (s *DockerDaemonSuite) TestDaemonUnixSockCleanedUp(c *check.C) {
 
 	if _, err := os.Stat(sockPath); err == nil || !os.IsNotExist(err) {
 		c.Fatal("unix socket is not cleaned up")
+	}
+}
+
+func (s *DockerDaemonSuite) TestDaemonWithWrongkey(c *check.C) {
+	type Config struct {
+		Crv string `json:"crv"`
+		D   string `json:"d"`
+		Kid string `json:"kid"`
+		Kty string `json:"kty"`
+		X   string `json:"x"`
+		Y   string `json:"y"`
+	}
+
+	os.Remove("/etc/docker/key.json")
+	s.d.Start(c)
+	s.d.Stop(c)
+
+	config := &Config{}
+	bytes, err := ioutil.ReadFile("/etc/docker/key.json")
+	if err != nil {
+		c.Fatalf("Error reading key.json file: %s", err)
+	}
+
+	// byte[] to Data-Struct
+	if err := json.Unmarshal(bytes, &config); err != nil {
+		c.Fatalf("Error Unmarshal: %s", err)
+	}
+
+	//replace config.Kid with the fake value
+	config.Kid = "VSAJ:FUYR:X3H2:B2VZ:KZ6U:CJD5:K7BX:ZXHY:UZXT:P4FT:MJWG:HRJ4"
+
+	// NEW Data-Struct to byte[]
+	newBytes, err := json.Marshal(&config)
+	if err != nil {
+		c.Fatalf("Error Marshal: %s", err)
+	}
+
+	// write back
+	if err := ioutil.WriteFile("/etc/docker/key.json", newBytes, 0400); err != nil {
+		c.Fatalf("Error ioutil.WriteFile: %s", err)
+	}
+
+	defer os.Remove("/etc/docker/key.json")
+
+	if err := s.d.StartWithError(); err == nil {
+		c.Fatalf("It should not be successful to start daemon with wrong key: %v", err)
+	}
+
+	content, err := s.d.ReadLogFile()
+	c.Assert(err, checker.IsNil)
+
+	if !strings.Contains(string(content), "Public Key ID does not match") {
+		c.Fatalf("Missing KeyID message from daemon logs: %s", string(content))
 	}
 }
 
@@ -2894,6 +2956,47 @@ func (s *DockerDaemonSuite) TestDaemonStartWithIpcModes(c *check.C) {
 			testDaemonStartIpcMode(c, from, m.mode, m.valid)
 		}
 	}
+}
+
+// TestDaemonRestartIpcMode makes sure a container keeps its ipc mode
+// (derived from daemon default) even after the daemon is restarted
+// with a different default ipc mode.
+func (s *DockerDaemonSuite) TestDaemonRestartIpcMode(c *check.C) {
+	f, err := ioutil.TempFile("", "test-daemon-ipc-config-restart")
+	c.Assert(err, checker.IsNil)
+	file := f.Name()
+	defer os.Remove(file)
+	c.Assert(f.Close(), checker.IsNil)
+
+	config := []byte(`{"default-ipc-mode": "private"}`)
+	c.Assert(ioutil.WriteFile(file, config, 0644), checker.IsNil)
+	s.d.StartWithBusybox(c, "--config-file", file)
+
+	// check the container is created with private ipc mode as per daemon default
+	name := "ipc1"
+	_, err = s.d.Cmd("run", "-d", "--name", name, "--restart=always", "busybox", "top")
+	c.Assert(err, checker.IsNil)
+	m, err := s.d.InspectField(name, ".HostConfig.IpcMode")
+	c.Assert(err, check.IsNil)
+	c.Assert(m, checker.Equals, "private")
+
+	// restart the daemon with shareable default ipc mode
+	config = []byte(`{"default-ipc-mode": "shareable"}`)
+	c.Assert(ioutil.WriteFile(file, config, 0644), checker.IsNil)
+	s.d.Restart(c, "--config-file", file)
+
+	// check the container is still having private ipc mode
+	m, err = s.d.InspectField(name, ".HostConfig.IpcMode")
+	c.Assert(err, check.IsNil)
+	c.Assert(m, checker.Equals, "private")
+
+	// check a new container is created with shareable ipc mode as per new daemon default
+	name = "ipc2"
+	_, err = s.d.Cmd("run", "-d", "--name", name, "busybox", "top")
+	c.Assert(err, checker.IsNil)
+	m, err = s.d.InspectField(name, ".HostConfig.IpcMode")
+	c.Assert(err, check.IsNil)
+	c.Assert(m, checker.Equals, "shareable")
 }
 
 // TestFailedPluginRemove makes sure that a failed plugin remove does not block

@@ -1,25 +1,26 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/libcontainerd/supervisor"
-	"github.com/docker/docker/pkg/system"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/windows"
 )
 
-func getDefaultDaemonConfigFile() (string, error) {
-	return "", nil
-}
+var defaultDaemonConfigFile = ""
 
 // setDefaultUmask doesn't do anything on windows
 func setDefaultUmask() error {
 	return nil
+}
+
+func getDaemonConfDir(root string) string {
+	return filepath.Join(root, `\config`)
 }
 
 // preNotifySystem sends a message to the host when the API is active, but before the daemon is
@@ -86,9 +87,4 @@ func wrapListeners(proto string, ls []net.Listener) []net.Listener {
 
 func newCgroupParent(config *config.Config) string {
 	return ""
-}
-
-func (cli *DaemonCli) initContainerD(_ context.Context) error {
-	system.InitContainerdRuntime(cli.Config.Experimental, cli.Config.ContainerdAddr)
-	return nil
 }

@@ -3203,7 +3203,7 @@ func (s *DockerSuite) TestBuildCmdShDashC(c *check.C) {
 	res := inspectFieldJSON(c, name, "Config.Cmd")
 	expected := `["/bin/sh","-c","echo cmd"]`
 	if testEnv.OSType == "windows" {
-		expected = `["cmd /S /C echo cmd"]`
+		expected = `["cmd","/S","/C","echo cmd"]`
 	}
 	if res != expected {
 		c.Fatalf("Expected value %s not in Config.Cmd: %s", expected, res)
@@ -3276,7 +3276,7 @@ func (s *DockerSuite) TestBuildEntrypointCanBeOverriddenByChildInspect(c *check.
 	)
 
 	if testEnv.OSType == "windows" {
-		expected = `["cmd /S /C echo quux"]`
+		expected = `["cmd","/S","/C","echo quux"]`
 	}
 
 	buildImageSuccessfully(c, name, build.WithDockerfile("FROM busybox\nENTRYPOINT /foo/bar"))
@@ -3362,8 +3362,8 @@ func (s *DockerSuite) TestBuildWithTabs(c *check.C) {
 	expected1 := `["/bin/sh","-c","echo\tone\t\ttwo"]`
 	expected2 := `["/bin/sh","-c","echo\u0009one\u0009\u0009two"]` // syntactically equivalent, and what Go 1.3 generates
 	if testEnv.OSType == "windows" {
-		expected1 = `["cmd /S /C echo\tone\t\ttwo"]`
-		expected2 = `["cmd /S /C echo\u0009one\u0009\u0009two"]` // syntactically equivalent, and what Go 1.3 generates
+		expected1 = `["cmd","/S","/C","echo\tone\t\ttwo"]`
+		expected2 = `["cmd","/S","/C","echo\u0009one\u0009\u0009two"]` // syntactically equivalent, and what Go 1.3 generates
 	}
 	if res != expected1 && res != expected2 {
 		c.Fatalf("Missing tabs.\nGot: %s\nExp: %s or %s", res, expected1, expected2)
@@ -5335,45 +5335,25 @@ func (s *DockerSuite) TestBuildEscapeNotBackslashWordTest(c *check.C) {
 	})
 }
 
-// #22868. Make sure shell-form CMD is not marked as escaped in the config of the image,
-// but an exec-form CMD is marked.
+// #22868. Make sure shell-form CMD is marked as escaped in the config of the image
 func (s *DockerSuite) TestBuildCmdShellArgsEscaped(c *check.C) {
 	testRequires(c, DaemonIsWindows)
-	name1 := "testbuildcmdshellescapedshellform"
-	buildImageSuccessfully(c, name1, build.WithDockerfile(`
+	name := "testbuildcmdshellescaped"
+	buildImageSuccessfully(c, name, build.WithDockerfile(`
   FROM `+minimalBaseImage()+`
   CMD "ipconfig"
   `))
-	res := inspectFieldJSON(c, name1, "Config.ArgsEscaped")
+	res := inspectFieldJSON(c, name, "Config.ArgsEscaped")
 	if res != "true" {
 		c.Fatalf("CMD did not update Config.ArgsEscaped on image: %v", res)
 	}
-	dockerCmd(c, "run", "--name", "inspectme1", name1)
-	dockerCmd(c, "wait", "inspectme1")
-	res = inspectFieldJSON(c, name1, "Config.Cmd")
+	dockerCmd(c, "run", "--name", "inspectme", name)
+	dockerCmd(c, "wait", "inspectme")
+	res = inspectFieldJSON(c, name, "Config.Cmd")
 
-	if res != `["cmd /S /C \"ipconfig\""]` {
-		c.Fatalf("CMD incorrect in Config.Cmd: got %v", res)
+	if res != `["cmd","/S","/C","\"ipconfig\""]` {
+		c.Fatalf("CMD was not escaped Config.Cmd: got %v", res)
 	}
-
-	// Now in JSON/exec-form
-	name2 := "testbuildcmdshellescapedexecform"
-	buildImageSuccessfully(c, name2, build.WithDockerfile(`
-  FROM `+minimalBaseImage()+`
-  CMD ["ipconfig"]
-  `))
-	res = inspectFieldJSON(c, name2, "Config.ArgsEscaped")
-	if res != "false" {
-		c.Fatalf("CMD set Config.ArgsEscaped on image: %v", res)
-	}
-	dockerCmd(c, "run", "--name", "inspectme2", name2)
-	dockerCmd(c, "wait", "inspectme2")
-	res = inspectFieldJSON(c, name2, "Config.Cmd")
-
-	if res != `["ipconfig"]` {
-		c.Fatalf("CMD incorrect in Config.Cmd: got %v", res)
-	}
-
 }
 
 // Test case for #24912.
@@ -6170,11 +6150,7 @@ CMD echo foo
 `))
 
 	out, _ := dockerCmd(c, "inspect", "--format", "{{ json .Config.Cmd }}", "build2")
-	expected := `["/bin/sh","-c","echo foo"]`
-	if testEnv.OSType == "windows" {
-		expected = `["/bin/sh -c echo foo"]`
-	}
-	c.Assert(strings.TrimSpace(out), checker.Equals, expected)
+	c.Assert(strings.TrimSpace(out), checker.Equals, `["/bin/sh","-c","echo foo"]`)
 }
 
 // FIXME(vdemeester) should migrate to docker/cli tests

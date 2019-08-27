@@ -181,7 +181,7 @@ func verifyPlatformContainerResources(resources *containertypes.Resources, isHyp
 	if resources.OomKillDisable != nil && *resources.OomKillDisable {
 		return warnings, fmt.Errorf("invalid option: Windows does not support OomKillDisable")
 	}
-	if resources.PidsLimit != nil && *resources.PidsLimit != 0 {
+	if resources.PidsLimit != 0 {
 		return warnings, fmt.Errorf("invalid option: Windows does not support PidsLimit")
 	}
 	if len(resources.Ulimits) != 0 {
@@ -346,10 +346,8 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 		controller.WalkNetworks(s)
 
 		drvOptions := make(map[string]string)
-		nid := ""
-		if n != nil {
-			nid = n.ID()
 
+		if n != nil {
 			// global networks should not be deleted by local HNS
 			if n.Info().Scope() == datastore.GlobalScope {
 				continue
@@ -394,7 +392,7 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 		}
 
 		v6Conf := []*libnetwork.IpamConf{}
-		_, err := controller.NewNetwork(strings.ToLower(v.Type), name, nid,
+		_, err := controller.NewNetwork(strings.ToLower(v.Type), name, "",
 			libnetwork.NetworkOptionGeneric(options.Generic{
 				netlabel.GenericData: netOption,
 			}),
@@ -502,7 +500,6 @@ func (daemon *Daemon) runAsHyperVContainer(hostConfig *containertypes.HostConfig
 // conditionalMountOnStart is a platform specific helper function during the
 // container start to call mount.
 func (daemon *Daemon) conditionalMountOnStart(container *container.Container) error {
-
 	// Bail out now for Linux containers. We cannot mount the containers filesystem on the
 	// host as it is a non-Windows filesystem.
 	if system.LCOWSupported() && container.OS != "windows" {
@@ -520,7 +517,6 @@ func (daemon *Daemon) conditionalMountOnStart(container *container.Container) er
 // conditionalUnmountOnCleanup is a platform specific helper function called
 // during the cleanup of a container to unmount.
 func (daemon *Daemon) conditionalUnmountOnCleanup(container *container.Container) error {
-
 	// Bail out now for Linux containers
 	if system.LCOWSupported() && container.OS != "windows" {
 		return nil

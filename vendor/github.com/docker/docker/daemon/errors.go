@@ -80,17 +80,6 @@ func (e invalidIdentifier) Error() string {
 
 func (invalidIdentifier) InvalidParameter() {}
 
-type incompatibleDeviceRequest struct {
-	driver string
-	caps   [][]string
-}
-
-func (i incompatibleDeviceRequest) Error() string {
-	return fmt.Sprintf("could not select device driver %q with capabilities: %v", i.driver, i.caps)
-}
-
-func (incompatibleDeviceRequest) InvalidParameter() {}
-
 type duplicateMountPointError string
 
 func (e duplicateMountPointError) Error() string {
@@ -144,8 +133,7 @@ func translateContainerdStartErr(cmd string, setExitCode func(int), err error) e
 	if contains(errDesc, cmd) &&
 		(contains(errDesc, "executable file not found") ||
 			contains(errDesc, "no such file or directory") ||
-			contains(errDesc, "system cannot find the file specified") ||
-			contains(errDesc, "failed to run runc create/exec call")) {
+			contains(errDesc, "system cannot find the file specified")) {
 		setExitCode(127)
 		retErr = startInvalidConfigError(errDesc)
 	}

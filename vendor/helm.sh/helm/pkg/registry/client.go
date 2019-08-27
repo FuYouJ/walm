@@ -51,4 +51,6 @@ func NewClient(options *ClientOptions) (*Client, error) {
 	return &Client{Client: *client}, nil
 }
 
-
+func ParseReference(s string) (*registry.Reference, error) {
+	return registry.ParseReference(s)
+}

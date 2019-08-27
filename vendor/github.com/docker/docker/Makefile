@@ -15,7 +15,6 @@ export DOCKER_GITCOMMIT
 # against these are used in hack/validate/.validate to check what changed in the PR.
 export VALIDATE_REPO
 export VALIDATE_BRANCH
-export VALIDATE_ORIGIN_BRANCH
 
 # env vars passed through directly to Docker's build scripts
 # to allow things like `make KEEPBUNDLE=1 binary` easily
@@ -55,7 +54,6 @@ DOCKER_ENVS := \
 	-e TIMEOUT \
 	-e VALIDATE_REPO \
 	-e VALIDATE_BRANCH \
-	-e VALIDATE_ORIGIN_BRANCH \
 	-e HTTP_PROXY \
 	-e HTTPS_PROXY \
 	-e NO_PROXY \
@@ -134,10 +132,9 @@ binary: build ## build the linux binaries
 dynbinary: build ## build the linux dynbinaries
 	$(DOCKER_RUN_DOCKER) hack/make.sh dynbinary
 
-build: DOCKER_BUILDKIT ?= 1
 build: bundles
 	$(warning The docker client CLI has moved to github.com/docker/cli. For a dev-test cycle involving the CLI, run:${\n} DOCKER_CLI_PATH=/host/path/to/cli/binary make shell ${\n} then change the cli and compile into a binary at the same location.${\n})
-	DOCKER_BUILDKIT="${DOCKER_BUILDKIT}" docker build ${BUILD_APT_MIRROR} ${DOCKER_BUILD_ARGS} ${DOCKER_BUILD_OPTS} -t "$(DOCKER_IMAGE)" -f "$(DOCKERFILE)" .
+	docker build ${BUILD_APT_MIRROR} ${DOCKER_BUILD_ARGS} ${DOCKER_BUILD_OPTS} -t "$(DOCKER_IMAGE)" -f "$(DOCKERFILE)" .
 
 bundles:
 	mkdir bundles
@@ -185,7 +182,7 @@ validate: build ## validate DCO, Seccomp profile generation, gofmt,\n./pkg/ isol
 	$(DOCKER_RUN_DOCKER) hack/validate/all
 
 win: build ## cross build the binary for windows
-	$(DOCKER_RUN_DOCKER) DOCKER_CROSSPLATFORMS=windows/amd64 hack/make.sh cross
+	$(DOCKER_RUN_DOCKER) hack/make.sh win
 
 .PHONY: swagger-gen
 swagger-gen:

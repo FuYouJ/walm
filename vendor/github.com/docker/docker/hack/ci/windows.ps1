@@ -105,7 +105,7 @@ if ($env:BUILD_TAG -match "-WoW") { $env:LCOW_MODE="" }
 # -------------------------------------------------------------------------------------------
 
 
-$SCRIPT_VER="05-Feb-2019 09:03 PDT" 
+$SCRIPT_VER="28-Aug-2018 09:33 PDT" 
 $FinallyColour="Cyan"
 
 #$env:DOCKER_DUT_DEBUG="yes" # Comment out to not be in debug mode
@@ -374,7 +374,7 @@ Try {
         Write-Host  -ForegroundColor Green "---------------------------------------------------------------------------"
         Write-Host  -ForegroundColor Green " Failed to get a response from the control daemon. It may be down."
         Write-Host  -ForegroundColor Green " Try re-running this CI job, or ask on #docker-maintainers on docker slack"
-        Write-Host  -ForegroundColor Green " to see if the daemon is running. Also check the service configuration."
+        Write-Host  -ForegroundColor Green " to see if the the daemon is running. Also check the service configuration."
         Write-Host  -ForegroundColor Green " DOCKER_HOST is set to $DOCKER_HOST."
         Write-Host  -ForegroundColor Green "---------------------------------------------------------------------------"
         Write-Host 
@@ -554,7 +554,7 @@ Try {
     $env:GOROOT="$env:TEMP\go"
     Write-Host -ForegroundColor Green "INFO: $(go version)"
     
-    # Work out the -H parameter for the daemon under test (DASHH_DUT) and client under test (DASHH_CUT)
+    # Work out the the -H parameter for the daemon under test (DASHH_DUT) and client under test (DASHH_CUT)
     #$DASHH_DUT="npipe:////./pipe/$COMMITHASH" # Can't do remote named pipe
     #$ip = (resolve-dnsname $env:COMPUTERNAME -type A -NoHostsFile -LlmnrNetbiosOnly).IPAddress # Useful to tie down
     $DASHH_CUT="tcp://127.0.0.1`:2357"    # Not a typo for 2375!
@@ -625,6 +625,7 @@ Try {
 
         $tries--
         if ($tries -le 0) {
+            $DumpDaemonLog=1
             Throw "ERROR: Failed to get a response from the daemon under test"
         }
         Write-Host -NoNewline "."
@@ -640,6 +641,7 @@ Try {
     $ErrorActionPreference = "Stop"
     if ($LastExitCode -ne 0) {
         Throw "ERROR: The daemon under test does not appear to be running."
+        $DumpDaemonLog=1
     }
     Write-Host
 
@@ -651,6 +653,7 @@ Try {
     $ErrorActionPreference = "Stop"
     if ($LastExitCode -ne 0) {
         Throw "ERROR: The daemon under test does not appear to be running."
+        $DumpDaemonLog=1
     }
     Write-Host
 
@@ -662,6 +665,7 @@ Try {
     $ErrorActionPreference = "Stop"
     if ($LastExitCode -ne 0) {
         Throw "ERROR: The daemon under test does not appear to be running."
+        $DumpDaemonLog=1
     }
     Write-Host
 
@@ -784,6 +788,7 @@ Try {
             $ErrorActionPreference = "Stop"
             if ($LastExitCode -ne 0) {
                 Throw "ERROR: The daemon under test does not appear to be running."
+                $DumpDaemonLog=1
             }
             Write-Host
         }
@@ -813,7 +818,7 @@ Try {
             if ($null -ne $env:INTEGRATION_IN_CONTAINER) {
                 Write-Host -ForegroundColor Green "INFO: Integration tests being run inside a container"
                 # Note we talk back through the containers gateway address
-                # And the ridiculous lengths we have to go to get the default gateway address... (GetNetIPConfiguration doesn't work in nanoserver)
+                # And the ridiculous lengths we have to go to to get the default gateway address... (GetNetIPConfiguration doesn't work in nanoserver)
                 # I just could not get the escaping to work in a single command, so output $c to a file and run that in the container instead...
                 # Not the prettiest, but it works.
                 $c | Out-File -Force "$env:TEMP\binary\runIntegrationCLI.ps1"
@@ -918,6 +923,7 @@ Try {
         $ErrorActionPreference = "Stop"
         if ($LastExitCode -ne 0) {
             Throw "ERROR: The daemon under test does not appear to be running."
+            $DumpDaemonLog=1
         }
         Write-Host
     }
@@ -963,19 +969,19 @@ Finally {
     if ($null -ne $origGOROOT) { $env:GOROOT=$origGOROOT }
     if ($null -ne $origGOPATH) { $env:GOPATH=$origGOPATH }
 
-    # Dump the daemon log. This will include any possible panic stack in the .err.
-    if (($daemonStarted -eq 1) -and  ($(Get-Item "$env:TEMP\dut.err").Length -gt 0)) {
-        Write-Host -ForegroundColor Cyan "----------- DAEMON LOG ------------"
-        Get-Content "$env:TEMP\dut.err" -ErrorAction SilentlyContinue | Write-Host -ForegroundColor Cyan
-        Write-Host -ForegroundColor Cyan "----------- END DAEMON LOG --------"
+    # Dump the daemon log if asked to 
+    if ($daemonStarted -eq 1) {
+        if ($dumpDaemonLog -eq 1) {
+            Write-Host -ForegroundColor Cyan "----------- DAEMON LOG ------------"
+            Get-Content "$env:TEMP\dut.err" -ErrorAction SilentlyContinue | Write-Host -ForegroundColor Cyan
+            Write-Host -ForegroundColor Cyan "----------- END DAEMON LOG --------"
+        }
     }
 
     # Save the daemon under test log
     if ($daemonStarted -eq 1) {
-        Write-Host -ForegroundColor Green "INFO: Saving daemon under test log ($env:TEMP\dut.out) to $TEMPORIG\CIDUT.out"
-        Copy-Item  "$env:TEMP\dut.out" "$TEMPORIG\CIDUT.out" -Force -ErrorAction SilentlyContinue
-        Write-Host -ForegroundColor Green "INFO: Saving daemon under test log ($env:TEMP\dut.err) to $TEMPORIG\CIDUT.err"
-        Copy-Item  "$env:TEMP\dut.err" "$TEMPORIG\CIDUT.err" -Force -ErrorAction SilentlyContinue
+        Write-Host -ForegroundColor Green "INFO: Saving daemon under test log ($env:TEMP\dut.err) to $TEMPORIG\CIDUT.log"
+        Copy-Item  "$env:TEMP\dut.err" "$TEMPORIG\CIDUT.log" -Force -ErrorAction SilentlyContinue
     }
 
     Set-Location "$env:SOURCES_DRIVE\$env:SOURCES_SUBDIR" -ErrorAction SilentlyContinue

@@ -86,5 +86,11 @@ import:
   version: v1.3.0
 - package: github.com/deislabs/oras
   version: 0.6.0
+- package: github.com/Azure/go-ansiterm
+  version: master
+- package: google.golang.org/grpc
+  version: v1.17.0
+- package: github.com/docker/docker
+  version: master
 testImport:
 - package: gopkg.in/check.v1

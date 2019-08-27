@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"runtime"
-	"strings"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -16,7 +15,6 @@ import (
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/go-connections/nat"
 	"github.com/moby/buildkit/frontend/dockerfile/instructions"
-	"github.com/moby/buildkit/frontend/dockerfile/parser"
 	"github.com/moby/buildkit/frontend/dockerfile/shell"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -438,14 +436,7 @@ func TestRunWithBuildArgs(t *testing.T) {
 
 	runConfig := &container.Config{}
 	origCmd := strslice.StrSlice([]string{"cmd", "in", "from", "image"})
-
-	var cmdWithShell strslice.StrSlice
-	if runtime.GOOS == "windows" {
-		cmdWithShell = strslice.StrSlice([]string{strings.Join(append(getShell(runConfig, runtime.GOOS), []string{"echo foo"}...), " ")})
-	} else {
-		cmdWithShell = strslice.StrSlice(append(getShell(runConfig, runtime.GOOS), "echo foo"))
-	}
-
+	cmdWithShell := strslice.StrSlice(append(getShell(runConfig, runtime.GOOS), "echo foo"))
 	envVars := []string{"|1", "one=two"}
 	cachedCmd := strslice.StrSlice(append(envVars, cmdWithShell...))
 
@@ -487,24 +478,13 @@ func TestRunWithBuildArgs(t *testing.T) {
 	err := initializeStage(sb, from)
 	assert.NilError(t, err)
 	sb.state.buildArgs.AddArg("one", strPtr("two"))
-
-	// This is hugely annoying. On the Windows side, it relies on the
-	// RunCommand being able to emit String() and Name() (as implemented by
-	// withNameAndCode). Unfortunately, that is internal, and no way to directly
-	// set. However, we can fortunately use ParseInstruction in the instructions
-	// package to parse a fake node which can be used as our instructions.RunCommand
-	// instead.
-	node := &parser.Node{
-		Original: `RUN echo foo`,
-		Value:    "run",
+	run := &instructions.RunCommand{
+		ShellDependantCmdLine: instructions.ShellDependantCmdLine{
+			CmdLine:      strslice.StrSlice{"echo foo"},
+			PrependShell: true,
+		},
 	}
-	runint, err := instructions.ParseInstruction(node)
-	assert.NilError(t, err)
-	runinst := runint.(*instructions.RunCommand)
-	runinst.CmdLine = strslice.StrSlice{"echo foo"}
-	runinst.PrependShell = true
-
-	assert.NilError(t, dispatch(sb, runinst))
+	assert.NilError(t, dispatch(sb, run))
 
 	// Check that runConfig.Cmd has not been modified by run
 	assert.Check(t, is.DeepEqual(origCmd, sb.state.runConfig.Cmd))

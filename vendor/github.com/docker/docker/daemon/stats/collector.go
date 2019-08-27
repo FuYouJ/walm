@@ -143,10 +143,6 @@ func (s *Collector) Run() {
 
 			default:
 				logrus.Errorf("collecting stats for %s: %v", pair.container.ID, err)
-				pair.publisher.Publish(types.StatsJSON{
-					Name: pair.container.Name,
-					ID:   pair.container.ID,
-				})
 			}
 		}
 	}

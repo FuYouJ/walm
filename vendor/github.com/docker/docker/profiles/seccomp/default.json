@@ -162,7 +162,6 @@
 				"ioctl",
 				"io_destroy",
 				"io_getevents",
-				"io_pgetevents",
 				"ioprio_get",
 				"ioprio_set",
 				"io_setup",
@@ -365,18 +364,6 @@
 			"args": [],
 			"comment": "",
 			"includes": {},
-			"excludes": {}
-		},
-		{
-			"names": [
-				"ptrace"
-			],
-			"action": "SCMP_ACT_ALLOW",
-			"args": null,
-			"comment": "",
-			"includes": {
-				"minKernel": "4.8"
-			},
 			"excludes": {}
 		},
 		{

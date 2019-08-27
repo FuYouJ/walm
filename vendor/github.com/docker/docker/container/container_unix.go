@@ -342,9 +342,6 @@ func (container *Container) UpdateContainer(hostConfig *containertypes.HostConfi
 	if resources.CPURealtimeRuntime != 0 {
 		cResources.CPURealtimeRuntime = resources.CPURealtimeRuntime
 	}
-	if resources.PidsLimit != nil {
-		cResources.PidsLimit = resources.PidsLimit
-	}
 
 	// update HostConfig of container
 	if hostConfig.RestartPolicy.Name != "" {
@@ -442,6 +439,11 @@ func (container *Container) TmpfsMounts() ([]Mount, error) {
 		}
 	}
 	return mounts, nil
+}
+
+// EnableServiceDiscoveryOnDefaultNetwork Enable service discovery on default network
+func (container *Container) EnableServiceDiscoveryOnDefaultNetwork() bool {
+	return false
 }
 
 // GetMountPoints gives a platform specific transformation to types.MountPoint. Callers must hold a Container lock.

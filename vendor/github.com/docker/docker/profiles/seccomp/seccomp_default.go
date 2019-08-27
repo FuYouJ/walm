@@ -155,7 +155,6 @@ func DefaultProfile() *types.Seccomp {
 				"ioctl",
 				"io_destroy",
 				"io_getevents",
-				"io_pgetevents",
 				"ioprio_get",
 				"ioprio_set",
 				"io_setup",
@@ -356,13 +355,6 @@ func DefaultProfile() *types.Seccomp {
 			},
 			Action: types.ActAllow,
 			Args:   []*types.Arg{},
-		},
-		{
-			Names:  []string{"ptrace"},
-			Action: types.ActAllow,
-			Includes: types.Filter{
-				MinKernel: "4.8",
-			},
 		},
 		{
 			Names:  []string{"personality"},
