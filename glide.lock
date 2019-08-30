@@ -1,10 +1,10 @@
-hash: 0f99fe7307c8e3c74e3c3f63e42bc9d593684631f6f75a125ad5bca501e6bff6
-updated: 2019-08-27T11:45:07.440867864+08:00
+hash: 608db4f77ffd29538654aabe2a85af9e86f6341c0e783ebe503833bd7fcfb49e
+updated: 2019-08-30T16:19:07.062017648+08:00
 imports:
 - name: github.com/asaskevich/govalidator
-  version: f61b66f89f4a311bef65f13e575bcf1a2ffadda6
+  version: f9ffefc3facfbe0caee3fea233cbb6e8208f4541
 - name: github.com/aws/aws-sdk-go
-  version: 760741802ad40f49ae9fc4a69ef6706d2527d62e
+  version: fde4ded7becdeae4d26bf1212916aabba79349b4
   subpackages:
   - aws
   - aws/awserr
@@ -16,12 +16,15 @@ imports:
   - aws/credentials/ec2rolecreds
   - aws/credentials/endpointcreds
   - aws/credentials/stscreds
+  - aws/csm
   - aws/defaults
   - aws/ec2metadata
   - aws/endpoints
   - aws/request
   - aws/session
   - aws/signer/v4
+  - internal/sdkio
+  - internal/sdkrand
   - internal/shareddefaults
   - private/protocol
   - private/protocol/json/jsonutil
@@ -72,7 +75,7 @@ imports:
   - remotes/docker
   - sys
 - name: github.com/containerd/continuity
-  version: 403b5be3d72bcee44af7a08c32c0f7ed30ae711b
+  version: 75bee3e2ccb6402e3a986ab8bd3b17003fc0fdec
   subpackages:
   - devices
   - driver
@@ -95,7 +98,7 @@ imports:
 - name: github.com/dgrijalva/jwt-go
   version: 06ea1031745cb8b3dab3f6a236daf2b0aa468b7e
 - name: github.com/docker/cli
-  version: f2163dd6a7da19754d81e13665b95e38dd5abc69
+  version: 58153b278ee10219f6b0acd6220166a32fa70e90
   subpackages:
   - cli/config
   - cli/config/configfile
@@ -117,7 +120,7 @@ imports:
   - registry/storage/cache/memory
   - uuid
 - name: github.com/docker/docker
-  version: 50e63adf30d33fc1547527a4097c796cbe4b770f
+  version: d2ec6d0535adbe24f212f2aeafcad823e2590a7f
   subpackages:
   - api/types
   - api/types/blkiodev
@@ -267,7 +270,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gorilla/mux
-  version: 9536e4053d763b54d935f1ce731a315cfb42b979
+  version: e1863a64f3c620ef604fb7905a0351e69f6a51e4
 - name: github.com/gosuri/uitable
   version: 2cf933346b8370a3a3d8867ef5cf54b2129d8ecf
   subpackages:
@@ -329,28 +332,25 @@ imports:
 - name: github.com/mgutz/ansi
   version: 9520e82c474b0a04dd04f8a40959027271bab992
 - name: github.com/Microsoft/go-winio
-  version: 6c72808b55902eae4c5943626030429ff20f3b63
-  subpackages:
-  - pkg/guid
+  version: 78439966b38d69bf38227fbf57ac8a6fee70f69a
 - name: github.com/Microsoft/hcsshim
-  version: e141610227250972242dbeb8e9bb8f1bef304045
+  version: f92b8fb9c92e17da496af5a69e3ee13fbe9916e1
   subpackages:
-  - internal/cow
+  - internal/guestrequest
+  - internal/guid
   - internal/hcs
   - internal/hcserror
   - internal/hns
   - internal/interop
-  - internal/log
   - internal/logfields
   - internal/longpath
   - internal/mergemaps
-  - internal/oc
   - internal/safefile
   - internal/schema1
   - internal/schema2
   - internal/timeout
-  - internal/vmcompute
   - internal/wclayer
+  - osversion
 - name: github.com/mitchellh/go-wordwrap
   version: ad45545899c7b13c020ea92b2072220eefad42b8
 - name: github.com/modern-go/concurrent
@@ -403,12 +403,12 @@ imports:
   - specs-go
   - specs-go/v1
 - name: github.com/opencontainers/runc
-  version: c61c7370f9605aaabf2d8819c899e18d8b40604e
+  version: 871ba2e58e24314d1fab4517a80410191ba5ad01
   subpackages:
   - libcontainer/system
   - libcontainer/user
 - name: github.com/opentracing/opentracing-go
-  version: 135aa78c6f95b4a199daf2f0470d231136cbbd0c
+  version: 20bb258c7c6498076ad72a7b5e72dda64b94c6b1
   subpackages:
   - ext
   - log
@@ -431,7 +431,7 @@ imports:
 - name: github.com/rcrowley/go-metrics
   version: cac0b30c2563378d434b5af411844adff8e32960
 - name: github.com/RichardKnop/logging
-  version: b1d5d44c82d6c9fb6c8e8dad28412163586fd8ac
+  version: 1a693bdd4fae4adf6893849d150587ed2c92b751
 - name: github.com/RichardKnop/machinery
   version: 759f2c738035edd4a21b846ae6aafcf5d02c5026
   subpackages:
@@ -478,7 +478,7 @@ imports:
 - name: github.com/spf13/viper
   version: b5bf975e5823809fb22c7644d008757f78a4259e
 - name: github.com/streadway/amqp
-  version: eade30b20f1d77d4ab7a3c72d5e3a3331b6443ba
+  version: edfb9018d2714e4ec54dbaba37dbfef2bdadf0e4
 - name: github.com/stretchr/objx
   version: 1a9d0bb9f541897e62256577b352fdbc1fb4fd94
 - name: github.com/stretchr/testify
@@ -504,13 +504,6 @@ imports:
   version: bd5ef7bd5415a7ac448318e64f11a24cd21e594b
 - name: github.com/xeipuuv/gojsonschema
   version: be0936907f66b716b8a0410d12dcaf72070a5fc7
-- name: go.opencensus.io
-  version: b4a14686f0a98096416fe1b4cb848e384fb2b22b
-  subpackages:
-  - internal
-  - trace
-  - trace/internal
-  - trace/tracestate
 - name: golang.org/x/crypto
   version: e84da0312774c21d64ee2317962ef669b27ffb41
   subpackages:
@@ -631,8 +624,8 @@ imports:
 - name: gopkg.in/yaml.v2
   version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
 - name: helm.sh/helm
-  version: 2fbfe63f6c29fde846542bcf51af1fab10b1a1b1
-  repo: ssh://git@172.16.1.41:10022/yang.cong/helm.git
+  version: 8949206766ad74042c90a4a9687749e564b003b3
+  repo: ssh://git@172.16.1.41:10022/k8s/helm.git
   subpackages:
   - internal/experimental/registry
   - internal/ignore
@@ -667,7 +660,8 @@ imports:
   - pkg/walm
   - pkg/walm/plugins
 - name: k8s.io/api
-  version: e14a4b1f5f840029e170c0d892f7a12f19afd558
+  version: 10ab632895af6a0f88ca453c395aeb2b794a521f
+  repo: ssh://git@172.16.1.41:10022/k8s/api.git
   subpackages:
   - admission/v1beta1
   - admissionregistration/v1beta1
@@ -974,7 +968,7 @@ imports:
   - pkg/util/proto
   - pkg/util/proto/validation
 - name: k8s.io/kubernetes
-  version: c55a642c1dd5a74d9c9147cc34ecca6e08015b0e
+  version: 7b85be021cd2943167cd3d6b7020f44735d9d90b
   subpackages:
   - pkg/api/legacyscheme
   - pkg/api/service

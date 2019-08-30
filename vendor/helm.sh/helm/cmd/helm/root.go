@@ -172,6 +172,7 @@ func newRootCmd(actionConfig *action.Configuration, out io.Writer, args []string
 	client := &http.Client{Transport: tr}
 	resolver := docker.NewResolver(docker.ResolverOptions{Client: client})
 	registryClient, err := registry.NewClient(
+		registry.ClientOptAuthorizer(&registry.Authorizer{}),
 		registry.ClientOptDebug(settings.Debug),
 		registry.ClientOptWriter(out),
 		registry.ClientOptResolver(&registry.Resolver{Resolver: resolver}),

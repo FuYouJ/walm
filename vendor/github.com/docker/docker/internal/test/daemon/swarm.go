@@ -47,6 +47,9 @@ func (d *Daemon) StartAndSwarmInit(t testingT) {
 
 // StartAndSwarmJoin starts the daemon (with busybox) and join the specified swarm as worker or manager
 func (d *Daemon) StartAndSwarmJoin(t testingT, leader *Daemon, manager bool) {
+	if th, ok := t.(test.HelperT); ok {
+		th.Helper()
+	}
 	d.StartNode(t)
 
 	tokens := leader.JoinTokens(t)
@@ -54,6 +57,7 @@ func (d *Daemon) StartAndSwarmJoin(t testingT, leader *Daemon, manager bool) {
 	if manager {
 		token = tokens.Manager
 	}
+	t.Logf("[%s] joining swarm manager [%s]@%s, swarm listen addr %s", d.id, leader.id, leader.SwarmListenAddr(), d.SwarmListenAddr())
 	d.SwarmJoin(t, swarm.JoinRequest{
 		RemoteAddrs: []string{leader.SwarmListenAddr()},
 		JoinToken:   token,
@@ -106,22 +110,19 @@ func (d *Daemon) SwarmJoin(t assert.TestingT, req swarm.JoinRequest) {
 	cli := d.NewClientT(t)
 	defer cli.Close()
 	err := cli.SwarmJoin(context.Background(), req)
-	assert.NilError(t, err, "initializing swarm")
+	assert.NilError(t, err, "[%s] joining swarm", d.id)
 	d.CachedInfo = d.Info(t)
 }
 
 // SwarmLeave forces daemon to leave current cluster.
-func (d *Daemon) SwarmLeave(force bool) error {
-	cli, err := d.NewClient()
-	if err != nil {
-		return fmt.Errorf("leaving swarm: failed to create client %v", err)
-	}
+//
+// The passed in TestingT is only used to validate that the client was successfully created
+// Some tests rely on error checking the result of the actual unlock, so allow
+// the error to be returned.
+func (d *Daemon) SwarmLeave(t assert.TestingT, force bool) error {
+	cli := d.NewClientT(t)
 	defer cli.Close()
-	err = cli.SwarmLeave(context.Background(), force)
-	if err != nil {
-		err = fmt.Errorf("leaving swarm: %v", err)
-	}
-	return err
+	return cli.SwarmLeave(context.Background(), force)
 }
 
 // SwarmInfo returns the swarm information of the daemon
@@ -136,13 +137,15 @@ func (d *Daemon) SwarmInfo(t assert.TestingT) swarm.Info {
 }
 
 // SwarmUnlock tries to unlock a locked swarm
-func (d *Daemon) SwarmUnlock(req swarm.UnlockRequest) error {
-	cli, err := d.NewClient()
-	if err != nil {
-		return fmt.Errorf("unlocking swarm: failed to create client %v", err)
-	}
+//
+// The passed in TestingT is only used to validate that the client was successfully created
+// Some tests rely on error checking the result of the actual unlock, so allow
+// the error to be returned.
+func (d *Daemon) SwarmUnlock(t assert.TestingT, req swarm.UnlockRequest) error {
+	cli := d.NewClientT(t)
 	defer cli.Close()
-	err = cli.SwarmUnlock(context.Background(), req)
+
+	err := cli.SwarmUnlock(context.Background(), req)
 	if err != nil {
 		err = errors.Wrap(err, "unlocking swarm")
 	}

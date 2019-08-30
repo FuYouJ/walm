@@ -194,15 +194,15 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 	// Mark this release as in-progress
 	rel.SetStatus(release.StatusPendingInstall, "Initial install underway")
 
-	resources, err := i.cfg.KubeClient.Build(bytes.NewBufferString(rel.Manifest))
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to build kubernetes objects from release manifest")
-	}
-
 	walmPluginManager := walm.NewWalmPluginManager(i.cfg.KubeClient, rel, i.cfg.Log)
 	err = walmPluginManager.ExecPlugins(walm.Pre_Install)
 	if err != nil{
 		return rel, err
+	}
+
+	resources, err := i.cfg.KubeClient.Build(bytes.NewBufferString(rel.Manifest))
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to build kubernetes objects from release manifest")
 	}
 
 	// Bail out here if it is a dry run

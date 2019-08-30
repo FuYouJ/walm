@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/daemon"
 	"github.com/docker/docker/integration-cli/environment"
@@ -25,6 +24,7 @@ import (
 	"github.com/docker/docker/internal/test/registry"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/go-check/check"
+	"gotest.tools/assert"
 )
 
 const (
@@ -200,7 +200,7 @@ func (s *DockerRegistryAuthHtpasswdSuite) SetUpTest(c *check.C) {
 func (s *DockerRegistryAuthHtpasswdSuite) TearDownTest(c *check.C) {
 	if s.reg != nil {
 		out, err := s.d.Cmd("logout", privateRegistryURL)
-		c.Assert(err, check.IsNil, check.Commentf("%s", out))
+		assert.NilError(c, err, out)
 		s.reg.Close()
 	}
 	if s.d != nil {
@@ -233,7 +233,7 @@ func (s *DockerRegistryAuthTokenSuite) SetUpTest(c *check.C) {
 func (s *DockerRegistryAuthTokenSuite) TearDownTest(c *check.C) {
 	if s.reg != nil {
 		out, err := s.d.Cmd("logout", privateRegistryURL)
-		c.Assert(err, check.IsNil, check.Commentf("%s", out))
+		assert.NilError(c, err, out)
 		s.reg.Close()
 	}
 	if s.d != nil {
@@ -304,8 +304,8 @@ func init() {
 type DockerSwarmSuite struct {
 	server      *httptest.Server
 	ds          *DockerSuite
+	daemonsLock sync.Mutex // protect access to daemons and portIndex
 	daemons     []*daemon.Daemon
-	daemonsLock sync.Mutex // protect access to daemons
 	portIndex   int
 }
 
@@ -336,8 +336,8 @@ func (s *DockerSwarmSuite) AddDaemon(c *check.C, joinSwarm, manager bool) *daemo
 		d.StartNode(c)
 	}
 
-	s.portIndex++
 	s.daemonsLock.Lock()
+	s.portIndex++
 	s.daemons = append(s.daemons, d)
 	s.daemonsLock.Unlock()
 
@@ -354,9 +354,8 @@ func (s *DockerSwarmSuite) TearDownTest(c *check.C) {
 		}
 	}
 	s.daemons = nil
-	s.daemonsLock.Unlock()
-
 	s.portIndex = 0
+	s.daemonsLock.Unlock()
 	s.ds.TearDownTest(c)
 }
 
@@ -391,7 +390,7 @@ func (ps *DockerPluginSuite) SetUpSuite(c *check.C) {
 	defer cancel()
 
 	err := plugin.CreateInRegistry(ctx, ps.getPluginRepo(), nil)
-	c.Assert(err, checker.IsNil, check.Commentf("failed to create plugin"))
+	assert.NilError(c, err, "failed to create plugin")
 }
 
 func (ps *DockerPluginSuite) TearDownSuite(c *check.C) {

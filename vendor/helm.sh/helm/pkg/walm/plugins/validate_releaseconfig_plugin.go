@@ -6,6 +6,8 @@ import (
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"github.com/sirupsen/logrus"
+	"encoding/json"
 )
 
 const (
@@ -29,12 +31,11 @@ func ValidateReleaseConfig(context *walm.WalmPluginManagerContext, args string) 
 	newResource := []runtime.Object{}
 	for _, resource := range context.Resources {
 		if resource.GetObjectKind().GroupVersionKind().Kind == "ReleaseConfig" {
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
+			rc, err := buildReleaseConfig(resource.(*unstructured.Unstructured))
 			if err != nil {
 				context.Log("failed to convert unstructured : %s", err.Error())
 				return err
 			}
-			rc := converted.(*v1beta1.ReleaseConfig)
 			if rc.Name != context.R.Name {
 				continue
 			}
@@ -86,4 +87,20 @@ func ValidateReleaseConfig(context *walm.WalmPluginManagerContext, args string) 
 	return nil
 }
 
+func buildReleaseConfig(resource *unstructured.Unstructured) (*v1beta1.ReleaseConfig, error) {
+	releaseConfig := &v1beta1.ReleaseConfig{}
+	resourceBytes, err := resource.MarshalJSON()
+	if err != nil {
+		logrus.Errorf("failed to marshal releaseConfig %s : %s", resource.GetName(), err.Error())
+		return nil, err
+	}
+
+	err = json.Unmarshal(resourceBytes, releaseConfig)
+	if err != nil {
+		logrus.Errorf("failed to unmarshal releaseConfig %s : %s", resource.GetName(), err.Error())
+		return nil, err
+	}
+
+	return releaseConfig, nil
+}
 

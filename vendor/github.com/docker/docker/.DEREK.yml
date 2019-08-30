@@ -3,6 +3,7 @@ curators:
   - alexellis
   - andrewhsu
   - anonymuse
+  - arkodg
   - chanwit
   - ehazlett
   - fntlnz
@@ -17,3 +18,5 @@ curators:
 
 features:
   - comments
+  - pr_description_required
+

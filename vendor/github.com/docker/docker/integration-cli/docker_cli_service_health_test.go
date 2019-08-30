@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/go-check/check"
+	"gotest.tools/assert"
 	"gotest.tools/icmd"
 )
 
@@ -27,14 +28,14 @@ func (s *DockerSwarmSuite) TestServiceHealthRun(c *check.C) {
 	result := cli.BuildCmd(c, imageName, cli.Daemon(d),
 		build.WithDockerfile(`FROM busybox
 		RUN touch /status
-		HEALTHCHECK --interval=1s --timeout=1s --retries=1\
+		HEALTHCHECK --interval=1s --timeout=5s --retries=1\
 		  CMD cat /status`),
 	)
 	result.Assert(c, icmd.Success)
 
 	serviceName := "healthServiceRun"
 	out, err := d.Cmd("service", "create", "--no-resolve-image", "--detach=true", "--name", serviceName, imageName, "top")
-	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	assert.NilError(c, err, out)
 	id := strings.TrimSpace(out)
 
 	var tasks []swarm.Task
@@ -95,7 +96,7 @@ func (s *DockerSwarmSuite) TestServiceHealthStart(c *check.C) {
 
 	serviceName := "healthServiceStart"
 	out, err := d.Cmd("service", "create", "--no-resolve-image", "--detach=true", "--name", serviceName, imageName, "top")
-	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	assert.NilError(c, err, out)
 	id := strings.TrimSpace(out)
 
 	var tasks []swarm.Task

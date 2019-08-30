@@ -151,9 +151,45 @@ type VolumeSource struct {
 	// StorageOS represents a StorageOS volume attached and mounted on Kubernetes nodes.
 	// +optional
 	StorageOS *StorageOSVolumeSource `json:"storageos,omitempty" protobuf:"bytes,27,opt,name=storageos"`
+	// HostShareDir represents a directory which can be shared by pods belongs to same host and same namespace
+	// +optional
+	HostShareDir *HostShareDirVolumeSource `json:"hostShareDir,omitempty" protobuf:"bytes,28,opt,name=hostShareDir"`
+	// TosDisk represetns a Tos Disk provisioned on the host and mount to the pod
+	// +optional
+	TosDisk *TosDiskVolumeSource `json:"tosDisk,omitempty" protobuf:"bytes,29,opt,name=tosDisk"`
 	// CSI (Container Storage Interface) represents storage that is handled by an external CSI driver (Alpha feature).
 	// +optional
-	CSI *CSIVolumeSource `json:"csi,omitempty" protobuf:"bytes,28,opt,name=csi"`
+	CSI *CSIVolumeSource `json:"cSI,omitempty" protobuf:"bytes,30,opt,name=cSI"`
+}
+
+// Represents TosDisk on transwarp tos platform
+type TosDiskVolumeSource struct {
+	// Name is the name of tosdisk
+	// +optional
+	Name string `protobuf:"bytes,1,opt,name=name"`
+	// StorageType is the storagetype back by storageclass
+	// +optional
+	StorageType StorageType `protobuf:"bytes,2,opt,name=storageType,casttype=StorageType"`
+	// Capability is the size of requested disk
+	// +optional
+	Capability Capability `protobuf:"bytes,3,opt,name=capability,casttype=Capability"`
+	// AccessMode is the accessMode pod use
+	// +optional
+	AccessMode PersistentVolumeAccessMode `protobuf:"bytes,4,opt,name=accessMode,casttype=PersistentVolumeAccessMode"`
+	// Limits is blkio cgroup params
+	// +optional
+	Limits ResourceList `protobuf:"bytes,5,rep,name=limits,casttype=ResourceList,castkey=ResourceName"`
+}
+
+type StorageType string
+
+// HostShareDir represents a directory shared by pods in same host and namespace
+type HostShareDirVolumeSource struct {
+	Path string `protobuf:"bytes,1,opt,name=path"`
+	// The namespace of the HostShareDir, by default use the pod's namespace
+	Namespace string `protobuf:"bytes,2,opt,name=namespace"`
+	// InnerPath represents the sub path behind namespace, it can be used to isolate different applications
+	InnerPath string `protobuf:"bytes,3,opt,name=innerPath"`
 }
 
 // PersistentVolumeClaimVolumeSource references the user's PVC in the same namespace.

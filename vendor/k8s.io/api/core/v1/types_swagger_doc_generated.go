@@ -786,6 +786,16 @@ func (HostPathVolumeSource) SwaggerDoc() map[string]string {
 	return map_HostPathVolumeSource
 }
 
+var map_HostShareDirVolumeSource = map[string]string{
+	"":          "HostShareDir represents a directory shared by pods in same host and namespace",
+	"Namespace": "The namespace of the HostShareDir, by default use the pod's namespace",
+	"InnerPath": "InnerPath represents the sub path behind namespace, it can be used to isolate different applications",
+}
+
+func (HostShareDirVolumeSource) SwaggerDoc() map[string]string {
+	return map_HostShareDirVolumeSource
+}
+
 var map_ISCSIPersistentVolumeSource = map[string]string{
 	"":                  "ISCSIPersistentVolumeSource represents an ISCSI disk. ISCSI volumes can only be mounted as read/write once. ISCSI volumes support ownership management and SELinux relabeling.",
 	"targetPortal":      "iSCSI Target Portal. The Portal is either an IP or ip_addr:port if the port is other than default (typically TCP ports 860 and 3260).",
@@ -2240,6 +2250,19 @@ func (TopologySelectorTerm) SwaggerDoc() map[string]string {
 	return map_TopologySelectorTerm
 }
 
+var map_TosDiskVolumeSource = map[string]string{
+	"":            "Represents TosDisk on transwarp tos platform",
+	"Name":        "Name is the name of tosdisk",
+	"StorageType": "StorageType is the storagetype back by storageclass",
+	"Capability":  "Capability is the size of requested disk",
+	"AccessMode":  "AccessMode is the accessMode pod use",
+	"Limits":      "Limits is blkio cgroup params",
+}
+
+func (TosDiskVolumeSource) SwaggerDoc() map[string]string {
+	return map_TosDiskVolumeSource
+}
+
 var map_TypedLocalObjectReference = map[string]string{
 	"":         "TypedLocalObjectReference contains enough information to let you locate the typed referenced object inside the same namespace.",
 	"apiGroup": "APIGroup is the group for the resource being referenced. If APIGroup is not specified, the specified Kind must be in the core API group. For any other third-party types, APIGroup is required.",
@@ -2334,7 +2357,9 @@ var map_VolumeSource = map[string]string{
 	"portworxVolume":        "PortworxVolume represents a portworx volume attached and mounted on kubelets host machine",
 	"scaleIO":               "ScaleIO represents a ScaleIO persistent volume attached and mounted on Kubernetes nodes.",
 	"storageos":             "StorageOS represents a StorageOS volume attached and mounted on Kubernetes nodes.",
-	"csi":                   "CSI (Container Storage Interface) represents storage that is handled by an external CSI driver (Alpha feature).",
+	"HostShareDir":          "HostShareDir represents a directory which can be shared by pods belongs to same host and same namespace",
+	"TosDisk":               "TosDisk represetns a Tos Disk provisioned on the host and mount to the pod",
+	"CSI":                   "CSI (Container Storage Interface) represents storage that is handled by an external CSI driver (Alpha feature).",
 }
 
 func (VolumeSource) SwaggerDoc() map[string]string {

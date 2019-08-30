@@ -64,6 +64,7 @@ type copyInstruction struct {
 	dest                    string
 	chownStr                string
 	allowLocalDecompression bool
+	preserveOwnership       bool
 }
 
 // copier reads a raw COPY or ADD command, fetches remote sources using a downloader,
@@ -466,7 +467,7 @@ func downloadSource(output io.Writer, stdout io.Writer, srcURL string) (remote b
 
 type copyFileOptions struct {
 	decompress bool
-	identity   idtools.Identity
+	identity   *idtools.Identity
 	archiver   Archiver
 }
 
@@ -532,7 +533,7 @@ func isArchivePath(driver containerfs.ContainerFS, path string) bool {
 	return err == nil
 }
 
-func copyDirectory(archiver Archiver, source, dest *copyEndpoint, identity idtools.Identity) error {
+func copyDirectory(archiver Archiver, source, dest *copyEndpoint, identity *idtools.Identity) error {
 	destExists, err := isExistingDirectory(dest)
 	if err != nil {
 		return errors.Wrapf(err, "failed to query destination path")
@@ -541,28 +542,45 @@ func copyDirectory(archiver Archiver, source, dest *copyEndpoint, identity idtoo
 	if err := archiver.CopyWithTar(source.path, dest.path); err != nil {
 		return errors.Wrapf(err, "failed to copy directory")
 	}
-	// TODO: @gupta-ak. Investigate how LCOW permission mappings will work.
-	return fixPermissions(source.path, dest.path, identity, !destExists)
+	if identity != nil {
+		// TODO: @gupta-ak. Investigate how LCOW permission mappings will work.
+		return fixPermissions(source.path, dest.path, *identity, !destExists)
+	}
+	return nil
 }
 
-func copyFile(archiver Archiver, source, dest *copyEndpoint, identity idtools.Identity) error {
+func copyFile(archiver Archiver, source, dest *copyEndpoint, identity *idtools.Identity) error {
 	if runtime.GOOS == "windows" && dest.driver.OS() == "linux" {
 		// LCOW
 		if err := dest.driver.MkdirAll(dest.driver.Dir(dest.path), 0755); err != nil {
 			return errors.Wrapf(err, "failed to create new directory")
 		}
 	} else {
-		if err := idtools.MkdirAllAndChownNew(filepath.Dir(dest.path), 0755, identity); err != nil {
-			// Normal containers
-			return errors.Wrapf(err, "failed to create new directory")
+		// Normal containers
+		if identity == nil {
+			// Use system.MkdirAll here, which is a custom version of os.MkdirAll
+			// modified for use on Windows to handle volume GUID paths. These paths
+			// are of the form \\?\Volume{<GUID>}\<path>. An example would be:
+			// \\?\Volume{dae8d3ac-b9a1-11e9-88eb-e8554b2ba1db}\bin\busybox.exe
+
+			if err := system.MkdirAll(filepath.Dir(dest.path), 0755); err != nil {
+				return err
+			}
+		} else {
+			if err := idtools.MkdirAllAndChownNew(filepath.Dir(dest.path), 0755, *identity); err != nil {
+				return errors.Wrapf(err, "failed to create new directory")
+			}
 		}
 	}
 
 	if err := archiver.CopyFileWithTar(source.path, dest.path); err != nil {
 		return errors.Wrapf(err, "failed to copy file")
 	}
-	// TODO: @gupta-ak. Investigate how LCOW permission mappings will work.
-	return fixPermissions(source.path, dest.path, identity, false)
+	if identity != nil {
+		// TODO: @gupta-ak. Investigate how LCOW permission mappings will work.
+		return fixPermissions(source.path, dest.path, *identity, false)
+	}
+	return nil
 }
 
 func endsInSlash(driver containerfs.Driver, path string) bool {

@@ -7,11 +7,9 @@ import (
 	"net"
 	"sync"
 
-	"github.com/Microsoft/go-winio/pkg/guid"
-	"github.com/Microsoft/hcsshim/internal/gcs"
+	"github.com/Microsoft/hcsshim/internal/guid"
 	"github.com/Microsoft/hcsshim/internal/hcs"
 	"github.com/Microsoft/hcsshim/internal/hns"
-	"github.com/Microsoft/hcsshim/internal/schema1"
 )
 
 //                    | WCOW | LCOW
@@ -48,33 +46,30 @@ type vpmemInfo struct {
 	refCount uint32
 }
 
+// plan9Info is an internal structure used for ref-counting Plan9 shares mapped to a Linux utility VM.
+type plan9Info struct {
+	refCount  uint32
+	idCounter uint64
+	uvmPath   string
+	port      int32 // Temporary. TODO Remove
+}
 type nicInfo struct {
 	ID       guid.GUID
 	Endpoint *hns.HNSEndpoint
 }
 
 type namespaceInfo struct {
-	nics map[string]*nicInfo
+	nics     []nicInfo
+	refCount int
 }
 
 // UtilityVM is the object used by clients representing a utility VM
 type UtilityVM struct {
-	id              string               // Identifier for the utility VM (user supplied or generated)
-	runtimeID       guid.GUID            // Hyper-V VM ID
-	owner           string               // Owner for the utility VM (user supplied or generated)
-	operatingSystem string               // "windows" or "linux"
-	hcsSystem       *hcs.System          // The handle to the compute system
-	gcListener      net.Listener         // The GCS connection listener
-	gc              *gcs.GuestConnection // The GCS connection
-	processorCount  int32
-	m               sync.Mutex // Lock for adding/removing devices
-
-	exitErr error
-	exitCh  chan struct{}
-
-	// GCS bridge protocol and capabilities
-	protocol  uint32
-	guestCaps schema1.GuestDefinedCapabilities
+	id              string      // Identifier for the utility VM (user supplied or generated)
+	owner           string      // Owner for the utility VM (user supplied or generated)
+	operatingSystem string      // "windows" or "linux"
+	hcsSystem       *hcs.System // The handle to the compute system
+	m               sync.Mutex  // Lock for adding/removing devices
 
 	// containerCounter is the current number of containers that have been
 	// created. This is never decremented in the life of the UVM.
@@ -98,6 +93,7 @@ type UtilityVM struct {
 	scsiControllerCount uint32          // Number of SCSI controllers in the utility VM
 
 	// Plan9 are directories mapped into a Linux utility VM
+	plan9Shares  map[string]*plan9Info
 	plan9Counter uint64 // Each newly-added plan9 share has a counter used as its ID in the ResourceURI and for the name
 
 	namespaces map[string]*namespaceInfo

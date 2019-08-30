@@ -136,7 +136,7 @@ func (container *Container) CopyImagePathContent(v volume.Volume, destination st
 		return err
 	}
 
-	id := stringid.GenerateNonCryptoID()
+	id := stringid.GenerateRandomID()
 	path, err := v.Mount(id)
 	if err != nil {
 		return err
@@ -190,7 +190,7 @@ func (container *Container) UnmountIpcMount() error {
 	if shmPath == "" {
 		return nil
 	}
-	if err = mount.Unmount(shmPath); err != nil && !os.IsNotExist(err) {
+	if err = mount.Unmount(shmPath); err != nil && !os.IsNotExist(errors.Cause(err)) {
 		return err
 	}
 	return nil
@@ -342,6 +342,9 @@ func (container *Container) UpdateContainer(hostConfig *containertypes.HostConfi
 	if resources.CPURealtimeRuntime != 0 {
 		cResources.CPURealtimeRuntime = resources.CPURealtimeRuntime
 	}
+	if resources.PidsLimit != nil {
+		cResources.PidsLimit = resources.PidsLimit
+	}
 
 	// update HostConfig of container
 	if hostConfig.RestartPolicy.Name != "" {
@@ -439,11 +442,6 @@ func (container *Container) TmpfsMounts() ([]Mount, error) {
 		}
 	}
 	return mounts, nil
-}
-
-// EnableServiceDiscoveryOnDefaultNetwork Enable service discovery on default network
-func (container *Container) EnableServiceDiscoveryOnDefaultNetwork() bool {
-	return false
 }
 
 // GetMountPoints gives a platform specific transformation to types.MountPoint. Callers must hold a Container lock.

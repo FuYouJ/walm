@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/daemon/images"
 	"github.com/docker/docker/internal/test"
 	"github.com/docker/docker/internal/test/request"
 	"github.com/docker/docker/opts"
@@ -31,6 +32,13 @@ type testingT interface {
 	assert.TestingT
 	logT
 	Fatalf(string, ...interface{})
+}
+
+type namer interface {
+	Name() string
+}
+type testNamer interface {
+	TestName() string
 }
 
 type logT interface {
@@ -60,16 +68,18 @@ type Daemon struct {
 	UseDefaultHost    bool
 	UseDefaultTLSHost bool
 
-	id            string
-	logFile       *os.File
-	cmd           *exec.Cmd
-	storageDriver string
-	userlandProxy bool
-	execRoot      string
-	experimental  bool
-	init          bool
-	dockerdBinary string
-	log           logT
+	id                         string
+	logFile                    *os.File
+	cmd                        *exec.Cmd
+	storageDriver              string
+	userlandProxy              bool
+	defaultCgroupNamespaceMode string
+	execRoot                   string
+	experimental               bool
+	init                       bool
+	dockerdBinary              string
+	log                        logT
+	imageService               *images.ImageService
 
 	// swarm related field
 	swarmListenAddr string
@@ -92,6 +102,13 @@ func New(t testingT, ops ...func(*Daemon)) *Daemon {
 	if dest == "" {
 		dest = os.Getenv("DEST")
 	}
+	switch v := t.(type) {
+	case namer:
+		dest = filepath.Join(dest, v.Name())
+	case testNamer:
+		dest = filepath.Join(dest, v.TestName())
+	}
+	t.Logf("Creating a new daemon at: %s", dest)
 	assert.Check(t, dest != "", "Please set the DOCKER_INTEGRATION_DAEMON_DEST or the DEST environment variable")
 
 	storageDriver := os.Getenv("DOCKER_GRAPHDRIVER")
@@ -133,6 +150,11 @@ func New(t testingT, ops ...func(*Daemon)) *Daemon {
 	return d
 }
 
+// ContainersNamespace returns the containerd namespace used for containers.
+func (d *Daemon) ContainersNamespace() string {
+	return d.id
+}
+
 // RootDir returns the root directory of the daemon.
 func (d *Daemon) RootDir() string {
 	return d.Root
@@ -167,23 +189,19 @@ func (d *Daemon) ReadLogFile() ([]byte, error) {
 	return ioutil.ReadFile(d.logFile.Name())
 }
 
-// NewClient creates new client based on daemon's socket path
-// FIXME(vdemeester): replace NewClient with NewClientT
-func (d *Daemon) NewClient() (*client.Client, error) {
-	return client.NewClientWithOpts(
-		client.FromEnv,
-		client.WithHost(d.Sock()))
-}
-
 // NewClientT creates new client based on daemon's socket path
-// FIXME(vdemeester): replace NewClient with NewClientT
-func (d *Daemon) NewClientT(t assert.TestingT) *client.Client {
+func (d *Daemon) NewClientT(t assert.TestingT, extraOpts ...client.Opt) *client.Client {
 	if ht, ok := t.(test.HelperT); ok {
 		ht.Helper()
 	}
-	c, err := client.NewClientWithOpts(
+
+	clientOpts := []client.Opt{
 		client.FromEnv,
-		client.WithHost(d.Sock()))
+		client.WithHost(d.Sock()),
+	}
+	clientOpts = append(clientOpts, extraOpts...)
+
+	c, err := client.NewClientWithOpts(clientOpts...)
 	assert.NilError(t, err, "cannot create daemon client")
 	return c
 }
@@ -226,13 +244,19 @@ func (d *Daemon) StartWithLogFile(out *os.File, providedArgs ...string) error {
 	if err != nil {
 		return errors.Wrapf(err, "[%s] could not find docker binary in $PATH", d.id)
 	}
+
 	args := append(d.GlobalFlags,
 		"--containerd", containerdSocket,
 		"--data-root", d.Root,
 		"--exec-root", d.execRoot,
 		"--pidfile", fmt.Sprintf("%s/docker.pid", d.Folder),
 		fmt.Sprintf("--userland-proxy=%t", d.userlandProxy),
+		"--containerd-namespace", d.id,
+		"--containerd-plugins-namespace", d.id+"p",
 	)
+	if d.defaultCgroupNamespaceMode != "" {
+		args = append(args, []string{"--default-cgroupns-mode", d.defaultCgroupNamespaceMode}...)
+	}
 	if d.experimental {
 		args = append(args, "--experimental")
 	}
@@ -276,51 +300,63 @@ func (d *Daemon) StartWithLogFile(out *os.File, providedArgs ...string) error {
 		return errors.Errorf("[%s] could not start daemon container: %v", d.id, err)
 	}
 
-	wait := make(chan error)
+	wait := make(chan error, 1)
 
 	go func() {
-		wait <- d.cmd.Wait()
+		ret := d.cmd.Wait()
 		d.log.Logf("[%s] exiting daemon", d.id)
+		// If we send before logging, we might accidentally log _after_ the test is done.
+		// As of Go 1.12, this incurs a panic instead of silently being dropped.
+		wait <- ret
 		close(wait)
 	}()
 
 	d.Wait = wait
 
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
-	tick := ticker.C
+	clientConfig, err := d.getClientConfig()
+	if err != nil {
+		return err
+	}
+	client := &http.Client{
+		Transport: clientConfig.transport,
+	}
+
+	req, err := http.NewRequest("GET", "/_ping", nil)
+	if err != nil {
+		return errors.Wrapf(err, "[%s] could not create new request", d.id)
+	}
+	req.URL.Host = clientConfig.addr
+	req.URL.Scheme = clientConfig.scheme
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 
 	// make sure daemon is ready to receive requests
-	startTime := time.Now().Unix()
-	for {
+	for i := 0; ; i++ {
 		d.log.Logf("[%s] waiting for daemon to start", d.id)
-		if time.Now().Unix()-startTime > 5 {
-			// After 5 seconds, give up
-			return errors.Errorf("[%s] Daemon exited and never started", d.id)
-		}
+
 		select {
-		case <-time.After(2 * time.Second):
-			return errors.Errorf("[%s] timeout: daemon does not respond", d.id)
-		case <-tick:
-			clientConfig, err := d.getClientConfig()
-			if err != nil {
-				return err
-			}
+		case <-ctx.Done():
+			return errors.Errorf("[%s] Daemon exited and never started: %s", d.id, ctx.Err())
+		case err := <-d.Wait:
+			return errors.Errorf("[%s] Daemon exited during startup: %v", d.id, err)
+		default:
+			rctx, rcancel := context.WithTimeout(context.TODO(), 2*time.Second)
+			defer rcancel()
 
-			client := &http.Client{
-				Transport: clientConfig.transport,
-			}
+			resp, err := client.Do(req.WithContext(rctx))
+			if err != nil {
+				if i > 2 { // don't log the first couple, this ends up just being noise
+					d.log.Logf("[%s] error pinging daemon on start: %v", d.id, err)
+				}
 
-			req, err := http.NewRequest("GET", "/_ping", nil)
-			if err != nil {
-				return errors.Wrapf(err, "[%s] could not create new request", d.id)
-			}
-			req.URL.Host = clientConfig.addr
-			req.URL.Scheme = clientConfig.scheme
-			resp, err := client.Do(req)
-			if err != nil {
+				select {
+				case <-ctx.Done():
+				case <-time.After(500 * time.Millisecond):
+				}
 				continue
 			}
+
 			resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				d.log.Logf("[%s] received status != 200 OK: %s\n", d.id, resp.Status)
@@ -331,8 +367,6 @@ func (d *Daemon) StartWithLogFile(out *os.File, providedArgs ...string) error {
 				return errors.Errorf("[%s] error querying daemon for root directory: %v", d.id, err)
 			}
 			return nil
-		case err := <-d.Wait:
-			return errors.Errorf("[%s] Daemon exited during startup: %v", d.id, err)
 		}
 	}
 }
@@ -416,12 +450,16 @@ func (d *Daemon) Stop(t testingT) {
 // If it timeouts, a SIGKILL is sent.
 // Stop will not delete the daemon directory. If a purged daemon is needed,
 // instantiate a new one with NewDaemon.
-func (d *Daemon) StopWithError() error {
+func (d *Daemon) StopWithError() (err error) {
 	if d.cmd == nil || d.Wait == nil {
 		return errDaemonNotStarted
 	}
-
 	defer func() {
+		if err == nil {
+			d.log.Logf("[%s] Daemon stopped", d.id)
+		} else {
+			d.log.Logf("[%s] Error when stopping daemon: %v", d.id, err)
+		}
 		d.logFile.Close()
 		d.cmd = nil
 	}()
@@ -431,12 +469,15 @@ func (d *Daemon) StopWithError() error {
 	defer ticker.Stop()
 	tick := ticker.C
 
+	d.log.Logf("[%s] Stopping daemon", d.id)
+
 	if err := d.cmd.Process.Signal(os.Interrupt); err != nil {
 		if strings.Contains(err.Error(), "os: process already finished") {
 			return errDaemonNotStarted
 		}
 		return errors.Errorf("could not send signal: %v", err)
 	}
+
 out1:
 	for {
 		select {
@@ -615,7 +656,9 @@ func (d *Daemon) getClientConfig() (*clientConfig, error) {
 		return nil, err
 	}
 	transport.DisableKeepAlives = true
-
+	if proto == "unix" {
+		addr = filepath.Base(addr)
+	}
 	return &clientConfig{
 		transport: transport,
 		scheme:    scheme,
@@ -681,8 +724,15 @@ func cleanupRaftDir(t testingT, rootPath string) {
 	if ht, ok := t.(test.HelperT); ok {
 		ht.Helper()
 	}
-	walDir := filepath.Join(rootPath, "swarm/raft/wal")
-	if err := os.RemoveAll(walDir); err != nil {
-		t.Logf("error removing %v: %v", walDir, err)
+	for _, p := range []string{"wal", "wal-v3-encrypted", "snap-v3-encrypted"} {
+		dir := filepath.Join(rootPath, "swarm/raft", p)
+		if err := os.RemoveAll(dir); err != nil {
+			t.Logf("error removing %v: %v", dir, err)
+		}
 	}
+}
+
+// ImageService returns the Daemon's ImageService
+func (d *Daemon) ImageService() *images.ImageService {
+	return d.imageService
 }

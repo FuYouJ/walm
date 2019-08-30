@@ -1535,6 +1535,17 @@ message HostPathVolumeSource {
   optional string type = 2;
 }
 
+// HostShareDir represents a directory shared by pods in same host and namespace
+message HostShareDirVolumeSource {
+  optional string path = 1;
+
+  // The namespace of the HostShareDir, by default use the pod's namespace
+  optional string namespace = 2;
+
+  // InnerPath represents the sub path behind namespace, it can be used to isolate different applications
+  optional string innerPath = 3;
+}
+
 // ISCSIPersistentVolumeSource represents an ISCSI disk.
 // ISCSI volumes can only be mounted as read/write once.
 // ISCSI volumes support ownership management and SELinux relabeling.
@@ -4601,6 +4612,29 @@ message TopologySelectorTerm {
   repeated TopologySelectorLabelRequirement matchLabelExpressions = 1;
 }
 
+// Represents TosDisk on transwarp tos platform
+message TosDiskVolumeSource {
+  // Name is the name of tosdisk
+  // +optional
+  optional string name = 1;
+
+  // StorageType is the storagetype back by storageclass
+  // +optional
+  optional string storageType = 2;
+
+  // Capability is the size of requested disk
+  // +optional
+  optional string capability = 3;
+
+  // AccessMode is the accessMode pod use
+  // +optional
+  optional string accessMode = 4;
+
+  // Limits is blkio cgroup params
+  // +optional
+  map<string, k8s.io.apimachinery.pkg.api.resource.Quantity> limits = 5;
+}
+
 // TypedLocalObjectReference contains enough information to let you locate the
 // typed referenced object inside the same namespace.
 message TypedLocalObjectReference {
@@ -4833,9 +4867,17 @@ message VolumeSource {
   // +optional
   optional StorageOSVolumeSource storageos = 27;
 
+  // HostShareDir represents a directory which can be shared by pods belongs to same host and same namespace
+  // +optional
+  optional HostShareDirVolumeSource hostShareDir = 28;
+
+  // TosDisk represetns a Tos Disk provisioned on the host and mount to the pod
+  // +optional
+  optional TosDiskVolumeSource tosDisk = 29;
+
   // CSI (Container Storage Interface) represents storage that is handled by an external CSI driver (Alpha feature).
   // +optional
-  optional CSIVolumeSource csi = 28;
+  optional CSIVolumeSource cSI = 30;
 }
 
 // Represents a vSphere volume resource.

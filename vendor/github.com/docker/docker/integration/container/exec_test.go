@@ -24,7 +24,7 @@ func TestExecWithCloseStdin(t *testing.T) {
 	client := testEnv.APIClient()
 
 	// run top with detached mode
-	cID := container.Run(t, ctx, client)
+	cID := container.Run(ctx, t, client)
 
 	expected := "closeIO"
 	execResp, err := client.ContainerExecCreate(ctx, cID,
@@ -90,7 +90,7 @@ func TestExec(t *testing.T) {
 	ctx := context.Background()
 	client := testEnv.APIClient()
 
-	cID := container.Run(t, ctx, client, container.WithTty(true), container.WithWorkingDir("/root"))
+	cID := container.Run(ctx, t, client, container.WithTty(true), container.WithWorkingDir("/root"))
 
 	id, err := client.ContainerExecCreate(ctx, cID,
 		types.ExecConfig{
@@ -116,4 +116,19 @@ func TestExec(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Assert(t, is.Contains(out, "PWD=/tmp"), "exec command not running in expected /tmp working directory")
 	assert.Assert(t, is.Contains(out, "FOO=BAR"), "exec command not running with expected environment variable FOO")
+}
+
+func TestExecUser(t *testing.T) {
+	skip.If(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.39"), "broken in earlier versions")
+	skip.If(t, testEnv.OSType == "windows", "FIXME. Probably needs to wait for container to be in running state.")
+	defer setupTest(t)()
+	ctx := context.Background()
+	client := testEnv.APIClient()
+
+	cID := container.Run(ctx, t, client, container.WithTty(true), container.WithUser("1:1"))
+
+	result, err := container.Exec(ctx, client, cID, []string{"id"})
+	assert.NilError(t, err)
+
+	assert.Assert(t, is.Contains(result.Stdout(), "uid=1(daemon) gid=1(daemon)"), "exec command not running as uid/gid 1")
 }

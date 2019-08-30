@@ -13,6 +13,25 @@ keywords: "API, Docker, rcli, REST, documentation"
      will be rejected.
 -->
 
+## v1.41 API changes
+
+[Docker Engine API v1.41](https://docs.docker.com/engine/api/v1.41/) documentation
+
+* `GET /services` now returns `Capabilities` as part of the `ContainerSpec`.
+* `GET /services/{id}` now returns `Capabilities` as part of the `ContainerSpec`.
+* `POST /services/create` now accepts `Capabilities` as part of the `ContainerSpec`.
+* `POST /services/{id}/update` now accepts `Capabilities` as part of the `ContainerSpec`.
+* `GET /tasks` now  returns `Capabilities` as part of the `ContainerSpec`.
+* `GET /tasks/{id}` now  returns `Capabilities` as part of the `ContainerSpec`.
+* `POST /containers/create` on Linux now accepts the `HostConfig.CgroupnsMode` property.
+  Set the property to `host` to create the container in the daemon's cgroup namespace, or
+  `private` to create the container in its own private cgroup namespace.  The per-daemon
+  default is `host`, and can be changed by using the`CgroupNamespaceMode` daemon configuration
+  parameter.
+* `GET /info` now  returns an `OSVersion` field, containing the operating system's
+  version. This change is not versioned, and affects all API versions if the daemon
+  has this patch.
+
 ## v1.40 API changes
 
 [Docker Engine API v1.40](https://docs.docker.com/engine/api/v1.40/) documentation
@@ -29,8 +48,16 @@ keywords: "API, Docker, rcli, REST, documentation"
 * `GET /services/{id}` now returns `Sysctls` as part of the `ContainerSpec`.
 * `POST /services/create` now accepts `Sysctls` as part of the `ContainerSpec`.
 * `POST /services/{id}/update` now accepts `Sysctls` as part of the `ContainerSpec`.
+* `POST /services/create` now accepts `Config` as part of `ContainerSpec.Privileges.CredentialSpec`.
+* `POST /services/{id}/update` now accepts `Config` as part of `ContainerSpec.Privileges.CredentialSpec`.
+* `POST /services/create` now includes `Runtime` as an option in `ContainerSpec.Configs`
+* `POST /services/{id}/update` now includes `Runtime` as an option in `ContainerSpec.Configs`
 * `GET /tasks` now  returns `Sysctls` as part of the `ContainerSpec`.
 * `GET /tasks/{id}` now  returns `Sysctls` as part of the `ContainerSpec`.
+* `GET /networks` now supports a `dangling` filter type. When set to `true` (or
+  `1`), the endpoint returns all networks that are not in use by a container. When
+  set to `false` (or `0`), only networks that are in use by one or more containers
+  are returned.
 * `GET /nodes` now supports a filter type `node.label` filter to filter nodes based
   on the node.label. The format of the label filter is `node.label=<key>`/`node.label=<key>=<value>`
   to return those with the specified labels, or `node.label!=<key>`/`node.label!=<key>=<value>`
@@ -39,6 +66,15 @@ keywords: "API, Docker, rcli, REST, documentation"
   `BindOptions.NonRecursive`.
 * `POST /swarm/init` now accepts a `DataPathPort` property to set data path port number.
 * `GET /info` now returns information about `DataPathPort` that is currently used in swarm
+* `GET /info` now returns `PidsLimit` boolean to indicate if the host kernel has
+  PID limit support enabled.
+* `GET /info` now includes `name=rootless` in `SecurityOptions` when the daemon is running in
+  rootless mode.  This change is not versioned, and affects all API versions if the daemon has
+  this patch.
+* `GET /info` now returns `none` as `CgroupDriver` when the daemon is running in rootless mode.
+  This change is not versioned, and affects all API versions if the daemon has this patch.
+* `POST /containers/create` now accepts `DeviceRequests` as part of `HostConfig`.
+  Can be used to set Nvidia GPUs.
 * `GET /swarm` endpoint now returns DataPathPort info
 * `POST /containers/create` now takes `KernelMemoryTCP` field to set hard limit for kernel TCP buffer memory.
 * `GET /service` now  returns `MaxReplicas` as part of the `Placement`.
@@ -46,8 +82,16 @@ keywords: "API, Docker, rcli, REST, documentation"
 * `POST /service/create` and `POST /services/(id or name)/update` now take the field `MaxReplicas`
   as part of the service `Placement`, allowing to specify maximum replicas per node for the service.
 * `GET /containers` now returns `Capabilities` field as part of the `HostConfig`.
-* `GET /containers/{id}` now returns `Capabilities` field as part of the `HostConfig`.
-* `POST /containers/create` now takes `Capabilities` field to set exact list kernel capabilities to be available for      container (this overrides the default set).
+* `GET /containers/{id}/json` now returns a `Capabilities` field as part of the `HostConfig`.
+* `POST /containers/create` now takes a `Capabilities` field to set the list of
+  kernel capabilities to be available for the container (this overrides the default
+  set).
+* `POST /containers/create` on Linux now creates a container with `HostConfig.IpcMode=private`
+  by default, if IpcMode is not explicitly specified. The per-daemon default can be changed
+  back to `shareable` by using `DefaultIpcMode` daemon configuration parameter.
+* `POST /containers/{id}/update` now accepts a `PidsLimit` field to tune a container's
+  PID limit. Set `0` or `-1` for unlimited. Leave `null` to not change the current value.
+* `POST /build` now accepts `outputs` key for configuring build outputs when using BuildKit mode.
 
 ## V1.39 API changes
 
@@ -195,6 +239,7 @@ keywords: "API, Docker, rcli, REST, documentation"
 * `GET /events` now supports service, node and secret events which are emitted when users create, update and remove service, node and secret
 * `GET /events` now supports network remove event which is emitted when users remove a swarm scoped network
 * `GET /events` now supports a filter type `scope` in which supported value could be swarm and local
+* `PUT /containers/(name)/archive` now accepts a `copyUIDGID` parameter to allow copy UID/GID maps to dest file or dir.
 
 ## v1.29 API changes
 

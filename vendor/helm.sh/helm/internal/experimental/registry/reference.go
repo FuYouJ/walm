@@ -19,7 +19,6 @@ package registry // import "helm.sh/helm/internal/experimental/registry"
 import (
 	"errors"
 	"fmt"
-	"net/url"
 	"regexp"
 	"strings"
 )
@@ -99,8 +98,9 @@ func (ref *Reference) validateRepo() error {
 	}
 	// Makes sure the repo results in a parsable URL (similar to what is done
 	// with containerd reference parsing)
-	_, err := url.Parse(ref.Repo)
-	return err
+	//_, err := url.Parse(ref.Repo)
+	//return err
+	return nil
 }
 
 // validateNumColon ensures the ref only contains a single colon character (:)
