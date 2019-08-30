@@ -16,7 +16,7 @@ var _ = Describe("HelmChart", func() {
 	var (
 		//namespace string
 		helm     *impl.Helm
-		err      error
+		//err      error
 		stopChan chan struct{}
 	)
 

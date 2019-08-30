@@ -502,7 +502,6 @@ func NewHelm(repoList []*setting.ChartRepo, registryClient *registry.Client, k8s
 		k8sCache:       k8sCache,
 		kubeClients:    kubeClients,
 		registryClient: registryClient,
-		//list:           list,
 		chartRepoMap:  chartRepoMap,
 		actionConfigs: actionConfigs,
 	}

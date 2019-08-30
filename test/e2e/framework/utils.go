@@ -29,8 +29,7 @@ import (
 	"path/filepath"
 	"WarpCloud/walm/pkg/helm/impl"
 	"helm.sh/helm/pkg/chart/loader"
-	//"helm.sh/helm/pkg/registry"
-	"helm.sh/helm/internal/experimental/registry"
+	"helm.sh/helm/pkg/registry"
 )
 
 var k8sClient *kubernetes.Clientset

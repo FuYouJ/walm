@@ -19,8 +19,6 @@ import (
 	"syscall"
 	"context"
 	"time"
-	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
-	transwarpscheme "transwarp/release-config/pkg/client/clientset/versioned/scheme"
 	"github.com/x-cray/logrus-prefixed-formatter"
 	_ "net/http/pprof"
 	cacheInformer "WarpCloud/walm/pkg/k8s/cache/informer"
@@ -100,7 +98,6 @@ func (sc *ServCmd) run() error {
 	config := setting.Config
 	initLogLevel()
 	stopChan := make(chan struct{})
-	transwarpscheme.AddToScheme(clientsetscheme.Scheme)
 
 	kubeConfig := ""
 	if config.KubeConfig != nil {
