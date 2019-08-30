@@ -12,8 +12,8 @@ import (
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/task"
 	"WarpCloud/walm/pkg/models/k8s"
-	"k8s.io/helm/pkg/walm"
-	"k8s.io/helm/pkg/walm/plugins"
+	"helm.sh/helm/pkg/walm"
+	"helm.sh/helm/pkg/walm/plugins"
 )
 
 func TestHelm_PauseRelease(t *testing.T) {

@@ -8,8 +8,10 @@ import (
 	"github.com/docker/docker/cli"
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/dockerversion"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/reexec"
 	"github.com/docker/docker/pkg/term"
+	"github.com/moby/buildkit/util/apicaps"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -42,10 +44,22 @@ func newDaemonCommand() *cobra.Command {
 	return cmd
 }
 
+func init() {
+	if dockerversion.ProductName != "" {
+		apicaps.ExportedProduct = dockerversion.ProductName
+	}
+}
+
 func main() {
 	if reexec.Init() {
 		return
 	}
+
+	// initial log formatting; this setting is updated after the daemon configuration is loaded.
+	logrus.SetFormatter(&logrus.TextFormatter{
+		TimestampFormat: jsonmessage.RFC3339NanoFixed,
+		FullTimestamp:   true,
+	})
 
 	// Set terminal emulation based on platform as required.
 	_, stdout, stderr := term.StdStreams()

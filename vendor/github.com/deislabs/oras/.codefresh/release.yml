@@ -8,11 +8,10 @@ steps:
   UnitTest:
     title: Run unit tests
     stage: test
-    image: golang:1.11
-    working_directory: &workdir /go/src/github.com/${{CF_REPO_OWNER}}
+    image: golang:1.11-alpine
     commands:
-    - &link ln -s /codefresh/volume/${{CF_REPO_NAME}} ${{CF_REPO_NAME}} && cd ${{CF_REPO_NAME}}
-    - echo make test
+    - apk add git make bash file
+    - make test
   BuildDockerImage:
     title: Build Docker image
     stage: build
@@ -21,10 +20,8 @@ steps:
   UploadReleaseArtifacts:
     title: Upload release artifacts
     stage: release
-    image: goreleaser/goreleaser:v0.95.0
-    working_directory: *workdir
+    image: goreleaser/goreleaser:v0.106.0
     commands:
-    - *link
     - git checkout tags/${{CF_BRANCH_TAG_NORMALIZED}}
     - goreleaser --rm-dist
   PushDockerImageTagged:

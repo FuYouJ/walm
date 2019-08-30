@@ -1,3 +1,5 @@
+// +build !windows
+
 package logging
 
 import (
@@ -6,8 +8,8 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/internal/test/daemon"
-	"github.com/gotestyourself/gotestyourself/assert"
-	"github.com/gotestyourself/gotestyourself/skip"
+	"gotest.tools/assert"
+	"gotest.tools/skip"
 )
 
 // Regression test for #35553
@@ -15,6 +17,7 @@ import (
 // does not keep the daemon from starting.
 func TestDaemonStartWithLogOpt(t *testing.T) {
 	skip.If(t, testEnv.IsRemoteDaemon, "cannot run daemon when remote daemon")
+	skip.If(t, testEnv.DaemonInfo.OSType == "windows")
 	t.Parallel()
 
 	d := daemon.New(t)

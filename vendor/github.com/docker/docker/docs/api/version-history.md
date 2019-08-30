@@ -13,6 +13,41 @@ keywords: "API, Docker, rcli, REST, documentation"
      will be rejected.
 -->
 
+## v1.40 API changes
+
+[Docker Engine API v1.40](https://docs.docker.com/engine/api/v1.40/) documentation
+
+* `GET /services` now returns `Sysctls` as part of the `ContainerSpec`.
+* `GET /services/{id}` now returns `Sysctls` as part of the `ContainerSpec`.
+* `POST /services/create` now accepts `Sysctls` as part of the `ContainerSpec`.
+* `POST /services/{id}/update` now accepts `Sysctls` as part of the `ContainerSpec`.
+* `GET /tasks` now  returns `Sysctls` as part of the `ContainerSpec`.
+* `GET /tasks/{id}` now  returns `Sysctls` as part of the `ContainerSpec`.
+* `GET /nodes` now supports a filter type `node.label` filter to filter nodes based
+  on the node.label. The format of the label filter is `node.label=<key>`/`node.label=<key>=<value>`
+  to return those with the specified labels, or `node.label!=<key>`/`node.label!=<key>=<value>`
+  to return those without the specified labels.
+* `POST /containers/create`, `GET /containers/{id}/json`, and `GET /containers/json` now supports
+  `BindOptions.NonRecursive`.
+* `POST /swarm/init` now accepts a `DataPathPort` property to set data path port number.
+* `GET /info` now returns information about `DataPathPort` that is currently used in swarm
+* `GET /swarm` endpoint now returns DataPathPort info
+* `POST /containers/create` now takes `KernelMemoryTCP` field to set hard limit for kernel TCP buffer memory.
+
+## V1.39 API changes
+
+[Docker Engine API v1.39](https://docs.docker.com/engine/api/v1.39/) documentation
+
+* `GET /info` now returns an empty string, instead of `<unknown>` for `KernelVersion`
+  and `OperatingSystem` if the daemon was unable to obtain this information.
+* `GET /info` now returns information about the product license, if a license
+  has been applied to the daemon.
+* `GET /info` now returns a `Warnings` field, containing warnings and informational
+  messages about missing features, or issues related to the daemon configuration.
+* `POST /swarm/init` now accepts a `DefaultAddrPool` property to set global scope default address pool
+* `POST /swarm/init` now accepts a `SubnetSize` property to set global scope networks by giving the
+  length of the subnet masks for every such network
+
 ## V1.38 API changes
 
 [Docker Engine API v1.38](https://docs.docker.com/engine/api/v1.38/) documentation

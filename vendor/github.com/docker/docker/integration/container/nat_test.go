@@ -15,10 +15,10 @@ import (
 	"github.com/docker/docker/integration/internal/container"
 	"github.com/docker/docker/internal/test/request"
 	"github.com/docker/go-connections/nat"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"github.com/gotestyourself/gotestyourself/poll"
-	"github.com/gotestyourself/gotestyourself/skip"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/poll"
+	"gotest.tools/skip"
 )
 
 func TestNetworkNat(t *testing.T) {
@@ -40,6 +40,7 @@ func TestNetworkNat(t *testing.T) {
 }
 
 func TestNetworkLocalhostTCPNat(t *testing.T) {
+	skip.If(t, testEnv.DaemonInfo.OSType == "windows", "FIXME")
 	skip.If(t, testEnv.IsRemoteDaemon())
 
 	defer setupTest(t)()
@@ -106,6 +107,7 @@ func startServerContainer(t *testing.T, msg string, port int) string {
 }
 
 func getExternalAddress(t *testing.T) net.IP {
+	skip.If(t, testEnv.OSType == "windows", "FIXME")
 	iface, err := net.InterfaceByName("eth0")
 	skip.If(t, err != nil, "Test not running with `make test-integration`. Interface eth0 not found: %s", err)
 

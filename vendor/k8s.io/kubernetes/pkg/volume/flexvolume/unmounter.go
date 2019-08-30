@@ -21,8 +21,8 @@ import (
 	"os"
 
 	"k8s.io/klog"
+	"k8s.io/kubernetes/pkg/util/mount"
 	"k8s.io/kubernetes/pkg/volume"
-	"k8s.io/kubernetes/pkg/volume/util"
 	"k8s.io/utils/exec"
 )
 
@@ -42,7 +42,7 @@ func (f *flexVolumeUnmounter) TearDown() error {
 }
 
 func (f *flexVolumeUnmounter) TearDownAt(dir string) error {
-	pathExists, pathErr := util.PathExists(dir)
+	pathExists, pathErr := mount.PathExists(dir)
 	if pathErr != nil {
 		// only log warning here since plugins should anyways have to deal with errors
 		klog.Warningf("Error checking path: %v", pathErr)
@@ -64,7 +64,7 @@ func (f *flexVolumeUnmounter) TearDownAt(dir string) error {
 	}
 
 	// Flexvolume driver may remove the directory. Ignore if it does.
-	if pathExists, pathErr := util.PathExists(dir); pathErr != nil {
+	if pathExists, pathErr := mount.PathExists(dir); pathErr != nil {
 		return fmt.Errorf("Error checking if path exists: %v", pathErr)
 	} else if !pathExists {
 		return nil

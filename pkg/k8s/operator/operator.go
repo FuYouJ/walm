@@ -69,7 +69,8 @@ func (op *Operator) RestartPod(namespace string, name string) error {
 }
 
 func (op *Operator) BuildManifestObjects(namespace string, manifest string) ([]map[string]interface{}, error) {
-	resources, err := op.kubeClients.GetKubeClient(namespace).BuildUnstructured(namespace, bytes.NewBufferString(manifest))
+	_, kubeClient := op.kubeClients.GetKubeClient(namespace)
+	resources, err := kubeClient.Build(bytes.NewBufferString(manifest))
 	if err != nil {
 		logrus.Errorf("failed to build unstructured : %s", err.Error())
 		return nil, err
@@ -83,7 +84,8 @@ func (op *Operator) BuildManifestObjects(namespace string, manifest string) ([]m
 }
 
 func (op *Operator) ComputeReleaseResourcesByManifest(namespace string, manifest string) (*release.ReleaseResources, error) {
-	resources, err := op.kubeClients.GetKubeClient(namespace).BuildUnstructured(namespace, bytes.NewBufferString(manifest))
+	_, kubeClient := op.kubeClients.GetKubeClient(namespace)
+	resources, err := kubeClient.Build(bytes.NewBufferString(manifest))
 	if err != nil {
 		logrus.Errorf("failed to build unstructured : %s", err.Error())
 		return nil, err

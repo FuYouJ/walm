@@ -33,9 +33,9 @@ import (
 	"github.com/docker/docker/volume"
 	"github.com/docker/go-connections/nat"
 	"github.com/go-check/check"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
-	"github.com/gotestyourself/gotestyourself/poll"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
+	"gotest.tools/poll"
 )
 
 func (s *DockerSuite) TestContainerAPIGetAll(c *check.C) {
@@ -1265,6 +1265,7 @@ func (s *DockerSuite) TestContainerAPIDeleteRemoveVolume(c *check.C) {
 	c.Assert(waitRun(id), checker.IsNil)
 
 	source, err := inspectMountSourceField(id, vol)
+	c.Assert(err, checker.IsNil)
 	_, err = os.Stat(source)
 	c.Assert(err, checker.IsNil)
 
@@ -1758,7 +1759,7 @@ func (s *DockerSuite) TestContainersAPICreateMountsValidation(c *check.C) {
 					Target: destPath}}},
 			msg: "source path does not exist",
 			// FIXME(vdemeester) fails into e2e, migrate to integration/container anyway
-			// msg: "bind mount source path does not exist: " + notExistPath,
+			// msg: "source path does not exist: " + notExistPath,
 		},
 		{
 			config: containertypes.Config{
@@ -2201,6 +2202,7 @@ func (s *DockerSuite) TestContainerKillCustomStopSignal(c *check.C) {
 	defer res.Body.Close()
 
 	b, err := ioutil.ReadAll(res.Body)
+	c.Assert(err, checker.IsNil)
 	c.Assert(res.StatusCode, checker.Equals, http.StatusNoContent, check.Commentf(string(b)))
 	err = waitInspect(id, "{{.State.Running}} {{.State.Restarting}}", "false false", 30*time.Second)
 	c.Assert(err, checker.IsNil)

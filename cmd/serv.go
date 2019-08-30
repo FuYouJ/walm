@@ -19,8 +19,6 @@ import (
 	"syscall"
 	"context"
 	"time"
-	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
-	transwarpscheme "transwarp/release-config/pkg/client/clientset/versioned/scheme"
 	"github.com/x-cray/logrus-prefixed-formatter"
 	_ "net/http/pprof"
 	cacheInformer "WarpCloud/walm/pkg/k8s/cache/informer"
@@ -100,11 +98,14 @@ func (sc *ServCmd) run() error {
 	config := setting.Config
 	initLogLevel()
 	stopChan := make(chan struct{})
-	transwarpscheme.AddToScheme(clientsetscheme.Scheme)
 
 	kubeConfig := ""
 	if config.KubeConfig != nil {
 		kubeConfig = config.KubeConfig.Config
+	}
+	kubeContest := ""
+	if config.KubeConfig != nil {
+		kubeContest = config.KubeConfig.Context
 	}
 	k8sClient, err := client.NewClient("", kubeConfig)
 	if err != nil {
@@ -129,8 +130,12 @@ func (sc *ServCmd) run() error {
 		return err
 	}
 
-	registryClient := helmImpl.NewRegistryClient(config.ChartImageConfig)
-	kubeClients := k8sHelm.NewHelmKubeClient(kubeConfig)
+	registryClient, err := helmImpl.NewRegistryClient(config.ChartImageConfig)
+	if err != nil {
+		logrus.Errorf("failed to create registry client : %s", err.Error())
+		return err
+	}
+	kubeClients := k8sHelm.NewHelmKubeClient(kubeConfig, kubeContest)
 	helm, err := helmImpl.NewHelm(config.RepoList, registryClient, k8sCache, kubeClients)
 	if err != nil {
 		logrus.Errorf("failed to create helm manager: %s", err.Error())

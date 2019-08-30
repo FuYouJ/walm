@@ -1,7 +1,8 @@
 package: WarpCloud/walm
 import:
-- package: k8s.io/helm
-  repo: https://github.com/WarpCloud/helm.git
+- package: helm.sh/helm
+  repo: ssh://git@172.16.1.41:10022/k8s/helm.git
+  version: dev-v3-update
 - package: github.com/emicklei/go-restful-openapi
   repo: https://github.com/WarpCloud/go-restful-openapi.git
   version: master
@@ -21,19 +22,20 @@ import:
   version: ^1.0.1
 
 - package: k8s.io/kubernetes
-  version: release-1.13
+  version: release-1.15
 - package: k8s.io/client-go
-  version: kubernetes-1.13.0
+  version: kubernetes-1.15.1
 - package: k8s.io/api
-  version: release-1.13
+  repo: ssh://git@172.16.1.41:10022/k8s/api.git
+  version: release-1.15
 - package: k8s.io/apimachinery
-  version: release-1.13
+  version: release-1.15
 - package: k8s.io/apiserver
-  version: release-1.13
+  version: release-1.15
 - package: k8s.io/apiextensions-apiserver
-  version: release-1.13
+  version: release-1.15
 - package: k8s.io/cli-runtime
-  version: release-1.13
+  version: release-1.15
 
 - package: github.com/docker/spdystream
 - package: github.com/go-redis/redis
@@ -71,8 +73,6 @@ import:
 - package: github.com/tidwall/match
   version: 1.0.1
 - package: github.com/tidwall/pretty
-- package: github.com/deislabs/oras
-  version: 0.3.3
 - package: github.com/containerd/containerd
   version: 1.2.1
 - package: github.com/x-cray/logrus-prefixed-formatter
@@ -85,5 +85,15 @@ import:
 - package: github.com/sergi/go-diff/...
 - package: github.com/stretchr/testify
   version: v1.3.0
+- package: github.com/deislabs/oras
+  version: 0.6.0
+- package: github.com/Azure/go-ansiterm
+  version: master
+- package: google.golang.org/grpc
+  version: v1.17.0
+- package: github.com/docker/docker
+  version: 2cb26cfe9cbf8a64c5046c74d65f4528b22e67f4
+- package: github.com/Microsoft/hcsshim
+  version: v0.8.6
 testImport:
 - package: gopkg.in/check.v1

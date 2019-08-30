@@ -21,7 +21,7 @@ import (
 	"github.com/docker/docker/integration-cli/daemon"
 	"github.com/docker/docker/internal/test/request"
 	"github.com/go-check/check"
-	"github.com/gotestyourself/gotestyourself/icmd"
+	"gotest.tools/icmd"
 )
 
 // Deprecated
@@ -419,6 +419,12 @@ func getErrorMessage(c *check.C, body []byte) string {
 }
 
 func waitAndAssert(c *check.C, timeout time.Duration, f checkF, checker check.Checker, args ...interface{}) {
+	t1 := time.Now()
+	defer func() {
+		t2 := time.Now()
+		c.Logf("waited for %v (out of %v)", t2.Sub(t1), timeout)
+	}()
+
 	after := time.After(timeout)
 	for {
 		v, comment := f(c)

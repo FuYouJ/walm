@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	orascontent "github.com/deislabs/oras/pkg/content"
+
+	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/remotes"
 	"github.com/containerd/containerd/remotes/docker"
 	"github.com/docker/distribution/configuration"
@@ -16,7 +19,6 @@ import (
 	_ "github.com/docker/distribution/registry/storage/driver/inmemory"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/phayes/freeport"
-	orascontent "github.com/deislabs/oras/pkg/content"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -74,14 +76,14 @@ func (suite *ORASTestSuite) Test_0_Push() {
 		store       *orascontent.FileStore
 	)
 
-	err = Push(newContext(), nil, ref, nil, descriptors)
+	_, err = Push(newContext(), nil, ref, nil, descriptors)
 	suite.NotNil(err, "error pushing with empty resolver")
 
-	err = Push(newContext(), newResolver(), ref, nil, descriptors)
+	_, err = Push(newContext(), newResolver(), ref, nil, descriptors)
 	suite.NotNil(err, "error pushing when context missing hostname")
 
 	ref = fmt.Sprintf("%s/empty:test", suite.DockerRegistryHost)
-	err = Push(newContext(), newResolver(), ref, nil, descriptors)
+	_, err = Push(newContext(), newResolver(), ref, nil, descriptors)
 	suite.NotNil(ErrEmptyDescriptors, err, "error pushing with empty descriptors")
 
 	// Load descriptors with test chart tgz (as single layer)
@@ -92,7 +94,7 @@ func (suite *ORASTestSuite) Test_0_Push() {
 	descriptors = []ocispec.Descriptor{desc}
 
 	ref = fmt.Sprintf("%s/chart-tgz:test", suite.DockerRegistryHost)
-	err = Push(newContext(), newResolver(), ref, store, descriptors)
+	_, err = Push(newContext(), newResolver(), ref, store, descriptors)
 	suite.Nil(err, "no error pushing test chart tgz (as single layer)")
 
 	// Load descriptors with test chart dir (each file as layer)
@@ -119,7 +121,7 @@ func (suite *ORASTestSuite) Test_0_Push() {
 	os.Chdir(cwd)
 
 	ref = fmt.Sprintf("%s/chart-dir:test", suite.DockerRegistryHost)
-	err = Push(newContext(), newResolver(), ref, store, descriptors)
+	_, err = Push(newContext(), newResolver(), ref, store, descriptors)
 	suite.Nil(err, "no error pushing test chart dir (each file as layer)")
 }
 
@@ -132,21 +134,21 @@ func (suite *ORASTestSuite) Test_1_Pull() {
 		store       *orascontent.Memorystore
 	)
 
-	descriptors, err = Pull(newContext(), nil, ref, nil)
+	_, descriptors, err = Pull(newContext(), nil, ref, nil)
 	suite.NotNil(err, "error pulling with empty resolver")
 	suite.Nil(descriptors, "descriptors nil pulling with empty resolver")
 
 	// Pull non-existant
 	store = orascontent.NewMemoryStore()
 	ref = fmt.Sprintf("%s/nonexistant:test", suite.DockerRegistryHost)
-	descriptors, err = Pull(newContext(), newResolver(), ref, store)
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store)
 	suite.NotNil(err, "error pulling non-existant ref")
 	suite.Nil(descriptors, "descriptors empty with error")
 
 	// Pull chart-tgz
 	store = orascontent.NewMemoryStore()
 	ref = fmt.Sprintf("%s/chart-tgz:test", suite.DockerRegistryHost)
-	descriptors, err = Pull(newContext(), newResolver(), ref, store)
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store)
 	suite.Nil(err, "no error pulling chart-tgz ref")
 
 	// Verify the descriptors, single layer/file
@@ -160,7 +162,7 @@ func (suite *ORASTestSuite) Test_1_Pull() {
 	// Pull chart-dir
 	store = orascontent.NewMemoryStore()
 	ref = fmt.Sprintf("%s/chart-dir:test", suite.DockerRegistryHost)
-	descriptors, err = Pull(newContext(), newResolver(), ref, store)
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store)
 	suite.Nil(err, "no error pulling chart-dir ref")
 
 	// Verify the descriptors, multiple layers/files
@@ -174,6 +176,141 @@ func (suite *ORASTestSuite) Test_1_Pull() {
 		suite.Equal(content, actualContent, fmt.Sprintf("%s content matches on pull", filename))
 	}
 	os.Chdir(cwd)
+}
+
+// Push and pull with customized media types
+func (suite *ORASTestSuite) Test_2_MediaType() {
+	var (
+		testData = [][]string{
+			{"hi.txt", "application/vnd.me.hi", "hi"},
+			{"bye.txt", "application/vnd.me.bye", "bye"},
+		}
+		err         error
+		ref         string
+		descriptors []ocispec.Descriptor
+		store       *orascontent.Memorystore
+	)
+
+	// Push content with customized media types
+	store = orascontent.NewMemoryStore()
+	descriptors = nil
+	for _, data := range testData {
+		desc := store.Add(data[0], data[1], []byte(data[2]))
+		descriptors = append(descriptors, desc)
+	}
+	ref = fmt.Sprintf("%s/media-type:test", suite.DockerRegistryHost)
+	_, err = Push(newContext(), newResolver(), ref, store, descriptors)
+	suite.Nil(err, "no error pushing test data with customized media type")
+
+	// Pull with all media types
+	store = orascontent.NewMemoryStore()
+	ref = fmt.Sprintf("%s/media-type:test", suite.DockerRegistryHost)
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store)
+	suite.Nil(err, "no error pulling media-type ref")
+	suite.Equal(2, len(descriptors), "number of contents matches on pull")
+	for _, data := range testData {
+		_, actualContent, ok := store.GetByName(data[0])
+		suite.True(ok, "find in memory")
+		content := []byte(data[2])
+		suite.Equal(content, actualContent, "test content matches on pull")
+	}
+
+	// Pull with specified media type
+	store = orascontent.NewMemoryStore()
+	ref = fmt.Sprintf("%s/media-type:test", suite.DockerRegistryHost)
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store, WithAllowedMediaType(testData[0][1]))
+	suite.Nil(err, "no error pulling media-type ref")
+	suite.Equal(1, len(descriptors), "number of contents matches on pull")
+	for _, data := range testData[:1] {
+		_, actualContent, ok := store.GetByName(data[0])
+		suite.True(ok, "find in memory")
+		content := []byte(data[2])
+		suite.Equal(content, actualContent, "test content matches on pull")
+	}
+
+	// Pull with non-existing media type
+	store = orascontent.NewMemoryStore()
+	ref = fmt.Sprintf("%s/media-type:test", suite.DockerRegistryHost)
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store, WithAllowedMediaType("non.existing.media.type"))
+	suite.Nil(err, "no error pulling media-type ref")
+	suite.Equal(0, len(descriptors), "number of contents matches on pull")
+}
+
+// Pull with condition
+func (suite *ORASTestSuite) Test_3_Conditional_Pull() {
+	var (
+		testData = [][]string{
+			{"version.txt", "edge"},
+			{"content.txt", "hello world"},
+		}
+		err         error
+		ref         string
+		descriptors []ocispec.Descriptor
+		store       *orascontent.Memorystore
+		stop        bool
+	)
+
+	// Push test content
+	store = orascontent.NewMemoryStore()
+	descriptors = nil
+	for _, data := range testData {
+		desc := store.Add(data[0], "", []byte(data[1]))
+		descriptors = append(descriptors, desc)
+	}
+	ref = fmt.Sprintf("%s/conditional-pull:test", suite.DockerRegistryHost)
+	_, err = Push(newContext(), newResolver(), ref, store, descriptors)
+	suite.Nil(err, "no error pushing test data")
+
+	// Pull all contents in sequence
+	store = orascontent.NewMemoryStore()
+	ref = fmt.Sprintf("%s/conditional-pull:test", suite.DockerRegistryHost)
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store, WithPullByBFS)
+	suite.Nil(err, "no error pulling ref")
+	suite.Equal(2, len(descriptors), "number of contents matches on pull")
+	for i, data := range testData {
+		_, actualContent, ok := store.GetByName(data[0])
+		suite.True(ok, "find in memory")
+		content := []byte(data[1])
+		suite.Equal(content, actualContent, "test content matches on pull")
+		name, _ := orascontent.ResolveName(descriptors[i])
+		suite.Equal(data[0], name, "content sequence matches on pull")
+	}
+
+	// Selective pull contents: stop at the very beginning
+	store = orascontent.NewMemoryStore()
+	ref = fmt.Sprintf("%s/conditional-pull:test", suite.DockerRegistryHost)
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store, WithPullByBFS,
+		WithPullBaseHandler(images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+			if name, ok := orascontent.ResolveName(desc); ok && name == testData[0][0] {
+				return nil, ErrStopProcessing
+			}
+			return nil, nil
+		})))
+	suite.Nil(err, "no error pulling ref")
+	suite.Equal(0, len(descriptors), "number of contents matches on pull")
+
+	// Selective pull contents: stop in the middle
+	store = orascontent.NewMemoryStore()
+	ref = fmt.Sprintf("%s/conditional-pull:test", suite.DockerRegistryHost)
+	stop = false
+	_, descriptors, err = Pull(newContext(), newResolver(), ref, store, WithPullByBFS,
+		WithPullBaseHandler(images.HandlerFunc(func(ctx context.Context, desc ocispec.Descriptor) ([]ocispec.Descriptor, error) {
+			if stop {
+				return nil, ErrStopProcessing
+			}
+			if name, ok := orascontent.ResolveName(desc); ok && name == testData[0][0] {
+				stop = true
+			}
+			return nil, nil
+		})))
+	suite.Nil(err, "no error pulling ref")
+	suite.Equal(1, len(descriptors), "number of contents matches on pull")
+	for _, data := range testData[:1] {
+		_, actualContent, ok := store.GetByName(data[0])
+		suite.True(ok, "find in memory")
+		content := []byte(data[1])
+		suite.Equal(content, actualContent, "test content matches on pull")
+	}
 }
 
 func TestORASTestSuite(t *testing.T) {

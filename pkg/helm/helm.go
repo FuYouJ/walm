@@ -3,8 +3,8 @@ package helm
 import (
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/common"
-	"k8s.io/helm/pkg/walm"
-	"k8s.io/helm/pkg/walm/plugins"
+	"helm.sh/helm/pkg/walm"
+	"helm.sh/helm/pkg/walm/plugins"
 )
 
 type Helm interface {

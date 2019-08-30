@@ -21,7 +21,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/nikhita/systemstat"
+	"bitbucket.org/bertimus9/systemstat"
 )
 
 const sleep = time.Duration(10) * time.Millisecond

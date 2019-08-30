@@ -3,9 +3,13 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/deislabs/oras)](https://goreportcard.com/report/github.com/deislabs/oras)
 [![GoDoc](https://godoc.org/github.com/deislabs/oras?status.svg)](https://godoc.org/github.com/deislabs/oras)
 
+![](./oras.png)
+
 [Registries are evolving as Cloud Native Artifact Stores](https://stevelasker.blog/2019/01/25/cloud-native-artifact-stores-evolve-from-container-registries/). To enable this goal, Microsoft has donated ORAS as means to enable various client libraries with a way to submit artifacts to [OCI Spec Compliant](https://github.com/opencontainers/image-spec) registires. This repo is a staging ground for some yet to be determined upstream home. 
 
-As of Jan 24th, 2019, we're still evolving the library to incorporate annotation support. While we're initially testing ORAS with [Helm 3 Registries](https://github.com/helm/community/blob/3689b3202e35361274241dc4ec188e1e6f1a2e53/proposals/helm-repo-container-registry-convergence/readme.md) and [CNAB](https://cnab.io), we're very interested in feedback and contributions for other artifacts. 
+As of Jan 24th, 2019, we're still evolving the library to incorporate annotation support. While we're initially testing ORAS with [Helm 3 Registries](https://github.com/helm/community/blob/3689b3202e35361274241dc4ec188e1e6f1a2e53/proposals/helm-repo-container-registry-convergence/readme.md) and [CNAB](https://cnab.io), we're very interested in feedback and contributions for other artifacts.
+
+*Want to reach the ORAS community and developers? Join us in the [CNCF Slack](https://slack.cncf.io/) **#oras** channel*
 
 ## More Background
 For more background, please see:
@@ -29,7 +33,7 @@ The simplest way to get started is to run the official
 [Docker registry image](https://hub.docker.com/_/registry) locally:
 
 ```
-docker run -it --rm -p 5000:5000 registry:2.7.0
+docker run -it --rm -p 5000:5000 registry
 ```
 
 This will start a Distribution server at `localhost:5000`
@@ -66,22 +70,22 @@ Install `oras` using [GoFish](https://gofi.sh/):
 ```
 gofish install oras
 ==> Installing oras...
-🐠  oras 0.3.3: installed in 65.131245ms
+🐠  oras 0.5.0: installed in 65.131245ms
 ```
 
 or install manually from the latest [release artifacts](https://github.com/deislabs/oras/releases):
 ```
 # Linux
-curl -LO https://github.com/deislabs/oras/releases/download/v0.3.3/oras_0.3.3_linux_amd64.tar.gz
+curl -LO https://github.com/deislabs/oras/releases/download/v0.5.0/oras_0.5.0_linux_amd64.tar.gz
 
 # macOS
-curl -LO https://github.com/deislabs/oras/releases/download/v0.3.3/oras_0.3.3_darwin_amd64.tar.gz
+curl -LO https://github.com/deislabs/oras/releases/download/v0.5.0/oras_0.5.0_darwin_amd64.tar.gz
 
 # unpack, install, dispose
 mkdir -p oras-install/
-tar -zxf oras_0.3.3_*.tar.gz -C oras-install/
+tar -zxf oras_0.5.0_*.tar.gz -C oras-install/
 mv oras-install/oras /usr/local/bin/
-rm -rf oras_0.3.3_*.tar.gz oras-install/
+rm -rf oras_0.5.0_*.tar.gz oras-install/
 ```
 
 Then, to run:
@@ -94,17 +98,45 @@ oras help
 A public Docker image containing the CLI is available on [Docker Hub](https://hub.docker.com/r/orasbot/oras):	
 
 ```	
-docker run -it --rm -v $(pwd):/workspace orasbot/oras:v0.3.3 help
+docker run -it --rm -v $(pwd):/workspace orasbot/oras:v0.5.0 help
 ```	
 
 Note: the default WORKDIR  in the image is `/workspace`.
  
-### Login Credentials
-`oras` uses the local Docker credentials by default. Please run `docker login` in advance for any private registries.
+### Authentication
+
+Run `oras login` in advance for any private registries. By default, this will store credentials in `~/.docker/config.json` (same file as used by Docker). If you have authenticated to a registry previously using `docker login`, the credentials will be reused. Use the `-c`/`--config` option to specify an alternate location.
 
 `oras` also accepts explicit credentials via options, for example,
 ```
 oras pull -u username -p password myregistry.io/myimage:latest
+```
+
+#### Example using with Docker registry
+
+First, create a valid htpasswd file (must use `-B` for bcrypt):
+```
+htpasswd -cB -b auth.htpasswd myuser mypass
+```
+
+Next, start a registry using that file for auth:
+```
+docker run -it --rm -p 5000:5000 \
+    -v $(pwd)/auth.htpasswd:/etc/docker/registry/auth.htpasswd \
+    -e REGISTRY_AUTH="{htpasswd: {realm: localhost, path: /etc/docker/registry/auth.htpasswd}}" \
+    registry
+```
+
+In a new window, login with `oras`:
+```
+oras login -u myuser -p mypass localhost:5000
+```
+
+You will notice a new entry for `localhost:5000` appear in `~/.docker/config.json`.
+
+To remove the entry from the credentials file, use `oras logout`:
+```
+oras logout localhost:5000
 ```
 
 ### Usage
@@ -162,10 +194,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/containerd/containerd/remotes/docker"
-	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/deislabs/oras/pkg/content"
 	"github.com/deislabs/oras/pkg/oras"
+
+	"github.com/containerd/containerd/remotes/docker"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 func check(e error) {
@@ -187,18 +220,19 @@ func main() {
 	memoryStore := content.NewMemoryStore()
 	desc := memoryStore.Add(fileName, customMediaType, fileContent)
 	pushContents := []ocispec.Descriptor{desc}
-	fmt.Printf("Pushing %s to %s... ", fileName, ref)
-	err := oras.Push(ctx, resolver, ref, memoryStore, pushContents)
+	fmt.Printf("Pushing %s to %s...\n", fileName, ref)
+	desc, err := oras.Push(ctx, resolver, ref, memoryStore, pushContents)
 	check(err)
-	fmt.Println("success!")
+	fmt.Printf("Pushed to %s with digest %s\n", ref, desc.Digest)
 
 	// Pull file(s) from registry and save to disk
-	fmt.Printf("Pulling from %s and saving to %s... ", ref, fileName)
+	fmt.Printf("Pulling from %s and saving to %s...\n", ref, fileName)
 	fileStore := content.NewFileStore("")
+	defer fileStore.Close()
 	allowedMediaTypes := []string{customMediaType}
-	_, err = oras.Pull(ctx, resolver, ref, fileStore, allowedMediaTypes...)
+	desc, _, err = oras.Pull(ctx, resolver, ref, fileStore, oras.WithAllowedMediaTypes(allowedMediaTypes))
 	check(err)
-	fmt.Println("success!")
+	fmt.Printf("Pulled from %s with digest %s\n", ref, desc.Digest)
 	fmt.Printf("Try running 'cat %s'\n", fileName)
 }
 ```

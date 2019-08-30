@@ -8,16 +8,16 @@ import (
 	"fmt"
 	"path/filepath"
 	"io/ioutil"
-	"k8s.io/helm/pkg/repo"
+	"helm.sh/helm/pkg/repo"
 	"github.com/ghodss/yaml"
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
-	"k8s.io/helm/pkg/registry"
 	"WarpCloud/walm/pkg/models/release"
 	"github.com/pkg/errors"
-	"k8s.io/helm/pkg/chart"
-	"k8s.io/helm/pkg/chart/loader"
+	"helm.sh/helm/pkg/chart"
+	"helm.sh/helm/pkg/chart/loader"
 	"encoding/json"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	"helm.sh/helm/pkg/registry"
 )
 
 func (helmImpl *Helm) GetChartAutoDependencies(repoName, chartName, chartVersion string) (subChartNames []string, err error) {

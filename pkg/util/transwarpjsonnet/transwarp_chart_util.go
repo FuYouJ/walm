@@ -11,8 +11,8 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/sirupsen/logrus"
-	"k8s.io/helm/pkg/chart"
-	"k8s.io/helm/pkg/walm/plugins"
+	"helm.sh/helm/pkg/chart"
+	"helm.sh/helm/pkg/walm/plugins"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 

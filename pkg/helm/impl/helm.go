@@ -3,28 +3,27 @@ package impl
 import (
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/common"
-	"k8s.io/helm/pkg/walm"
-	"k8s.io/helm/pkg/walm/plugins"
+	"helm.sh/helm/pkg/walm"
+	"helm.sh/helm/pkg/walm/plugins"
 	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/util"
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
-	"k8s.io/helm/pkg/chart"
-	"k8s.io/helm/pkg/chart/loader"
-	"k8s.io/helm/pkg/registry"
+	"helm.sh/helm/pkg/chart"
+	"helm.sh/helm/pkg/chart/loader"
+	"helm.sh/helm/pkg/registry"
 	"fmt"
 	"strings"
 	"WarpCloud/walm/pkg/k8s"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
-	"k8s.io/helm/pkg/helm"
 	"github.com/hashicorp/golang-lru"
-	"k8s.io/helm/pkg/storage/driver"
-	helmRelease "k8s.io/helm/pkg/hapi/release"
-	"k8s.io/helm/pkg/chartutil"
+	"helm.sh/helm/pkg/storage/driver"
+	helmRelease "helm.sh/helm/pkg/release"
+	"helm.sh/helm/pkg/chartutil"
 	"bytes"
 	errorModel "WarpCloud/walm/pkg/models/error"
-	"k8s.io/helm/pkg/action"
+	"helm.sh/helm/pkg/action"
 	k8sHelm "WarpCloud/walm/pkg/k8s/client/helm"
-	"k8s.io/helm/pkg/storage"
+	"helm.sh/helm/pkg/storage"
 	"crypto/tls"
 	"net/http"
 	"os"
@@ -44,9 +43,34 @@ type Helm struct {
 	chartRepoMap   map[string]*ChartRepository
 	registryClient *registry.Client
 	k8sCache       k8s.Cache
-	helmClients    *lru.Cache
 	list           *action.List
 	kubeClients    *k8sHelm.Client
+
+	actionConfigs *lru.Cache
+}
+
+func (helmImpl *Helm) getActionConfig(namespace string) (*action.Configuration, error) {
+	if actionConfig, ok := helmImpl.actionConfigs.Get(namespace); ok {
+		return actionConfig.(*action.Configuration), nil
+	} else {
+		kubeConfig, kubeClient := helmImpl.kubeClients.GetKubeClient(namespace)
+		clientset, err := kubeClient.Factory.KubernetesClientSet()
+		if err != nil {
+			logrus.Errorf("failed to get clientset: %s", err.Error())
+			return nil, err
+		}
+
+		d := driver.NewConfigMaps(clientset.CoreV1().ConfigMaps(namespace))
+		store := storage.Init(d)
+		config := &action.Configuration{
+			KubeClient:       kubeClient,
+			Releases:         store,
+			RESTClientGetter: kubeConfig,
+			Log:              logrus.Infof,
+		}
+		helmImpl.actionConfigs.Add(namespace, config)
+		return config, nil
+	}
 }
 
 func (helmImpl *Helm) ListAllReleases() (releaseCaches []*release.ReleaseCache, err error) {
@@ -67,18 +91,13 @@ func (helmImpl *Helm) ListAllReleases() (releaseCaches []*release.ReleaseCache, 
 }
 
 func (helmImpl *Helm) DeleteRelease(namespace string, name string) error {
-	currentHelmClient, err := helmImpl.getCurrentHelmClient(namespace)
+	action, err := helmImpl.getDeleteAction(namespace)
 	if err != nil {
 		logrus.Errorf("failed to get current helm client : %s", err.Error())
 		return err
 	}
 
-	opts := []helm.UninstallOption{
-		helm.UninstallPurge(true),
-	}
-	_, err = currentHelmClient.UninstallRelease(
-		name, opts...,
-	)
+	_, err = action.Run(name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			logrus.Warnf("release %s is not found from helm", name)
@@ -197,12 +216,12 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	return releaseCache, nil
 }
 
-func convertReleasePlugins(releasePlugins []*release.ReleasePlugin)  []*walm.WalmPlugin {
+func convertReleasePlugins(releasePlugins []*release.ReleasePlugin) []*walm.WalmPlugin {
 	results := []*walm.WalmPlugin{}
 	for _, plugin := range releasePlugins {
 		results = append(results, &walm.WalmPlugin{
-			Name: plugin.Name,
-			Args: plugin.Args,
+			Name:    plugin.Name,
+			Args:    plugin.Args,
 			Version: plugin.Version,
 			Disable: plugin.Disable,
 		})
@@ -214,43 +233,39 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 	releaseRequest *release.ReleaseRequestV2, rawChart *chart.Chart, valueOverride map[string]interface{},
 	update bool, dryRun bool) (releaseCache *release.ReleaseCache, err error) {
 
-	currentHelmClient, err := helmImpl.getCurrentHelmClient(namespace)
-	if err != nil {
-		logrus.Errorf("failed to get helm client : %s", err.Error())
-		return nil, err
-	}
-
 	var helmRelease *helmRelease.Release
 	if update {
-		helmRelease, err = currentHelmClient.UpdateReleaseFromChart(
-			releaseRequest.Name,
-			rawChart,
-			helm.UpdateValueOverrides(valueOverride),
-			helm.UpgradeDryRun(dryRun),
-		)
+		action, err := helmImpl.getUpgradeAction(namespace)
+		if err != nil {
+			return nil, err
+		}
+		action.DryRun = dryRun
+		action.Namespace = namespace
+		helmRelease, err = action.Run(releaseRequest.Name, rawChart, valueOverride)
 		if err != nil {
 			logrus.Errorf("failed to upgrade release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
 			return nil, err
 		}
 	} else {
-		helmRelease, err = currentHelmClient.InstallReleaseFromChart(
-			rawChart,
-			namespace,
-			helm.ValueOverrides(valueOverride),
-			helm.ReleaseName(releaseRequest.Name),
-			helm.InstallDryRun(dryRun),
-		)
+		action, err := helmImpl.getInstallAction(namespace)
+		if err != nil {
+			return nil, err
+		}
+		action.DryRun = dryRun
+		action.Namespace = namespace
+		action.ReleaseName = releaseRequest.Name
+		helmRelease, err = action.Run(rawChart, valueOverride)
 		if err != nil {
 			logrus.Errorf("failed to install release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
 			if !dryRun {
-				opts := []helm.UninstallOption{
-					helm.UninstallPurge(true),
-				}
-				_, err1 := currentHelmClient.UninstallRelease(
-					releaseRequest.Name, opts...,
-				)
+				action1, err1 := helmImpl.getDeleteAction(namespace)
 				if err1 != nil {
-					logrus.Errorf("failed to rollback to delete release %s/%s : %s", namespace, releaseRequest.Name, err1.Error())
+					logrus.Errorf("failed to get helm delete action : %s", err.Error())
+				} else {
+					_, err1 = action1.Run(releaseRequest.Name)
+					if err1 != nil {
+						logrus.Errorf("failed to rollback to delete release %s/%s : %s", namespace, releaseRequest.Name, err1.Error())
+					}
 				}
 			}
 			return nil, err
@@ -291,7 +306,8 @@ func (helmImpl *Helm) convertHelmRelease(helmRelease *helmRelease.Release) (rele
 
 func (helmImpl *Helm) getReleaseResourceMetas(helmRelease *helmRelease.Release) (resources []release.ReleaseResourceMeta, err error) {
 	resources = []release.ReleaseResourceMeta{}
-	results, err := helmImpl.kubeClients.GetKubeClient(helmRelease.Namespace).BuildUnstructured(helmRelease.Namespace, bytes.NewBufferString(helmRelease.Manifest))
+	_, kubeClient := helmImpl.kubeClients.GetKubeClient(helmRelease.Namespace)
+	results, err := kubeClient.Build(bytes.NewBufferString(helmRelease.Manifest))
 	if err != nil {
 		logrus.Errorf("failed to get release resource metas of %s", helmRelease.Name)
 		return resources, err
@@ -323,26 +339,28 @@ func buildMetaInfoValues(chart *chart.Chart, computedValues map[string]interface
 	return nil, nil
 }
 
-func (helmImpl *Helm) getCurrentHelmClient(namespace string) (*helm.Client, error) {
-	if c, ok := helmImpl.helmClients.Get(namespace); ok {
-		return c.(*helm.Client), nil
-	} else {
-		kc := helmImpl.kubeClients.GetKubeClient(namespace)
-		clientset, err := kc.KubernetesClientSet()
-		if err != nil {
-			return nil, err
-		}
-
-		d := driver.NewConfigMaps(clientset.CoreV1().ConfigMaps(namespace))
-		client := helm.NewClient(
-			helm.KubeClient(kc),
-			helm.Driver(d),
-			helm.Discovery(clientset.Discovery()),
-		)
-		client.GetTiller().Log = logrus.Infof
-		helmImpl.helmClients.Add(namespace, client)
-		return client, nil
+func (helmImpl *Helm) getInstallAction(namespace string) (*action.Install, error) {
+	config, err := helmImpl.getActionConfig(namespace)
+	if err != nil {
+		return nil, err
 	}
+	return action.NewInstall(config), nil
+}
+
+func (helmImpl *Helm) getUpgradeAction(namespace string) (*action.Upgrade, error) {
+	config, err := helmImpl.getActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewUpgrade(config), nil
+}
+
+func (helmImpl *Helm) getDeleteAction(namespace string) (*action.Uninstall, error) {
+	config, err := helmImpl.getActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewUninstall(config), nil
 }
 
 func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *release.ReleaseRequestV2) (
@@ -478,40 +496,33 @@ func NewHelm(repoList []*setting.ChartRepo, registryClient *registry.Client, k8s
 		chartRepoMap[chartRepo.Name] = &chartRepository
 	}
 
-	helmClients, _ := lru.New(100)
+	actionConfigs, _ := lru.New(100)
 
-	kc := kubeClients.GetKubeClient("")
-	clientset, err := kc.KubernetesClientSet()
+	helm := &Helm{
+		k8sCache:       k8sCache,
+		kubeClients:    kubeClients,
+		registryClient: registryClient,
+		chartRepoMap:  chartRepoMap,
+		actionConfigs: actionConfigs,
+	}
+
+	actionConfig, err := helm.getActionConfig("")
 	if err != nil {
-		logrus.Errorf("failed to get clientset: %s", err.Error())
 		return nil, err
 	}
-
-	d := driver.NewConfigMaps(clientset.CoreV1().ConfigMaps(""))
-	store := storage.Init(d)
-	config := &action.Configuration{
-		KubeClient: kc,
-		Releases:   store,
-		Discovery:  clientset.Discovery(),
-	}
-	list := action.NewList(config)
+	list := action.NewList(actionConfig)
 	list.AllNamespaces = true
 	list.All = true
 	list.StateMask = action.ListDeployed | action.ListFailed | action.ListPendingInstall | action.ListPendingRollback |
 		action.ListPendingUpgrade | action.ListUninstalled | action.ListUninstalling | action.ListUnknown
 
-	return &Helm{
-		k8sCache:       k8sCache,
-		kubeClients:    kubeClients,
-		registryClient: registryClient,
-		helmClients:    helmClients,
-		list:           list,
-		chartRepoMap:   chartRepoMap,
-	}, nil
+	helm.list = list
+
+	return helm, nil
 
 }
 
-func NewRegistryClient(chartImageConfig *setting.ChartImageConfig) *registry.Client {
+func NewRegistryClient(chartImageConfig *setting.ChartImageConfig) (*registry.Client, error) {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
@@ -519,15 +530,10 @@ func NewRegistryClient(chartImageConfig *setting.ChartImageConfig) *registry.Cli
 
 	option := &registry.ClientOptions{
 		Out: os.Stdout,
-		Resolver: registry.Resolver{
-			Resolver: docker.NewResolver(docker.ResolverOptions{
-				Client: client,
-			}),
-		},
-		CacheRootDir: "/helm-cache",
+		Resolver: docker.NewResolver(docker.ResolverOptions{
+			Client: client,
+		}),
 	}
-	if chartImageConfig != nil && chartImageConfig.CacheRootDir != "" {
-		option.CacheRootDir = chartImageConfig.CacheRootDir
-	}
+
 	return registry.NewClient(option)
 }

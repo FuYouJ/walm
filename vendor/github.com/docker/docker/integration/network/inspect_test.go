@@ -9,14 +9,17 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	swarmtypes "github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/integration/internal/network"
 	"github.com/docker/docker/integration/internal/swarm"
-	"github.com/gotestyourself/gotestyourself/assert"
-	"github.com/gotestyourself/gotestyourself/poll"
+	"gotest.tools/assert"
+	"gotest.tools/poll"
+	"gotest.tools/skip"
 )
 
 const defaultSwarmPort = 2477
 
 func TestInspectNetwork(t *testing.T) {
+	skip.If(t, testEnv.OSType == "windows", "FIXME")
 	defer setupTest(t)()
 	d := swarm.NewSwarm(t, testEnv)
 	defer d.Stop(t)
@@ -24,14 +27,10 @@ func TestInspectNetwork(t *testing.T) {
 	defer client.Close()
 
 	overlayName := "overlay1"
-	networkCreate := types.NetworkCreate{
-		CheckDuplicate: true,
-		Driver:         "overlay",
-	}
-
-	netResp, err := client.NetworkCreate(context.Background(), overlayName, networkCreate)
-	assert.NilError(t, err)
-	overlayID := netResp.ID
+	overlayID := network.CreateNoError(t, context.Background(), client, overlayName,
+		network.WithDriver("overlay"),
+		network.WithCheckDuplicate(),
+	)
 
 	var instances uint64 = 4
 	serviceName := "TestService" + t.Name()
@@ -44,7 +43,7 @@ func TestInspectNetwork(t *testing.T) {
 
 	poll.WaitOn(t, serviceRunningTasksCount(client, serviceID, instances), swarm.ServicePoll)
 
-	_, _, err = client.ServiceInspectWithRaw(context.Background(), serviceID, types.ServiceInspectOptions{})
+	_, _, err := client.ServiceInspectWithRaw(context.Background(), serviceID, types.ServiceInspectOptions{})
 	assert.NilError(t, err)
 
 	// Test inspect verbose with full NetworkID

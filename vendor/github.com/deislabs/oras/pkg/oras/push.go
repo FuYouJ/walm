@@ -12,47 +12,74 @@ import (
 )
 
 // Push pushes files to the remote
-func Push(ctx context.Context, resolver remotes.Resolver, ref string, provider content.Provider, descriptors []ocispec.Descriptor) error {
+func Push(ctx context.Context, resolver remotes.Resolver, ref string, provider content.Provider, descriptors []ocispec.Descriptor, opts ...PushOpt) (ocispec.Descriptor, error) {
 	if resolver == nil {
-		return ErrResolverUndefined
+		return ocispec.Descriptor{}, ErrResolverUndefined
 	}
-
 	if len(descriptors) == 0 {
-		return ErrEmptyDescriptors
+		return ocispec.Descriptor{}, ErrEmptyDescriptors
+	}
+	opt := pushOptsDefaults()
+	for _, o := range opts {
+		if err := o(opt); err != nil {
+			return ocispec.Descriptor{}, err
+		}
+	}
+	if opt.validateName != nil {
+		for _, desc := range descriptors {
+			if err := opt.validateName(desc); err != nil {
+				return ocispec.Descriptor{}, err
+			}
+		}
 	}
 
 	pusher, err := resolver.Pusher(ctx, ref)
 	if err != nil {
-		return err
+		return ocispec.Descriptor{}, err
 	}
 
-	desc, provider, err := pack(provider, descriptors)
+	desc, provider, err := pack(provider, descriptors, opt)
 	if err != nil {
-		return err
+		return ocispec.Descriptor{}, err
 	}
 
-	return remotes.PushContent(ctx, pusher, desc, provider, nil)
+	if err := remotes.PushContent(ctx, pusher, desc, provider, nil, opt.baseHandlers...); err != nil {
+		return ocispec.Descriptor{}, err
+	}
+	return desc, nil
 }
 
-func pack(provider content.Provider, descriptors []ocispec.Descriptor) (ocispec.Descriptor, content.Provider, error) {
+func pack(provider content.Provider, descriptors []ocispec.Descriptor, opts *pushOpts) (ocispec.Descriptor, content.Provider, error) {
 	store := newHybridStoreFromProvider(provider)
 
 	// Config
-	configBytes := []byte("{}")
-	config := ocispec.Descriptor{
-		MediaType: ocispec.MediaTypeImageConfig,
-		Digest:    digest.FromBytes(configBytes),
-		Size:      int64(len(configBytes)),
+	var config ocispec.Descriptor
+	if opts.config == nil {
+		configBytes := []byte("{}")
+		config = ocispec.Descriptor{
+			MediaType: ocispec.MediaTypeImageConfig,
+			Digest:    digest.FromBytes(configBytes),
+			Size:      int64(len(configBytes)),
+		}
+		store.Set(config, configBytes)
+	} else {
+		config = *opts.config
 	}
-	store.Set(config, configBytes)
+	if opts.configAnnotations != nil {
+		config.Annotations = opts.configAnnotations
+	}
+	if opts.configMediaType != "" {
+		config.MediaType = opts.configMediaType
+	}
 
 	// Manifest
 	manifest := ocispec.Manifest{
 		Versioned: specs.Versioned{
 			SchemaVersion: 2, // historical value. does not pertain to OCI or docker version
 		},
-		Config: config,
-		Layers: descriptors,
+		Config:      config,
+		Layers:      descriptors,
+		Annotations: opts.manifestAnnotations,
 	}
 	manifestBytes, err := json.Marshal(manifest)
 	if err != nil {

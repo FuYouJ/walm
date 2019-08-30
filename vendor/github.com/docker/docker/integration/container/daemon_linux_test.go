@@ -11,9 +11,9 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/integration/internal/container"
 	"github.com/docker/docker/internal/test/daemon"
-	"github.com/gotestyourself/gotestyourself/assert"
-	"github.com/gotestyourself/gotestyourself/skip"
 	"golang.org/x/sys/unix"
+	"gotest.tools/assert"
+	"gotest.tools/skip"
 )
 
 // This is a regression test for #36145
@@ -28,6 +28,8 @@ import (
 // container again.
 func TestContainerStartOnDaemonRestart(t *testing.T) {
 	skip.If(t, testEnv.IsRemoteDaemon, "cannot start daemon on remote test run")
+	skip.If(t, testEnv.DaemonInfo.OSType == "windows")
+	skip.If(t, testEnv.IsRemoteDaemon(), "cannot start daemon on remote test run")
 	t.Parallel()
 
 	d := daemon.New(t)

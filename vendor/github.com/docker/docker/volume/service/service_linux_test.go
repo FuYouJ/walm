@@ -13,8 +13,8 @@ import (
 	"github.com/docker/docker/volume/local"
 	"github.com/docker/docker/volume/service/opts"
 	"github.com/docker/docker/volume/testutils"
-	"github.com/gotestyourself/gotestyourself/assert"
-	is "github.com/gotestyourself/gotestyourself/assert/cmp"
+	"gotest.tools/assert"
+	is "gotest.tools/assert/cmp"
 )
 
 func TestLocalVolumeSize(t *testing.T) {
@@ -25,7 +25,7 @@ func TestLocalVolumeSize(t *testing.T) {
 	assert.Assert(t, err)
 	defer os.RemoveAll(dir)
 
-	l, err := local.New(dir, idtools.IDPair{UID: os.Getuid(), GID: os.Getegid()})
+	l, err := local.New(dir, idtools.Identity{UID: os.Getuid(), GID: os.Getegid()})
 	assert.Assert(t, err)
 	assert.Assert(t, ds.Register(l, volume.DefaultDriverName))
 	assert.Assert(t, ds.Register(testutils.NewFakeDriver("fake"), "fake"))

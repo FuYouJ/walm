@@ -2,39 +2,42 @@ package helm
 
 import (
 	"github.com/hashicorp/golang-lru"
-	"k8s.io/helm/pkg/kube"
+	"helm.sh/helm/pkg/kube"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
 type Client struct {
-	kubeClients *lru.Cache
-	kubeConfig  string
+	kubeWrappers *lru.Cache
+	kubeConfig   string
+	context      string
 }
 
-func (c *Client) GetKubeClient(namespace string) *kube.Client {
-	if c.kubeClients == nil {
-		c.kubeClients, _ = lru.New(100)
+type KubeWrapper struct {
+	kubeConfig genericclioptions.RESTClientGetter
+	kubeClient *kube.Client
+}
+
+func (c *Client) GetKubeClient(namespace string) (genericclioptions.RESTClientGetter, *kube.Client) {
+	if c.kubeWrappers == nil {
+		c.kubeWrappers, _ = lru.New(100)
 	}
 
-	if kubeClient, ok := c.kubeClients.Get(namespace); ok {
-		return kubeClient.(*kube.Client)
+	if kubeWrapper, ok := c.kubeWrappers.Get(namespace); ok {
+		kw := kubeWrapper.(KubeWrapper)
+		return kw.kubeConfig, kw.kubeClient
 	} else {
-		kubeClient = createKubeClient(c.kubeConfig, namespace)
-		c.kubeClients.Add(namespace, kubeClient)
-		return kubeClient.(*kube.Client)
+		kubeConfig := kube.GetConfig(c.kubeConfig, c.context, namespace)
+		kubeClient := kube.New(kubeConfig)
+		c.kubeWrappers.Add(namespace, KubeWrapper{kubeConfig: kubeConfig, kubeClient: kubeClient})
+		return kubeConfig, kubeClient
 	}
 }
 
-func createKubeClient(kubeConfig string, namespace string) (*kube.Client) {
-	cfg := kube.GetConfig(kubeConfig, "", namespace)
-	client := kube.New(cfg)
-
-	return client
-}
-
-func NewHelmKubeClient(kubeConfig string) *Client {
+func NewHelmKubeClient(kubeConfig string, context string) *Client {
 	kubeClients, _ := lru.New(100)
 	return &Client{
-		kubeClients: kubeClients,
-		kubeConfig:  kubeConfig,
+		kubeWrappers: kubeClients,
+		kubeConfig:   kubeConfig,
+		context:      context,
 	}
 }
