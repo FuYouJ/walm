@@ -10,7 +10,6 @@ import (
 
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
-	"gotest.tools/assert"
 )
 
 func (s *DockerSuite) TestPortList(c *check.C) {
@@ -23,13 +22,13 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 
 	err := assertPortList(c, out, []string{"0.0.0.0:9876"})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	out, _ = dockerCmd(c, "port", firstID)
 
 	err = assertPortList(c, out, []string{"80/tcp -> 0.0.0.0:9876"})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	dockerCmd(c, "rm", "-f", firstID)
 
@@ -45,7 +44,7 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 
 	err = assertPortList(c, out, []string{"0.0.0.0:9876"})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	out, _ = dockerCmd(c, "port", ID)
 
@@ -54,7 +53,7 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 		"81/tcp -> 0.0.0.0:9877",
 		"82/tcp -> 0.0.0.0:9878"})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	dockerCmd(c, "rm", "-f", ID)
 
@@ -71,7 +70,7 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 
 	err = assertPortList(c, out, []string{"0.0.0.0:9876", "0.0.0.0:9999"})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	out, _ = dockerCmd(c, "port", ID)
 
@@ -81,7 +80,7 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 		"81/tcp -> 0.0.0.0:9877",
 		"82/tcp -> 0.0.0.0:9878"})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	dockerCmd(c, "rm", "-f", ID)
 
 	testRange := func() {
@@ -97,7 +96,7 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 
 			err = assertPortList(c, out, []string{fmt.Sprintf("80/tcp -> 0.0.0.0:%d", 9090+i)})
 			// Port list is not correct
-			assert.NilError(c, err)
+			c.Assert(err, checker.IsNil)
 		}
 
 		// test port range exhaustion
@@ -138,7 +137,7 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 		"82/tcp -> 0.0.0.0:9802",
 		"83/tcp -> 0.0.0.0:9803"})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	dockerCmd(c, "rm", "-f", ID)
 
 	// test mixing protocols in same port range
@@ -153,7 +152,7 @@ func (s *DockerSuite) TestPortList(c *check.C) {
 	// Running this test multiple times causes the TCP port to increment.
 	err = assertPortRange(c, out, []int{8000, 8080}, []int{8000, 8080})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	dockerCmd(c, "rm", "-f", ID)
 }
 
@@ -293,7 +292,7 @@ func (s *DockerSuite) TestPortHostBinding(c *check.C) {
 
 	err := assertPortList(c, out, []string{"0.0.0.0:9876"})
 	// Port list is not correct
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	dockerCmd(c, "run", "--net=host", "busybox",
 		"nc", "localhost", "9876")

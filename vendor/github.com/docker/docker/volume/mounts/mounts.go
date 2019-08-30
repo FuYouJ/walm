@@ -125,7 +125,7 @@ func (m *MountPoint) Setup(mountLabel string, rootIDs idtools.Identity, checkFun
 	if m.Volume != nil {
 		id := m.ID
 		if id == "" {
-			id = stringid.GenerateRandomID()
+			id = stringid.GenerateNonCryptoID()
 		}
 		path, err := m.Volume.Mount(id)
 		if err != nil {

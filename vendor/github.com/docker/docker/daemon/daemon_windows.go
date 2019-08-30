@@ -12,6 +12,7 @@ import (
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/config"
 	"github.com/docker/docker/pkg/containerfs"
+	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/parsers"
 	"github.com/docker/docker/pkg/platform"
@@ -180,7 +181,7 @@ func verifyPlatformContainerResources(resources *containertypes.Resources, isHyp
 	if resources.OomKillDisable != nil && *resources.OomKillDisable {
 		return warnings, fmt.Errorf("invalid option: Windows does not support OomKillDisable")
 	}
-	if resources.PidsLimit != nil && *resources.PidsLimit != 0 {
+	if resources.PidsLimit != 0 {
 		return warnings, fmt.Errorf("invalid option: Windows does not support PidsLimit")
 	}
 	if len(resources.Ulimits) != 0 {
@@ -345,10 +346,8 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 		controller.WalkNetworks(s)
 
 		drvOptions := make(map[string]string)
-		nid := ""
-		if n != nil {
-			nid = n.ID()
 
+		if n != nil {
 			// global networks should not be deleted by local HNS
 			if n.Info().Scope() == datastore.GlobalScope {
 				continue
@@ -393,7 +392,7 @@ func (daemon *Daemon) initNetworkController(config *config.Config, activeSandbox
 		}
 
 		v6Conf := []*libnetwork.IpamConf{}
-		_, err := controller.NewNetwork(strings.ToLower(v.Type), name, nid,
+		_, err := controller.NewNetwork(strings.ToLower(v.Type), name, "",
 			libnetwork.NetworkOptionGeneric(options.Generic{
 				netlabel.GenericData: netOption,
 			}),
@@ -501,7 +500,6 @@ func (daemon *Daemon) runAsHyperVContainer(hostConfig *containertypes.HostConfig
 // conditionalMountOnStart is a platform specific helper function during the
 // container start to call mount.
 func (daemon *Daemon) conditionalMountOnStart(container *container.Container) error {
-
 	// Bail out now for Linux containers. We cannot mount the containers filesystem on the
 	// host as it is a non-Windows filesystem.
 	if system.LCOWSupported() && container.OS != "windows" {
@@ -519,7 +517,6 @@ func (daemon *Daemon) conditionalMountOnStart(container *container.Container) er
 // conditionalUnmountOnCleanup is a platform specific helper function called
 // during the cleanup of a container to unmount.
 func (daemon *Daemon) conditionalUnmountOnCleanup(container *container.Container) error {
-
 	// Bail out now for Linux containers
 	if system.LCOWSupported() && container.OS != "windows" {
 		return nil
@@ -648,6 +645,16 @@ func setupDaemonProcess(config *config.Config) error {
 
 func (daemon *Daemon) setupSeccompProfile() error {
 	return nil
+}
+
+func getRealPath(path string) (string, error) {
+	if system.IsIoTCore() {
+		// Due to https://github.com/golang/go/issues/20506, path expansion
+		// does not work correctly on the default IoT Core configuration.
+		// TODO @darrenstahlmsft remove this once golang/go/20506 is fixed
+		return path, nil
+	}
+	return fileutils.ReadSymlinkedDirectory(path)
 }
 
 func (daemon *Daemon) loadRuntimes() error {

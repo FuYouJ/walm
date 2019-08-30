@@ -5,10 +5,10 @@ package main
 import (
 	"strings"
 
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/go-check/check"
 	"golang.org/x/sys/unix"
-	"gotest.tools/assert"
 	"gotest.tools/icmd"
 )
 
@@ -37,8 +37,8 @@ func (s *DockerDaemonSuite) TestDaemonRestartWithPluginEnabled(c *check.C) {
 	if err != nil {
 		c.Fatalf("Could not list plugins: %v %s", err, out)
 	}
-	assert.Assert(c, strings.Contains(out, pName))
-	assert.Assert(c, strings.Contains(out, "true"))
+	c.Assert(out, checker.Contains, pName)
+	c.Assert(out, checker.Contains, "true")
 }
 
 // TestDaemonRestartWithPluginDisabled tests state restore for a disabled plugin
@@ -63,8 +63,8 @@ func (s *DockerDaemonSuite) TestDaemonRestartWithPluginDisabled(c *check.C) {
 	if err != nil {
 		c.Fatalf("Could not list plugins: %v %s", err, out)
 	}
-	assert.Assert(c, strings.Contains(out, pName))
-	assert.Assert(c, strings.Contains(out, "false"))
+	c.Assert(out, checker.Contains, pName)
+	c.Assert(out, checker.Contains, "false")
 }
 
 // TestDaemonKillLiveRestoreWithPlugins SIGKILLs daemon started with --live-restore.
@@ -121,7 +121,7 @@ func (s *DockerDaemonSuite) TestDaemonShutdownLiveRestoreWithPlugins(c *check.C)
 
 // TestDaemonShutdownWithPlugins shuts down running plugins.
 func (s *DockerDaemonSuite) TestDaemonShutdownWithPlugins(c *check.C) {
-	testRequires(c, IsAmd64, Network)
+	testRequires(c, IsAmd64, Network, SameHostDaemon)
 
 	s.d.Start(c)
 	if out, err := s.d.Cmd("plugin", "install", "--grant-all-permissions", pName); err != nil {
@@ -159,7 +159,7 @@ func (s *DockerDaemonSuite) TestDaemonShutdownWithPlugins(c *check.C) {
 
 // TestDaemonKillWithPlugins leaves plugins running.
 func (s *DockerDaemonSuite) TestDaemonKillWithPlugins(c *check.C) {
-	testRequires(c, IsAmd64, Network)
+	testRequires(c, IsAmd64, Network, SameHostDaemon)
 
 	s.d.Start(c)
 	if out, err := s.d.Cmd("plugin", "install", "--grant-all-permissions", pName); err != nil {
@@ -221,42 +221,42 @@ func (s *DockerDaemonSuite) TestVolumePlugin(c *check.C) {
 	if err != nil {
 		c.Fatalf("Could not list volume: %v %s", err, out)
 	}
-	assert.Assert(c, strings.Contains(out, volName))
-	assert.Assert(c, strings.Contains(out, pName))
+	c.Assert(out, checker.Contains, volName)
+	c.Assert(out, checker.Contains, pName)
 
 	out, err = s.d.Cmd("run", "--rm", "-v", volName+":"+destDir, "busybox", "touch", destDir+destFile)
-	assert.NilError(c, err, out)
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
 
 	out, err = s.d.Cmd("run", "--rm", "-v", volName+":"+destDir, "busybox", "ls", destDir+destFile)
-	assert.NilError(c, err, out)
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
 }
 
 func (s *DockerDaemonSuite) TestPluginVolumeRemoveOnRestart(c *check.C) {
-	testRequires(c, IsAmd64, Network)
+	testRequires(c, DaemonIsLinux, Network, IsAmd64)
 
 	s.d.Start(c, "--live-restore=true")
 
 	out, err := s.d.Cmd("plugin", "install", "--grant-all-permissions", pName)
-	assert.NilError(c, err, out)
-	assert.Assert(c, strings.Contains(out, pName))
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	c.Assert(strings.TrimSpace(out), checker.Contains, pName)
 
 	out, err = s.d.Cmd("volume", "create", "--driver", pName, "test")
-	assert.NilError(c, err, out)
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
 
 	s.d.Restart(c, "--live-restore=true")
 
 	out, err = s.d.Cmd("plugin", "disable", pName)
-	assert.ErrorContains(c, err, "", out)
-	assert.Assert(c, strings.Contains(out, "in use"))
+	c.Assert(err, checker.NotNil, check.Commentf("%s", out))
+	c.Assert(out, checker.Contains, "in use")
 
 	out, err = s.d.Cmd("volume", "rm", "test")
-	assert.NilError(c, err, out)
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
 
 	out, err = s.d.Cmd("plugin", "disable", pName)
-	assert.NilError(c, err, out)
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
 
 	out, err = s.d.Cmd("plugin", "rm", pName)
-	assert.NilError(c, err, out)
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
 }
 
 func existsMountpointWithPrefix(mountpointPrefix string) (bool, error) {
@@ -278,7 +278,7 @@ func (s *DockerDaemonSuite) TestPluginListFilterEnabled(c *check.C) {
 	s.d.Start(c)
 
 	out, err := s.d.Cmd("plugin", "install", "--grant-all-permissions", pNameWithTag, "--disable")
-	assert.NilError(c, err, out)
+	c.Assert(err, check.IsNil, check.Commentf("%s", out))
 
 	defer func() {
 		if out, err := s.d.Cmd("plugin", "remove", pNameWithTag); err != nil {
@@ -287,17 +287,17 @@ func (s *DockerDaemonSuite) TestPluginListFilterEnabled(c *check.C) {
 	}()
 
 	out, err = s.d.Cmd("plugin", "ls", "--filter", "enabled=true")
-	assert.NilError(c, err, out)
-	assert.Assert(c, !strings.Contains(out, pName))
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	c.Assert(out, checker.Not(checker.Contains), pName)
 
 	out, err = s.d.Cmd("plugin", "ls", "--filter", "enabled=false")
-	assert.NilError(c, err, out)
-	assert.Assert(c, strings.Contains(out, pName))
-	assert.Assert(c, strings.Contains(out, "false"))
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	c.Assert(out, checker.Contains, pName)
+	c.Assert(out, checker.Contains, "false")
 
 	out, err = s.d.Cmd("plugin", "ls")
-	assert.NilError(c, err, out)
-	assert.Assert(c, strings.Contains(out, pName))
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	c.Assert(out, checker.Contains, pName)
 }
 
 func (s *DockerDaemonSuite) TestPluginListFilterCapability(c *check.C) {
@@ -306,7 +306,7 @@ func (s *DockerDaemonSuite) TestPluginListFilterCapability(c *check.C) {
 	s.d.Start(c)
 
 	out, err := s.d.Cmd("plugin", "install", "--grant-all-permissions", pNameWithTag, "--disable")
-	assert.NilError(c, err, out)
+	c.Assert(err, check.IsNil, check.Commentf("%s", out))
 
 	defer func() {
 		if out, err := s.d.Cmd("plugin", "remove", pNameWithTag); err != nil {
@@ -315,14 +315,14 @@ func (s *DockerDaemonSuite) TestPluginListFilterCapability(c *check.C) {
 	}()
 
 	out, err = s.d.Cmd("plugin", "ls", "--filter", "capability=volumedriver")
-	assert.NilError(c, err, out)
-	assert.Assert(c, strings.Contains(out, pName))
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	c.Assert(out, checker.Contains, pName)
 
 	out, err = s.d.Cmd("plugin", "ls", "--filter", "capability=authz")
-	assert.NilError(c, err, out)
-	assert.Assert(c, !strings.Contains(out, pName))
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	c.Assert(out, checker.Not(checker.Contains), pName)
 
 	out, err = s.d.Cmd("plugin", "ls")
-	assert.NilError(c, err, out)
-	assert.Assert(c, strings.Contains(out, pName))
+	c.Assert(err, checker.IsNil, check.Commentf("%s", out))
+	c.Assert(out, checker.Contains, pName)
 }

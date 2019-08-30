@@ -6,22 +6,21 @@ import (
 	"time"
 
 	"github.com/docker/docker/integration/internal/container"
+	"github.com/docker/docker/internal/test/request"
 	"gotest.tools/assert"
 	"gotest.tools/poll"
 )
 
 func TestStopContainerWithRestartPolicyAlways(t *testing.T) {
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
 	names := []string{"verifyRestart1-" + t.Name(), "verifyRestart2-" + t.Name()}
 	for _, name := range names {
-		container.Run(ctx, t, client,
-			container.WithName(name),
-			container.WithCmd("false"),
-			container.WithRestartPolicy("always"),
-		)
+		container.Run(t, ctx, client, container.WithName(name), container.WithCmd("false"), func(c *container.TestContainerConfig) {
+			c.HostConfig.RestartPolicy.Name = "always"
+		})
 	}
 
 	for _, name := range names {

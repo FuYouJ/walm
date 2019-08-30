@@ -58,7 +58,6 @@ import (
 	swarmnode "github.com/docker/swarmkit/node"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 )
 
 const swarmDirName = "swarm"
@@ -187,11 +186,8 @@ func (c *Cluster) Start() error {
 	}
 	c.nr = nr
 
-	timer := time.NewTimer(swarmConnectTimeout)
-	defer timer.Stop()
-
 	select {
-	case <-timer.C:
+	case <-time.After(swarmConnectTimeout):
 		logrus.Error("swarm component could not be started before timeout was reached")
 	case err := <-nr.Ready():
 		if err != nil {
@@ -403,10 +399,7 @@ func (c *Cluster) Cleanup() {
 func managerStats(client swarmapi.ControlClient, currentNodeID string) (current bool, reachable int, unreachable int, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	nodes, err := client.ListNodes(
-		ctx, &swarmapi.ListNodesRequest{},
-		grpc.MaxCallRecvMsgSize(defaultRecvSizeForListResponse),
-	)
+	nodes, err := client.ListNodes(ctx, &swarmapi.ListNodesRequest{})
 	if err != nil {
 		return false, 0, 0, err
 	}

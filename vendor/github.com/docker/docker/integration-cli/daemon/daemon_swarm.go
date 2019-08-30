@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
 	"gotest.tools/assert"
 )
@@ -66,7 +67,8 @@ func (d *Daemon) CheckServiceUpdateState(service string) func(*check.C) (interfa
 // CheckPluginRunning returns the runtime state of the plugin
 func (d *Daemon) CheckPluginRunning(plugin string) func(c *check.C) (interface{}, check.CommentInterface) {
 	return func(c *check.C) (interface{}, check.CommentInterface) {
-		apiclient := d.NewClientT(c)
+		apiclient, err := d.NewClient()
+		assert.NilError(c, err)
 		resp, _, err := apiclient.PluginInspectWithRaw(context.Background(), plugin)
 		if client.IsErrNotFound(err) {
 			return false, check.Commentf("%v", err)
@@ -79,7 +81,8 @@ func (d *Daemon) CheckPluginRunning(plugin string) func(c *check.C) (interface{}
 // CheckPluginImage returns the runtime state of the plugin
 func (d *Daemon) CheckPluginImage(plugin string) func(c *check.C) (interface{}, check.CommentInterface) {
 	return func(c *check.C) (interface{}, check.CommentInterface) {
-		apiclient := d.NewClientT(c)
+		apiclient, err := d.NewClient()
+		assert.NilError(c, err)
 		resp, _, err := apiclient.PluginInspectWithRaw(context.Background(), plugin)
 		if client.IsErrNotFound(err) {
 			return false, check.Commentf("%v", err)
@@ -99,7 +102,8 @@ func (d *Daemon) CheckServiceTasks(service string) func(*check.C) (interface{}, 
 
 // CheckRunningTaskNetworks returns the number of times each network is referenced from a task.
 func (d *Daemon) CheckRunningTaskNetworks(c *check.C) (interface{}, check.CommentInterface) {
-	cli := d.NewClientT(c)
+	cli, err := d.NewClient()
+	c.Assert(err, checker.IsNil)
 	defer cli.Close()
 
 	filterArgs := filters.NewArgs()
@@ -110,7 +114,7 @@ func (d *Daemon) CheckRunningTaskNetworks(c *check.C) (interface{}, check.Commen
 	}
 
 	tasks, err := cli.TaskList(context.Background(), options)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	result := make(map[string]int)
 	for _, task := range tasks {
@@ -123,7 +127,8 @@ func (d *Daemon) CheckRunningTaskNetworks(c *check.C) (interface{}, check.Commen
 
 // CheckRunningTaskImages returns the times each image is running as a task.
 func (d *Daemon) CheckRunningTaskImages(c *check.C) (interface{}, check.CommentInterface) {
-	cli := d.NewClientT(c)
+	cli, err := d.NewClient()
+	c.Assert(err, checker.IsNil)
 	defer cli.Close()
 
 	filterArgs := filters.NewArgs()
@@ -134,7 +139,7 @@ func (d *Daemon) CheckRunningTaskImages(c *check.C) (interface{}, check.CommentI
 	}
 
 	tasks, err := cli.TaskList(context.Background(), options)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	result := make(map[string]int)
 	for _, task := range tasks {
@@ -166,13 +171,14 @@ func (d *Daemon) CheckLocalNodeState(c *check.C) (interface{}, check.CommentInte
 // CheckControlAvailable returns the current swarm control available
 func (d *Daemon) CheckControlAvailable(c *check.C) (interface{}, check.CommentInterface) {
 	info := d.SwarmInfo(c)
-	assert.Equal(c, info.LocalNodeState, swarm.LocalNodeStateActive)
+	c.Assert(info.LocalNodeState, checker.Equals, swarm.LocalNodeStateActive)
 	return info.ControlAvailable, nil
 }
 
 // CheckLeader returns whether there is a leader on the swarm or not
 func (d *Daemon) CheckLeader(c *check.C) (interface{}, check.CommentInterface) {
-	cli := d.NewClientT(c)
+	cli, err := d.NewClient()
+	c.Assert(err, checker.IsNil)
 	defer cli.Close()
 
 	errList := check.Commentf("could not get node list")
@@ -188,26 +194,4 @@ func (d *Daemon) CheckLeader(c *check.C) (interface{}, check.CommentInterface) {
 		}
 	}
 	return fmt.Errorf("no leader"), check.Commentf("could not find leader")
-}
-
-// CmdRetryOutOfSequence tries the specified command against the current daemon
-// up to 10 times, retrying if it encounters an "update out of sequence" error.
-func (d *Daemon) CmdRetryOutOfSequence(args ...string) (string, error) {
-	var (
-		output string
-		err    error
-	)
-
-	for i := 0; i < 10; i++ {
-		output, err = d.Cmd(args...)
-		// error, no error, whatever. if we don't have "update out of
-		// sequence", we don't retry, we just return.
-		if !strings.Contains(output, "update out of sequence") {
-			return output, err
-		}
-	}
-
-	// otherwise, once all of our attempts have been exhausted, just return
-	// whatever the last values were.
-	return output, err
 }

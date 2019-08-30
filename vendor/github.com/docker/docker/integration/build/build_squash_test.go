@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types"
-	dclient "github.com/docker/docker/client"
 	"github.com/docker/docker/integration/internal/container"
 	"github.com/docker/docker/internal/test/daemon"
 	"github.com/docker/docker/internal/test/fakecontext"
@@ -21,18 +20,13 @@ import (
 
 func TestBuildSquashParent(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType == "windows")
+	skip.If(t, !testEnv.DaemonInfo.ExperimentalBuild)
+	skip.If(t, testEnv.IsRemoteDaemon, "cannot run daemon when remote daemon")
+	d := daemon.New(t, daemon.WithExperimental)
+	d.StartWithBusybox(t)
+	defer d.Stop(t)
 
-	var client dclient.APIClient
-	if !testEnv.DaemonInfo.ExperimentalBuild {
-		skip.If(t, testEnv.IsRemoteDaemon, "cannot run daemon when remote daemon")
-
-		d := daemon.New(t, daemon.WithExperimental)
-		d.StartWithBusybox(t)
-		defer d.Stop(t)
-		client = d.NewClientT(t)
-	} else {
-		client = testEnv.APIClient()
-	}
+	client := testEnv.APIClient()
 
 	dockerfile := `
 		FROM busybox
@@ -79,7 +73,7 @@ func TestBuildSquashParent(t *testing.T) {
 	resp.Body.Close()
 	assert.NilError(t, err)
 
-	cid := container.Run(ctx, t, client,
+	cid := container.Run(t, ctx, client,
 		container.WithImage(name),
 		container.WithCmd("/bin/sh", "-c", "cat /hello"),
 	)
@@ -94,11 +88,11 @@ func TestBuildSquashParent(t *testing.T) {
 	assert.NilError(t, err)
 	assert.Check(t, is.Equal(strings.TrimSpace(actualStdout.String()), "hello\nworld"))
 
-	container.Run(ctx, t, client,
+	container.Run(t, ctx, client,
 		container.WithImage(name),
 		container.WithCmd("/bin/sh", "-c", "[ ! -f /remove_me ]"),
 	)
-	container.Run(ctx, t, client,
+	container.Run(t, ctx, client,
 		container.WithImage(name),
 		container.WithCmd("/bin/sh", "-c", `[ "$(echo $HELLO)" == "world" ]`),
 	)

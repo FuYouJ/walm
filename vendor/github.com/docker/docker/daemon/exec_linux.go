@@ -1,8 +1,6 @@
 package daemon // import "github.com/docker/docker/daemon"
 
 import (
-	"context"
-
 	"github.com/docker/docker/container"
 	"github.com/docker/docker/daemon/exec"
 	"github.com/docker/docker/oci/caps"
@@ -56,6 +54,6 @@ func (daemon *Daemon) execSetPlatformOpt(c *container.Container, ec *exec.Config
 		}
 		p.ApparmorProfile = appArmorProfile
 	}
-	s := &specs.Spec{Process: p}
-	return WithRlimits(daemon, c)(context.Background(), nil, nil, s)
+	daemon.setRlimits(&specs.Spec{Process: p}, c)
+	return nil
 }

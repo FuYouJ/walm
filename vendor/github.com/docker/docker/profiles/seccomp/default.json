@@ -162,7 +162,6 @@
 				"ioctl",
 				"io_destroy",
 				"io_getevents",
-				"io_pgetevents",
 				"ioprio_get",
 				"ioprio_set",
 				"io_setup",
@@ -314,7 +313,6 @@
 				"sigaltstack",
 				"signalfd",
 				"signalfd4",
-				"sigprocmask",
 				"sigreturn",
 				"socket",
 				"socketcall",
@@ -366,18 +364,6 @@
 			"args": [],
 			"comment": "",
 			"includes": {},
-			"excludes": {}
-		},
-		{
-			"names": [
-				"ptrace"
-			],
-			"action": "SCMP_ACT_ALLOW",
-			"args": null,
-			"comment": "",
-			"includes": {
-				"minKernel": "4.8"
-			},
 			"excludes": {}
 		},
 		{
@@ -597,7 +583,7 @@
 			"args": [
 				{
 					"index": 0,
-					"value": 2114060288,
+					"value": 2080505856,
 					"valueTwo": 0,
 					"op": "SCMP_CMP_MASKED_EQ"
 				}
@@ -622,7 +608,7 @@
 			"args": [
 				{
 					"index": 1,
-					"value": 2114060288,
+					"value": 2080505856,
 					"valueTwo": 0,
 					"op": "SCMP_CMP_MASKED_EQ"
 				}

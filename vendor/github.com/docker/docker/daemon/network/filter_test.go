@@ -42,16 +42,6 @@ func TestFilterNetworks(t *testing.T) {
 			Driver: "mykvdriver",
 			Scope:  "global",
 		},
-		{
-			Name:   "networkwithcontainer",
-			Driver: "nwc",
-			Scope:  "local",
-			Containers: map[string]types.EndpointResource{
-				"customcontainer": {
-					Name: "customendpoint",
-				},
-			},
-		},
 	}
 
 	bridgeDriverFilters := filters.NewArgs()
@@ -81,18 +71,11 @@ func TestFilterNetworks(t *testing.T) {
 	globalScopeFilters := filters.NewArgs()
 	globalScopeFilters.Add("scope", "global")
 
-	trueDanglingFilters := filters.NewArgs()
-	trueDanglingFilters.Add("dangling", "true")
-
-	falseDanglingFilters := filters.NewArgs()
-	falseDanglingFilters.Add("dangling", "false")
-
 	testCases := []struct {
 		filter      filters.Args
 		resultCount int
 		err         string
 		name        string
-		results     []string
 	}{
 		{
 			filter:      bridgeDriverFilters,
@@ -114,7 +97,7 @@ func TestFilterNetworks(t *testing.T) {
 		},
 		{
 			filter:      customDriverFilters,
-			resultCount: 4,
+			resultCount: 3,
 			err:         "",
 			name:        "custom driver filters",
 		},
@@ -132,7 +115,7 @@ func TestFilterNetworks(t *testing.T) {
 		},
 		{
 			filter:      localScopeFilters,
-			resultCount: 5,
+			resultCount: 4,
 			err:         "",
 			name:        "local scope filters",
 		},
@@ -147,20 +130,6 @@ func TestFilterNetworks(t *testing.T) {
 			resultCount: 1,
 			err:         "",
 			name:        "global scope filters",
-		},
-		{
-			filter:      trueDanglingFilters,
-			resultCount: 3,
-			err:         "",
-			name:        "dangling filter is 'True'",
-			results:     []string{"myoverlay", "mydrivernet", "mykvnet"},
-		},
-		{
-			filter:      falseDanglingFilters,
-			resultCount: 4,
-			err:         "",
-			name:        "dangling filter is 'False'",
-			results:     []string{"host", "bridge", "none", "networkwithcontainer"},
 		},
 	}
 
@@ -187,18 +156,6 @@ func TestFilterNetworks(t *testing.T) {
 
 				if len(result) != testCase.resultCount {
 					t.Fatalf("expect '%d' networks, got '%d' networks", testCase.resultCount, len(result))
-				}
-
-				if len(testCase.results) > 0 {
-					resultMap := make(map[string]bool)
-					for _, r := range result {
-						resultMap[r.Name] = true
-					}
-					for _, r := range testCase.results {
-						if _, ok := resultMap[r]; !ok {
-							t.Fatalf("expected result: '%s' not found", r)
-						}
-					}
 				}
 			}
 		})

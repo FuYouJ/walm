@@ -207,7 +207,6 @@ func ValidateLogOpt(cfg map[string]string) error {
 		case "gelf-address":
 		case "tag":
 		case "labels":
-		case "labels-regex":
 		case "env":
 		case "env-regex":
 		case "gelf-compression-level":

@@ -9,7 +9,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	swarmtypes "github.com/docker/docker/api/types/swarm"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/internal/test/daemon"
 	"github.com/docker/docker/internal/test/environment"
 	"gotest.tools/assert"
@@ -142,14 +141,6 @@ func ServiceWithReplicas(n uint64) ServiceSpecOpt {
 	}
 }
 
-// ServiceWithMaxReplicas sets the max replicas for the service
-func ServiceWithMaxReplicas(n uint64) ServiceSpecOpt {
-	return func(spec *swarmtypes.ServiceSpec) {
-		ensurePlacement(spec)
-		spec.TaskTemplate.Placement.MaxReplicas = n
-	}
-}
-
 // ServiceWithName sets the name of the service
 func ServiceWithName(name string) ServiceSpecOpt {
 	return func(spec *swarmtypes.ServiceSpec) {
@@ -180,25 +171,20 @@ func ServiceWithSysctls(sysctls map[string]string) ServiceSpecOpt {
 	}
 }
 
-// ServiceWithCapabilities sets the Capabilities option of the service's ContainerSpec.
-func ServiceWithCapabilities(Capabilities []string) ServiceSpecOpt {
-	return func(spec *swarmtypes.ServiceSpec) {
-		ensureContainerSpec(spec)
-		spec.TaskTemplate.ContainerSpec.Capabilities = Capabilities
-	}
-}
-
 // GetRunningTasks gets the list of running tasks for a service
-func GetRunningTasks(t *testing.T, c client.ServiceAPIClient, serviceID string) []swarmtypes.Task {
+func GetRunningTasks(t *testing.T, d *daemon.Daemon, serviceID string) []swarmtypes.Task {
 	t.Helper()
+	client := d.NewClientT(t)
+	defer client.Close()
 
-	tasks, err := c.TaskList(context.Background(), types.TaskListOptions{
-		Filters: filters.NewArgs(
-			filters.Arg("service", serviceID),
-			filters.Arg("desired-state", "running"),
-		),
-	})
+	filterArgs := filters.NewArgs()
+	filterArgs.Add("desired-state", "running")
+	filterArgs.Add("service", serviceID)
 
+	options := types.TaskListOptions{
+		Filters: filterArgs,
+	}
+	tasks, err := client.TaskList(context.Background(), options)
 	assert.NilError(t, err)
 	return tasks
 }
@@ -222,11 +208,5 @@ func ExecTask(t *testing.T, d *daemon.Daemon, task swarmtypes.Task, config types
 func ensureContainerSpec(spec *swarmtypes.ServiceSpec) {
 	if spec.TaskTemplate.ContainerSpec == nil {
 		spec.TaskTemplate.ContainerSpec = &swarmtypes.ContainerSpec{}
-	}
-}
-
-func ensurePlacement(spec *swarmtypes.ServiceSpec) {
-	if spec.TaskTemplate.Placement == nil {
-		spec.TaskTemplate.Placement = &swarmtypes.Placement{}
 	}
 }

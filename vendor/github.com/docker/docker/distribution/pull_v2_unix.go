@@ -58,10 +58,3 @@ func withDefault(p specs.Platform) specs.Platform {
 	}
 	return p
 }
-
-func formatPlatform(platform specs.Platform) string {
-	if platform.OS == "" {
-		platform = platforms.DefaultSpec()
-	}
-	return platforms.Format(platform)
-}

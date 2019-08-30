@@ -8,7 +8,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	containertypes "github.com/docker/docker/api/types/container"
-	"github.com/google/uuid"
+	"github.com/pborman/uuid"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 
 func newContainer(t *testing.T) *Container {
 	var (
-		id    = uuid.New().String()
+		id    = uuid.New()
 		cRoot = filepath.Join(root, id)
 	)
 	if err := os.MkdirAll(cRoot, 0755); err != nil {

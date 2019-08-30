@@ -8,7 +8,6 @@ import (
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/go-check/check"
-	"gotest.tools/assert"
 	"gotest.tools/icmd"
 )
 
@@ -35,7 +34,7 @@ func (s *DockerSuite) TestStartAttachReturnsOnError(c *check.C) {
 
 	select {
 	case err := <-ch:
-		assert.NilError(c, err)
+		c.Assert(err, check.IsNil)
 	case <-time.After(5 * time.Second):
 		c.Fatalf("Attach did not exit properly")
 	}
@@ -122,7 +121,7 @@ func (s *DockerSuite) TestStartMultipleContainers(c *check.C) {
 
 	out := inspectField(c, "parent", "State.Running")
 	// Container should be stopped
-	assert.Equal(c, out, "false")
+	c.Assert(out, checker.Equals, "false")
 
 	// start all the three containers, container `child_first` start first which should be failed
 	// container 'parent' start second and then start container 'child_second'
@@ -139,7 +138,7 @@ func (s *DockerSuite) TestStartMultipleContainers(c *check.C) {
 	for container, expected := range map[string]string{"parent": "true", "child_first": "false", "child_second": "true"} {
 		out := inspectField(c, container, "State.Running")
 		// Container running state wrong
-		assert.Equal(c, out, expected)
+		c.Assert(out, checker.Equals, expected)
 	}
 }
 
@@ -167,7 +166,7 @@ func (s *DockerSuite) TestStartAttachMultipleContainers(c *check.C) {
 	for container, expected := range map[string]string{"test1": "false", "test2": "false", "test3": "false"} {
 		out := inspectField(c, container, "State.Running")
 		// Container running state wrong
-		assert.Equal(c, out, expected)
+		c.Assert(out, checker.Equals, expected)
 	}
 }
 
@@ -192,10 +191,10 @@ func (s *DockerSuite) TestStartReturnCorrectExitCode(c *check.C) {
 	dockerCmd(c, "create", "--rm", "--name", "withRm", "busybox", "sh", "-c", "exit 12")
 
 	out, exitCode, err := dockerCmdWithError("start", "-a", "withRestart")
-	assert.ErrorContains(c, err, "")
+	c.Assert(err, checker.NotNil)
 	c.Assert(exitCode, checker.Equals, 11, check.Commentf("out: %s", out))
 
 	out, exitCode, err = dockerCmdWithError("start", "-a", "withRm")
-	assert.ErrorContains(c, err, "")
+	c.Assert(err, checker.NotNil)
 	c.Assert(exitCode, checker.Equals, 12, check.Commentf("out: %s", out))
 }

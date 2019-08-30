@@ -33,11 +33,8 @@ func (container *Container) Reset(lock bool) {
 				container.LogCopier.Wait()
 				close(exit)
 			}()
-
-			timer := time.NewTimer(loggerCloseTimeout)
-			defer timer.Stop()
 			select {
-			case <-timer.C:
+			case <-time.After(loggerCloseTimeout):
 				logrus.Warn("Logger didn't exit in time: logs may be truncated")
 			case <-exit:
 			}

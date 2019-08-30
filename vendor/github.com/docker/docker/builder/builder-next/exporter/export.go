@@ -117,12 +117,12 @@ func (e *imageExporterInstance) Export(ctx context.Context, inp exporter.Source)
 		layersDone := oneOffProgress(ctx, "exporting layers")
 
 		if err := ref.Finalize(ctx, true); err != nil {
-			return nil, layersDone(err)
+			return nil, err
 		}
 
 		diffIDs, err := e.opt.Differ.EnsureLayer(ctx, ref.ID())
 		if err != nil {
-			return nil, layersDone(err)
+			return nil, err
 		}
 
 		diffs = make([]digest.Digest, len(diffIDs))
@@ -148,7 +148,7 @@ func (e *imageExporterInstance) Export(ctx context.Context, inp exporter.Source)
 
 	diffs, history = normalizeLayersAndHistory(diffs, history, ref)
 
-	config, err = patchImageConfig(config, diffs, history, inp.Metadata[exptypes.ExporterInlineCache])
+	config, err = patchImageConfig(config, diffs, history)
 	if err != nil {
 		return nil, err
 	}

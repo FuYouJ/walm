@@ -79,7 +79,7 @@ func (s *DockerSwarmSuite) TestAPISwarmNodeDrainPause(c *check.C) {
 	time.Sleep(1 * time.Second) // make sure all daemons are ready to accept tasks
 
 	// start a service, expect balanced distribution
-	instances := 2
+	instances := 8
 	id := d1.CreateService(c, simpleTestService, setInstances(instances))
 
 	waitAndAssert(c, defaultReconciliationTimeout, d1.CheckActiveContainerCount, checker.GreaterThan, 0)
@@ -100,9 +100,10 @@ func (s *DockerSwarmSuite) TestAPISwarmNodeDrainPause(c *check.C) {
 
 	instances = 1
 	d1.UpdateService(c, d1.GetService(c, id), setInstances(instances))
+
 	waitAndAssert(c, defaultReconciliationTimeout*2, reducedCheck(sumAsIntegers, d1.CheckActiveContainerCount, d2.CheckActiveContainerCount), checker.Equals, instances)
 
-	instances = 2
+	instances = 8
 	d1.UpdateService(c, d1.GetService(c, id), setInstances(instances))
 
 	// drained node first so we don't get any old containers
@@ -117,8 +118,9 @@ func (s *DockerSwarmSuite) TestAPISwarmNodeDrainPause(c *check.C) {
 		n.Spec.Availability = swarm.NodeAvailabilityPause
 	})
 
-	instances = 4
+	instances = 14
 	d1.UpdateService(c, d1.GetService(c, id), setInstances(instances))
+
 	waitAndAssert(c, defaultReconciliationTimeout, d1.CheckActiveContainerCount, checker.Equals, instances-d2ContainerCount)
 	waitAndAssert(c, defaultReconciliationTimeout, d2.CheckActiveContainerCount, checker.Equals, d2ContainerCount)
 

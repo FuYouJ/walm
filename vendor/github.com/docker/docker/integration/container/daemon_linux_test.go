@@ -13,7 +13,6 @@ import (
 	"github.com/docker/docker/internal/test/daemon"
 	"golang.org/x/sys/unix"
 	"gotest.tools/assert"
-	is "gotest.tools/assert/cmp"
 	"gotest.tools/skip"
 )
 
@@ -30,23 +29,25 @@ import (
 func TestContainerStartOnDaemonRestart(t *testing.T) {
 	skip.If(t, testEnv.IsRemoteDaemon, "cannot start daemon on remote test run")
 	skip.If(t, testEnv.DaemonInfo.OSType == "windows")
+	skip.If(t, testEnv.IsRemoteDaemon(), "cannot start daemon on remote test run")
 	t.Parallel()
 
 	d := daemon.New(t)
 	d.StartWithBusybox(t, "--iptables=false")
 	defer d.Stop(t)
 
-	c := d.NewClientT(t)
+	client, err := d.NewClient()
+	assert.Check(t, err, "error creating client")
 
 	ctx := context.Background()
 
-	cID := container.Create(ctx, t, c)
-	defer c.ContainerRemove(ctx, cID, types.ContainerRemoveOptions{Force: true})
+	cID := container.Create(t, ctx, client)
+	defer client.ContainerRemove(ctx, cID, types.ContainerRemoveOptions{Force: true})
 
-	err := c.ContainerStart(ctx, cID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, cID, types.ContainerStartOptions{})
 	assert.Check(t, err, "error starting test container")
 
-	inspect, err := c.ContainerInspect(ctx, cID)
+	inspect, err := client.ContainerInspect(ctx, cID)
 	assert.Check(t, err, "error getting inspect data")
 
 	ppid := getContainerdShimPid(t, inspect)
@@ -62,7 +63,7 @@ func TestContainerStartOnDaemonRestart(t *testing.T) {
 
 	d.Start(t, "--iptables=false")
 
-	err = c.ContainerStart(ctx, cID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, cID, types.ContainerStartOptions{})
 	assert.Check(t, err, "failed to start test container")
 }
 
@@ -76,47 +77,4 @@ func getContainerdShimPid(t *testing.T, c types.ContainerJSON) int {
 
 	assert.Check(t, ppid != 1, "got unexpected ppid")
 	return ppid
-}
-
-// TestDaemonRestartIpcMode makes sure a container keeps its ipc mode
-// (derived from daemon default) even after the daemon is restarted
-// with a different default ipc mode.
-func TestDaemonRestartIpcMode(t *testing.T) {
-	skip.If(t, testEnv.IsRemoteDaemon, "cannot start daemon on remote test run")
-	skip.If(t, testEnv.DaemonInfo.OSType == "windows")
-	t.Parallel()
-
-	d := daemon.New(t)
-	d.StartWithBusybox(t, "--iptables=false", "--default-ipc-mode=private")
-	defer d.Stop(t)
-
-	c := d.NewClientT(t)
-	ctx := context.Background()
-
-	// check the container is created with private ipc mode as per daemon default
-	cID := container.Run(ctx, t, c,
-		container.WithCmd("top"),
-		container.WithRestartPolicy("always"),
-	)
-	defer c.ContainerRemove(ctx, cID, types.ContainerRemoveOptions{Force: true})
-
-	inspect, err := c.ContainerInspect(ctx, cID)
-	assert.NilError(t, err)
-	assert.Check(t, is.Equal(string(inspect.HostConfig.IpcMode), "private"))
-
-	// restart the daemon with shareable default ipc mode
-	d.Restart(t, "--iptables=false", "--default-ipc-mode=shareable")
-
-	// check the container is still having private ipc mode
-	inspect, err = c.ContainerInspect(ctx, cID)
-	assert.NilError(t, err)
-	assert.Check(t, is.Equal(string(inspect.HostConfig.IpcMode), "private"))
-
-	// check a new container is created with shareable ipc mode as per new daemon default
-	cID = container.Run(ctx, t, c)
-	defer c.ContainerRemove(ctx, cID, types.ContainerRemoveOptions{Force: true})
-
-	inspect, err = c.ContainerInspect(ctx, cID)
-	assert.NilError(t, err)
-	assert.Check(t, is.Equal(string(inspect.HostConfig.IpcMode), "shareable"))
 }

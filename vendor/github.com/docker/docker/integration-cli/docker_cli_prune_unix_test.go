@@ -15,18 +15,17 @@ import (
 	"github.com/docker/docker/integration-cli/cli/build"
 	"github.com/docker/docker/integration-cli/daemon"
 	"github.com/go-check/check"
-	"gotest.tools/assert"
 	"gotest.tools/icmd"
 )
 
 func pruneNetworkAndVerify(c *check.C, d *daemon.Daemon, kept, pruned []string) {
 	_, err := d.Cmd("network", "prune", "--force")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	for _, s := range kept {
 		waitAndAssert(c, defaultReconciliationTimeout, func(*check.C) (interface{}, check.CommentInterface) {
 			out, err := d.Cmd("network", "ls", "--format", "{{.Name}}")
-			assert.NilError(c, err)
+			c.Assert(err, checker.IsNil)
 			return out, nil
 		}, checker.Contains, s)
 	}
@@ -34,7 +33,7 @@ func pruneNetworkAndVerify(c *check.C, d *daemon.Daemon, kept, pruned []string) 
 	for _, s := range pruned {
 		waitAndAssert(c, defaultReconciliationTimeout, func(*check.C) (interface{}, check.CommentInterface) {
 			out, err := d.Cmd("network", "ls", "--format", "{{.Name}}")
-			assert.NilError(c, err)
+			c.Assert(err, checker.IsNil)
 			return out, nil
 		}, checker.Not(checker.Contains), s)
 	}
@@ -43,17 +42,17 @@ func pruneNetworkAndVerify(c *check.C, d *daemon.Daemon, kept, pruned []string) 
 func (s *DockerSwarmSuite) TestPruneNetwork(c *check.C) {
 	d := s.AddDaemon(c, true, true)
 	_, err := d.Cmd("network", "create", "n1") // used by container (testprune)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	_, err = d.Cmd("network", "create", "n2")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	_, err = d.Cmd("network", "create", "n3", "--driver", "overlay") // used by service (testprunesvc)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	_, err = d.Cmd("network", "create", "n4", "--driver", "overlay")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	cName := "testprune"
 	_, err = d.Cmd("run", "-d", "--name", cName, "--net", "n1", "busybox", "top")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	serviceName := "testprunesvc"
 	replicas := 1
@@ -62,8 +61,8 @@ func (s *DockerSwarmSuite) TestPruneNetwork(c *check.C) {
 		"--replicas", strconv.Itoa(replicas),
 		"--network", "n3",
 		"busybox", "top")
-	assert.NilError(c, err)
-	assert.Assert(c, strings.TrimSpace(out) != "")
+	c.Assert(err, checker.IsNil)
+	c.Assert(strings.TrimSpace(out), checker.Not(checker.Equals), "")
 	waitAndAssert(c, defaultReconciliationTimeout, d.CheckActiveContainerCount, checker.Equals, replicas+1)
 
 	// prune and verify
@@ -71,9 +70,9 @@ func (s *DockerSwarmSuite) TestPruneNetwork(c *check.C) {
 
 	// remove containers, then prune and verify again
 	_, err = d.Cmd("rm", "-f", cName)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	_, err = d.Cmd("service", "rm", serviceName)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	waitAndAssert(c, defaultReconciliationTimeout, d.CheckActiveContainerCount, checker.Equals, 0)
 
 	pruneNetworkAndVerify(c, d, []string{}, []string{"n1", "n3"})
@@ -91,23 +90,23 @@ func (s *DockerDaemonSuite) TestPruneImageDangling(c *check.C) {
 	id := strings.TrimSpace(result.Combined())
 
 	out, err := s.d.Cmd("images", "-q", "--no-trunc")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id)
 
 	out, err = s.d.Cmd("image", "prune", "--force")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id)
 
 	out, err = s.d.Cmd("images", "-q", "--no-trunc")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id)
 
 	out, err = s.d.Cmd("image", "prune", "--force", "--all")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id)
 
 	out, err = s.d.Cmd("images", "-q", "--no-trunc")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id)
 }
 
@@ -151,10 +150,10 @@ func (s *DockerSuite) TestPruneContainerLabel(c *check.C) {
 	// Add a config file of label=foobar, that will have no impact if cli is label!=foobar
 	config := `{"pruneFilters": ["label=foobar"]}`
 	d, err := ioutil.TempDir("", "integration-cli-")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	defer os.RemoveAll(d)
 	err = ioutil.WriteFile(filepath.Join(d, "config.json"), []byte(config), 0644)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	// With config.json only, prune based on label=foobar
 	out = cli.DockerCmd(c, "--config", d, "container", "prune", "--force").Combined()
@@ -209,10 +208,10 @@ func (s *DockerSuite) TestPruneVolumeLabel(c *check.C) {
 	// Add a config file of label=foobar, that will have no impact if cli is label!=foobar
 	config := `{"pruneFilters": ["label=foobar"]}`
 	d, err := ioutil.TempDir("", "integration-cli-")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	defer os.RemoveAll(d)
 	err = ioutil.WriteFile(filepath.Join(d, "config.json"), []byte(config), 0644)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	// With config.json only, prune based on label=foobar
 	out, _ = dockerCmd(c, "--config", d, "volume", "prune", "--force")
@@ -279,7 +278,7 @@ func (s *DockerDaemonSuite) TestPruneImageLabel(c *check.C) {
 	result.Assert(c, icmd.Success)
 	id1 := strings.TrimSpace(result.Combined())
 	out, err := s.d.Cmd("images", "-q", "--no-trunc")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id1)
 
 	result = cli.BuildCmd(c, "test2", cli.Daemon(s.d),
@@ -290,21 +289,21 @@ func (s *DockerDaemonSuite) TestPruneImageLabel(c *check.C) {
 	result.Assert(c, icmd.Success)
 	id2 := strings.TrimSpace(result.Combined())
 	out, err = s.d.Cmd("images", "-q", "--no-trunc")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id2)
 
 	out, err = s.d.Cmd("image", "prune", "--force", "--all", "--filter", "label=foo=bar")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id1)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id2)
 
 	out, err = s.d.Cmd("image", "prune", "--force", "--all", "--filter", "label!=bar=foo")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id1)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id2)
 
 	out, err = s.d.Cmd("image", "prune", "--force", "--all", "--filter", "label=bar=foo")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	c.Assert(strings.TrimSpace(out), checker.Not(checker.Contains), id1)
 	c.Assert(strings.TrimSpace(out), checker.Contains, id2)
 }

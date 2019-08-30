@@ -11,7 +11,6 @@ import (
 	"github.com/containerd/containerd/snapshots"
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/layer"
-	"github.com/docker/docker/pkg/idtools"
 	"github.com/moby/buildkit/identity"
 	"github.com/moby/buildkit/snapshot"
 	digest "github.com/opencontainers/go-digest"
@@ -26,10 +25,9 @@ var keySize = []byte("size")
 
 // Opt defines options for creating the snapshotter
 type Opt struct {
-	GraphDriver     graphdriver.Driver
-	LayerStore      layer.Store
-	Root            string
-	IdentityMapping *idtools.IdentityMapping
+	GraphDriver graphdriver.Driver
+	LayerStore  layer.Store
+	Root        string
 }
 
 type graphIDRegistrar interface {
@@ -73,14 +71,6 @@ func NewSnapshotter(opt Opt) (snapshot.SnapshotterBase, error) {
 		reg:  reg,
 	}
 	return s, nil
-}
-
-func (s *snapshotter) Name() string {
-	return "default"
-}
-
-func (s *snapshotter) IdentityMapping() *idtools.IdentityMapping {
-	return s.opt.IdentityMapping
 }
 
 func (s *snapshotter) Prepare(ctx context.Context, key, parent string, opts ...snapshots.Opt) error {
@@ -254,24 +244,24 @@ func (s *snapshotter) Mounts(ctx context.Context, key string) (snapshot.Mountabl
 		id := identity.NewID()
 		var rwlayer layer.RWLayer
 		return &mountable{
-			idmap: s.opt.IdentityMapping,
-			acquire: func() ([]mount.Mount, func() error, error) {
+			acquire: func() ([]mount.Mount, error) {
 				rwlayer, err = s.opt.LayerStore.CreateRWLayer(id, l.ChainID(), nil)
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				rootfs, err := rwlayer.Mount("")
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
 				return []mount.Mount{{
-						Source:  rootfs.Path(),
-						Type:    "bind",
-						Options: []string{"rbind"},
-					}}, func() error {
-						_, err := s.opt.LayerStore.ReleaseRWLayer(rwlayer)
-						return err
-					}, nil
+					Source:  rootfs.Path(),
+					Type:    "bind",
+					Options: []string{"rbind"},
+				}}, nil
+			},
+			release: func() error {
+				_, err := s.opt.LayerStore.ReleaseRWLayer(rwlayer)
+				return err
 			},
 		}, nil
 	}
@@ -279,19 +269,19 @@ func (s *snapshotter) Mounts(ctx context.Context, key string) (snapshot.Mountabl
 	id, _ := s.getGraphDriverID(key)
 
 	return &mountable{
-		idmap: s.opt.IdentityMapping,
-		acquire: func() ([]mount.Mount, func() error, error) {
+		acquire: func() ([]mount.Mount, error) {
 			rootfs, err := s.opt.GraphDriver.Get(id, "")
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 			return []mount.Mount{{
-					Source:  rootfs.Path(),
-					Type:    "bind",
-					Options: []string{"rbind"},
-				}}, func() error {
-					return s.opt.GraphDriver.Put(id)
-				}, nil
+				Source:  rootfs.Path(),
+				Type:    "bind",
+				Options: []string{"rbind"},
+			}}, nil
+		},
+		release: func() error {
+			return s.opt.GraphDriver.Put(id)
 		},
 	}, nil
 }
@@ -438,33 +428,31 @@ func (s *snapshotter) Close() error {
 type mountable struct {
 	mu       sync.Mutex
 	mounts   []mount.Mount
-	acquire  func() ([]mount.Mount, func() error, error)
+	acquire  func() ([]mount.Mount, error)
 	release  func() error
 	refCount int
-	idmap    *idtools.IdentityMapping
 }
 
-func (m *mountable) Mount() ([]mount.Mount, func() error, error) {
+func (m *mountable) Mount() ([]mount.Mount, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	if m.mounts != nil {
 		m.refCount++
-		return m.mounts, m.releaseMount, nil
+		return m.mounts, nil
 	}
 
-	mounts, release, err := m.acquire()
+	mounts, err := m.acquire()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	m.mounts = mounts
-	m.release = release
 	m.refCount = 1
 
-	return m.mounts, m.releaseMount, nil
+	return m.mounts, nil
 }
 
-func (m *mountable) releaseMount() error {
+func (m *mountable) Release() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -479,12 +467,5 @@ func (m *mountable) releaseMount() error {
 	}
 
 	m.mounts = nil
-	defer func() {
-		m.release = nil
-	}()
 	return m.release()
-}
-
-func (m *mountable) IdentityMapping() *idtools.IdentityMapping {
-	return m.idmap
 }

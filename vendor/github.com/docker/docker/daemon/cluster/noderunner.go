@@ -298,11 +298,6 @@ func (n *nodeRunner) Stop() error {
 		n.cancelReconnect = nil
 	}
 	if n.swarmNode == nil {
-		// even though the swarm node is nil we still may need
-		// to send a node leave event to perform any cleanup required.
-		if n.cluster != nil {
-			n.cluster.SendClusterEvent(lncluster.EventNodeLeave)
-		}
 		n.mu.Unlock()
 		return nil
 	}

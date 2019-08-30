@@ -9,12 +9,13 @@ import (
 	"io/ioutil"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/versions"
-	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/internal/test/fakecontext"
+	"github.com/docker/docker/internal/test/request"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
@@ -24,7 +25,7 @@ import (
 func TestBuildWithRemoveAndForceRemove(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType == "windows", "FIXME")
 	defer setupTest(t)()
-
+	t.Parallel()
 	cases := []struct {
 		name                           string
 		dockerfile                     string
@@ -88,7 +89,7 @@ func TestBuildWithRemoveAndForceRemove(t *testing.T) {
 		},
 	}
 
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -136,57 +137,6 @@ func buildContainerIdsFilter(buildOutput io.Reader) (filters.Args, error) {
 	}
 }
 
-// TestBuildMultiStageCopy verifies that copying between stages works correctly.
-//
-// Regression test for docker/for-win#4349, ENGCORE-935, where creating the target
-// directory failed on Windows, because `os.MkdirAll()` was called with a volume
-// GUID path (\\?\Volume{dae8d3ac-b9a1-11e9-88eb-e8554b2ba1db}\newdir\hello}),
-// which currently isn't supported by Golang.
-func TestBuildMultiStageCopy(t *testing.T) {
-	ctx := context.Background()
-
-	dockerfile, err := ioutil.ReadFile("testdata/Dockerfile." + t.Name())
-	assert.NilError(t, err)
-
-	source := fakecontext.New(t, "", fakecontext.WithDockerfile(string(dockerfile)))
-	defer source.Close()
-
-	apiclient := testEnv.APIClient()
-
-	for _, target := range []string{"copy_to_root", "copy_to_newdir", "copy_to_newdir_nested", "copy_to_existingdir", "copy_to_newsubdir"} {
-		t.Run(target, func(t *testing.T) {
-			imgName := strings.ToLower(t.Name())
-
-			resp, err := apiclient.ImageBuild(
-				ctx,
-				source.AsTarReader(t),
-				types.ImageBuildOptions{
-					Remove:      true,
-					ForceRemove: true,
-					Target:      target,
-					Tags:        []string{imgName},
-				},
-			)
-			assert.NilError(t, err)
-
-			out := bytes.NewBuffer(nil)
-			_, err = io.Copy(out, resp.Body)
-			_ = resp.Body.Close()
-			if err != nil {
-				t.Log(out)
-			}
-			assert.NilError(t, err)
-
-			// verify the image was successfully built
-			_, _, err = apiclient.ImageInspectWithRaw(ctx, imgName)
-			if err != nil {
-				t.Log(out)
-			}
-			assert.NilError(t, err)
-		})
-	}
-}
-
 func TestBuildMultiStageParentConfig(t *testing.T) {
 	skip.If(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.35"), "broken in earlier versions")
 	skip.If(t, testEnv.DaemonInfo.OSType == "windows", "FIXME")
@@ -218,6 +168,12 @@ func TestBuildMultiStageParentConfig(t *testing.T) {
 	_, err = io.Copy(ioutil.Discard, resp.Body)
 	resp.Body.Close()
 	assert.NilError(t, err)
+
+	time.Sleep(30 * time.Second)
+
+	imgs, err := apiclient.ImageList(ctx, types.ImageListOptions{})
+	assert.NilError(t, err)
+	t.Log(imgs)
 
 	image, _, err := apiclient.ImageInspectWithRaw(ctx, "build1")
 	assert.NilError(t, err)
@@ -517,129 +473,6 @@ RUN for g in $(seq 0 8); do dd if=/dev/urandom of=rnd bs=1K count=1 seek=$((1024
 	resp.Body.Close()
 	assert.NilError(t, err)
 	assert.Check(t, is.Contains(out.String(), "Successfully built"))
-}
-
-func TestBuildWithEmptyDockerfile(t *testing.T) {
-	skip.If(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.40"), "broken in earlier versions")
-	ctx := context.TODO()
-	defer setupTest(t)()
-
-	tests := []struct {
-		name        string
-		dockerfile  string
-		expectedErr string
-	}{
-		{
-			name:        "empty-dockerfile",
-			dockerfile:  "",
-			expectedErr: "cannot be empty",
-		},
-		{
-			name: "empty-lines-dockerfile",
-			dockerfile: `
-			
-			
-			
-			`,
-			expectedErr: "file with no instructions",
-		},
-		{
-			name:        "comment-only-dockerfile",
-			dockerfile:  `# this is a comment`,
-			expectedErr: "file with no instructions",
-		},
-	}
-
-	apiclient := testEnv.APIClient()
-
-	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			buf := bytes.NewBuffer(nil)
-			w := tar.NewWriter(buf)
-			writeTarRecord(t, w, "Dockerfile", tc.dockerfile)
-			err := w.Close()
-			assert.NilError(t, err)
-
-			_, err = apiclient.ImageBuild(ctx,
-				buf,
-				types.ImageBuildOptions{
-					Remove:      true,
-					ForceRemove: true,
-				})
-
-			assert.Check(t, is.Contains(err.Error(), tc.expectedErr))
-		})
-	}
-}
-
-func TestBuildPreserveOwnership(t *testing.T) {
-	skip.If(t, testEnv.DaemonInfo.OSType == "windows", "FIXME")
-	skip.If(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.40"), "broken in earlier versions")
-
-	ctx := context.Background()
-
-	dockerfile, err := ioutil.ReadFile("testdata/Dockerfile.testBuildPreserveOwnership")
-	assert.NilError(t, err)
-
-	source := fakecontext.New(t, "", fakecontext.WithDockerfile(string(dockerfile)))
-	defer source.Close()
-
-	apiclient := testEnv.APIClient()
-
-	for _, target := range []string{"copy_from", "copy_from_chowned"} {
-		t.Run(target, func(t *testing.T) {
-			resp, err := apiclient.ImageBuild(
-				ctx,
-				source.AsTarReader(t),
-				types.ImageBuildOptions{
-					Remove:      true,
-					ForceRemove: true,
-					Target:      target,
-				},
-			)
-			assert.NilError(t, err)
-
-			out := bytes.NewBuffer(nil)
-			_, err = io.Copy(out, resp.Body)
-			_ = resp.Body.Close()
-			if err != nil {
-				t.Log(out)
-			}
-			assert.NilError(t, err)
-		})
-	}
-}
-
-func TestBuildPlatformInvalid(t *testing.T) {
-	skip.If(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.40"), "experimental in older versions")
-
-	ctx := context.Background()
-	defer setupTest(t)()
-
-	dockerfile := `FROM busybox
-`
-
-	buf := bytes.NewBuffer(nil)
-	w := tar.NewWriter(buf)
-	writeTarRecord(t, w, "Dockerfile", dockerfile)
-	err := w.Close()
-	assert.NilError(t, err)
-
-	apiclient := testEnv.APIClient()
-	_, err = apiclient.ImageBuild(ctx,
-		buf,
-		types.ImageBuildOptions{
-			Remove:      true,
-			ForceRemove: true,
-			Platform:    "foobar",
-		})
-
-	assert.Assert(t, err != nil)
-	assert.ErrorContains(t, err, "unknown operating system or architecture")
-	assert.Assert(t, errdefs.IsInvalidParameter(err))
 }
 
 func writeTarRecord(t *testing.T, w *tar.Writer, fn, contents string) {

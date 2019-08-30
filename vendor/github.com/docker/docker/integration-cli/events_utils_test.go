@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	eventstestutils "github.com/docker/docker/daemon/events/testutils"
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
 	"github.com/sirupsen/logrus"
-	"gotest.tools/assert"
 )
 
 // eventMatcher is a function that tries to match an event input.
@@ -155,7 +155,7 @@ func eventActionsByIDAndType(c *check.C, events []string, id, eventType string) 
 	var filtered []string
 	for _, event := range events {
 		matches := eventstestutils.ScanMap(event)
-		assert.Assert(c, matches != nil)
+		c.Assert(matches, checker.Not(checker.IsNil))
 		if matchIDAndEventType(matches, id, eventType) {
 			filtered = append(filtered, matches["action"])
 		}
@@ -188,8 +188,8 @@ func parseEvents(c *check.C, out, match string) {
 	for _, event := range events {
 		matches := eventstestutils.ScanMap(event)
 		matched, err := regexp.MatchString(match, matches["action"])
-		assert.NilError(c, err)
-		assert.Assert(c, matched, "Matcher: %s did not match %s", match, matches["action"])
+		c.Assert(err, checker.IsNil)
+		c.Assert(matched, checker.True, check.Commentf("Matcher: %s did not match %s", match, matches["action"]))
 	}
 }
 
@@ -197,10 +197,10 @@ func parseEventsWithID(c *check.C, out, match, id string) {
 	events := strings.Split(strings.TrimSpace(out), "\n")
 	for _, event := range events {
 		matches := eventstestutils.ScanMap(event)
-		assert.Assert(c, matchEventID(matches, id))
+		c.Assert(matchEventID(matches, id), checker.True)
 
 		matched, err := regexp.MatchString(match, matches["action"])
-		assert.NilError(c, err)
-		assert.Assert(c, matched, "Matcher: %s did not match %s", match, matches["action"])
+		c.Assert(err, checker.IsNil)
+		c.Assert(matched, checker.True, check.Commentf("Matcher: %s did not match %s", match, matches["action"]))
 	}
 }

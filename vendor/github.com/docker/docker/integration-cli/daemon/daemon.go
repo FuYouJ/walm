@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/internal/test/daemon"
 	"github.com/go-check/check"
 	"github.com/pkg/errors"
@@ -90,7 +91,7 @@ func (d *Daemon) inspectFieldWithError(name, field string) (string, error) {
 // FIXME(vdemeester) should re-use ActivateContainers in some way
 func (d *Daemon) CheckActiveContainerCount(c *check.C) (interface{}, check.CommentInterface) {
 	out, err := d.Cmd("ps", "-q")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	if len(strings.TrimSpace(out)) == 0 {
 		return 0, nil
 	}

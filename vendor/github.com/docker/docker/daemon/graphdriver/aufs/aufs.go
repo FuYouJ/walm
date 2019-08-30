@@ -34,6 +34,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/daemon/graphdriver"
 	"github.com/docker/docker/pkg/archive"
@@ -71,6 +72,7 @@ func init() {
 
 // Driver contains information about the filesystem mounted.
 type Driver struct {
+	sync.Mutex
 	root          string
 	uidMaps       []idtools.IDMap
 	gidMaps       []idtools.IDMap
@@ -79,7 +81,6 @@ type Driver struct {
 	pathCache     map[string]string
 	naiveDiff     graphdriver.DiffDriver
 	locker        *locker.Locker
-	mntL          sync.Mutex
 }
 
 // Init returns a new AUFS driver.
@@ -306,9 +307,36 @@ func (a *Driver) Remove(id string) error {
 		mountpoint = a.getMountpoint(id)
 	}
 
-	if err := a.unmount(mountpoint); err != nil {
-		logger.WithError(err).WithField("method", "Remove()").Warn()
-		return err
+	logger := logger.WithField("layer", id)
+
+	var retries int
+	for {
+		mounted, err := a.mounted(mountpoint)
+		if err != nil {
+			if os.IsNotExist(err) {
+				break
+			}
+			return err
+		}
+		if !mounted {
+			break
+		}
+
+		err = a.unmount(mountpoint)
+		if err == nil {
+			break
+		}
+
+		if err != unix.EBUSY {
+			return errors.Wrapf(err, "aufs: unmount error: %s", mountpoint)
+		}
+		if retries >= 5 {
+			return errors.Wrapf(err, "aufs: unmount error after retries: %s", mountpoint)
+		}
+		// If unmount returns EBUSY, it could be a transient error. Sleep and retry.
+		retries++
+		logger.Warnf("unmount failed due to EBUSY: retry count: %d", retries)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	// Remove the layers file for the id
@@ -409,7 +437,7 @@ func (a *Driver) Put(id string) error {
 
 	err := a.unmount(m)
 	if err != nil {
-		logger.WithError(err).WithField("method", "Put()").Warn()
+		logger.Debugf("Failed to unmount %s aufs: %v", id, err)
 	}
 	return err
 }
@@ -519,6 +547,9 @@ func (a *Driver) getParentLayerPaths(id string) ([]string, error) {
 }
 
 func (a *Driver) mount(id string, target string, mountLabel string, layers []string) error {
+	a.Lock()
+	defer a.Unlock()
+
 	// If the id is mounted or we get an error return
 	if mounted, err := a.mounted(target); err != nil || mounted {
 		return err
@@ -533,6 +564,9 @@ func (a *Driver) mount(id string, target string, mountLabel string, layers []str
 }
 
 func (a *Driver) unmount(mountPath string) error {
+	a.Lock()
+	defer a.Unlock()
+
 	if mounted, err := a.mounted(mountPath); err != nil || !mounted {
 		return err
 	}
@@ -545,20 +579,23 @@ func (a *Driver) mounted(mountpoint string) (bool, error) {
 
 // Cleanup aufs and unmount all mountpoints
 func (a *Driver) Cleanup() error {
-	dir := a.mntPath()
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return errors.Wrap(err, "aufs readdir error")
-	}
-	for _, f := range files {
-		if !f.IsDir() {
-			continue
+	var dirs []string
+	if err := filepath.Walk(a.mntPath(), func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
+		if !info.IsDir() {
+			return nil
+		}
+		dirs = append(dirs, path)
+		return nil
+	}); err != nil {
+		return err
+	}
 
-		m := path.Join(dir, f.Name())
-
+	for _, m := range dirs {
 		if err := a.unmount(m); err != nil {
-			logger.WithError(err).WithField("method", "Cleanup()").Warn()
+			logger.Debugf("error unmounting %s: %s", m, err)
 		}
 	}
 	return mount.RecursiveUnmount(a.root)
@@ -567,7 +604,7 @@ func (a *Driver) Cleanup() error {
 func (a *Driver) aufsMount(ro []string, rw, target, mountLabel string) (err error) {
 	defer func() {
 		if err != nil {
-			mount.Unmount(target)
+			Unmount(target)
 		}
 	}()
 
@@ -595,29 +632,14 @@ func (a *Driver) aufsMount(ro []string, rw, target, mountLabel string) (err erro
 		opts += ",dirperm1"
 	}
 	data := label.FormatMountLabel(fmt.Sprintf("%s,%s", string(b[:bp]), opts), mountLabel)
-	a.mntL.Lock()
-	err = unix.Mount("none", target, "aufs", 0, data)
-	a.mntL.Unlock()
-	if err != nil {
-		err = errors.Wrap(err, "mount target="+target+" data="+data)
+	if err = unix.Mount("none", target, "aufs", 0, data); err != nil {
 		return
 	}
 
-	for index < len(ro) {
-		bp = 0
-		for ; index < len(ro); index++ {
-			layer := fmt.Sprintf("append:%s=ro+wh,", ro[index])
-			if bp+len(layer) > len(b) {
-				break
-			}
-			bp += copy(b[bp:], layer)
-		}
-		data := label.FormatMountLabel(string(b[:bp]), mountLabel)
-		a.mntL.Lock()
-		err = unix.Mount("none", target, "aufs", unix.MS_REMOUNT, data)
-		a.mntL.Unlock()
-		if err != nil {
-			err = errors.Wrap(err, "mount target="+target+" flags=MS_REMOUNT data="+data)
+	for ; index < len(ro); index++ {
+		layer := fmt.Sprintf(":%s=ro+wh", ro[index])
+		data := label.FormatMountLabel(fmt.Sprintf("append%s", layer), mountLabel)
+		if err = unix.Mount("none", target, "aufs", unix.MS_REMOUNT, data); err != nil {
 			return
 		}
 	}

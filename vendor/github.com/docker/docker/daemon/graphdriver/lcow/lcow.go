@@ -31,9 +31,21 @@
 //        -- Possible values:      Any local path that is not a mapped drive
 //        -- Default if omitted:  %ProgramFiles%\Linux Containers
 //
+//   * lcow.kernel - Specifies a custom kernel file located in the `lcow.kirdpath` path
+//        -- Possible values:      Any valid filename
+//        -- Default if omitted:  bootx64.efi
+//
+//   * lcow.initrd - Specifies a custom initrd file located in the `lcow.kirdpath` path
+//        -- Possible values:      Any valid filename
+//        -- Default if omitted:  initrd.img
+//
 //   * lcow.bootparameters - Specifies additional boot parameters for booting in kernel+initrd mode
 //        -- Possible values:      Any valid linux kernel boot options
 //        -- Default if omitted:  <nil>
+//
+//   * lcow.vhdx - Specifies a custom vhdx file to boot (instead of a kernel+initrd)
+//        -- Possible values:      Any valid filename
+//        -- Default if omitted:  uvm.vhdx under `lcow.kirdpath`
 //
 //   * lcow.timeout - Specifies a timeout for utility VM operations in seconds
 //        -- Possible values:      >=0
@@ -58,7 +70,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/Microsoft/go-winio/pkg/security"
 	"github.com/Microsoft/hcsshim"
 	"github.com/Microsoft/hcsshim/ext4/tar2ext4"
 	"github.com/Microsoft/opengcs/client"
@@ -68,6 +79,7 @@ import (
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/ioutils"
 	"github.com/docker/docker/pkg/reexec"
+	"github.com/docker/docker/pkg/system"
 	"github.com/sirupsen/logrus"
 )
 
@@ -608,11 +620,10 @@ func (d *Driver) Create(id, parent string, opts *graphdriver.CreateOpts) error {
 	}
 	layerChain = append(layerChain, parentChain...)
 
+	// Make sure layers are created with the correct ACL so that VMs can access them.
 	layerPath := d.dir(id)
 	logrus.Debugf("lcowdriver: create: id %s: creating %s", id, layerPath)
-	// Standard mkdir here, not with SDDL as the dataroot was created with
-	// inheritance to just local system and administrators.
-	if err := os.MkdirAll(layerPath, 0700); err != nil {
+	if err := system.MkdirAllWithACL(layerPath, 755, system.SddlNtvmAdministratorsLocalSystem); err != nil {
 		return err
 	}
 
@@ -869,30 +880,14 @@ func (d *Driver) ApplyDiff(id, parent string, diff io.Reader) (int64, error) {
 			logrus.Warnf("lcowdriver: applydiff: id %s failed %s", id, err)
 			return 0, fmt.Errorf("re-exec error: %v: stderr: %s", err, stderr)
 		}
-
-		size, err := strconv.ParseInt(stdout.String(), 10, 64)
-		if err != nil {
-			logrus.Warnf("lcowdriver: applydiff: id %s failed to parse output %s", id, err)
-			return 0, fmt.Errorf("re-exec error: %v: stdout: %s", err, stdout)
-		}
-		return applySID(id, size, dest)
-
+		return strconv.ParseInt(stdout.String(), 10, 64)
 	}
 	// The inline case
 	size, err := tar2ext4Actual(dest, diff)
 	if err != nil {
 		logrus.Warnf("lcowdriver: applydiff: id %s failed %s", id, err)
 	}
-	return applySID(id, size, dest)
-}
-
-// applySID adds the VM Group SID read-only access.
-func applySID(id string, size int64, dest string) (int64, error) {
-	if err := security.GrantVmGroupAccess(dest); err != nil {
-		logrus.Warnf("lcowdriver: applySIDs: id %s failed %s", id, err)
-		return 0, err
-	}
-	return size, nil
+	return size, err
 }
 
 // tar2ext4Reexec is the re-exec entry point for writing a layer from a tar file
@@ -1109,11 +1104,6 @@ func (fgc *fileGetCloserFromSVM) Get(filename string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("inconsistency detected: couldn't get short container path for %+v in utility VM %s", fgc.mvd, fgc.svm.config.Name)
 	}
 	file := path.Join(actualContainerPath, filename)
-
-	// Ugly fix for MSFT internal bug VSO#19696554
-	// If a file name contains a space, pushing an image fails.
-	// Using solution from https://groups.google.com/forum/#!topic/Golang-Nuts/DpldsmrhPio to escape for shell execution
-	file = "'" + strings.Join(strings.Split(file, "'"), `'"'"'`) + "'"
 	if err := fgc.svm.runProcess(fmt.Sprintf("cat %s", file), nil, outOut, errOut); err != nil {
 		logrus.Debugf("cat %s failed: %s", file, errOut.String())
 		return nil, err

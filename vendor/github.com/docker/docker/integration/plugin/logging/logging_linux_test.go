@@ -16,7 +16,7 @@ import (
 )
 
 func TestContinueAfterPluginCrash(t *testing.T) {
-	skip.If(t, testEnv.IsRemoteDaemon, "test requires daemon on the same host")
+	skip.If(t, testEnv.IsRemoteDaemon(), "test requires daemon on the same host")
 	t.Parallel()
 
 	d := daemon.New(t)
@@ -33,7 +33,7 @@ func TestContinueAfterPluginCrash(t *testing.T) {
 
 	ctx, cancel = context.WithTimeout(context.Background(), 60*time.Second)
 
-	id := container.Run(ctx, t, client,
+	id := container.Run(t, ctx, client,
 		container.WithAutoRemove,
 		container.WithLogDriver("test"),
 		container.WithCmd(
@@ -45,7 +45,7 @@ func TestContinueAfterPluginCrash(t *testing.T) {
 
 	// Attach to the container to make sure it's written a few times to stdout
 	attach, err := client.ContainerAttach(context.Background(), id, types.ContainerAttachOptions{Stream: true, Stdout: true})
-	assert.NilError(t, err)
+	assert.Assert(t, err)
 
 	chErr := make(chan error)
 	go func() {
@@ -62,7 +62,7 @@ func TestContinueAfterPluginCrash(t *testing.T) {
 
 	select {
 	case err := <-chErr:
-		assert.NilError(t, err)
+		assert.Assert(t, err)
 	case <-time.After(60 * time.Second):
 		t.Fatal("timeout waiting for container i/o")
 	}
@@ -71,7 +71,7 @@ func TestContinueAfterPluginCrash(t *testing.T) {
 	// TODO(@cpuguy83): This is horribly hacky but is the only way to really test this case right now.
 	// It would be nice if there was a way to know that a broken pipe has occurred without looking through the logs.
 	log, err := os.Open(d.LogFileName())
-	assert.NilError(t, err)
+	assert.Assert(t, err)
 	scanner := bufio.NewScanner(log)
 	for scanner.Scan() {
 		assert.Assert(t, !strings.Contains(scanner.Text(), "broken pipe"))

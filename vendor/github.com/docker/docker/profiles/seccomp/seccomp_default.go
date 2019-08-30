@@ -155,7 +155,6 @@ func DefaultProfile() *types.Seccomp {
 				"ioctl",
 				"io_destroy",
 				"io_getevents",
-				"io_pgetevents",
 				"ioprio_get",
 				"ioprio_set",
 				"io_setup",
@@ -307,7 +306,6 @@ func DefaultProfile() *types.Seccomp {
 				"sigaltstack",
 				"signalfd",
 				"signalfd4",
-				"sigprocmask",
 				"sigreturn",
 				"socket",
 				"socketcall",
@@ -357,13 +355,6 @@ func DefaultProfile() *types.Seccomp {
 			},
 			Action: types.ActAllow,
 			Args:   []*types.Arg{},
-		},
-		{
-			Names:  []string{"ptrace"},
-			Action: types.ActAllow,
-			Includes: types.Filter{
-				MinKernel: "4.8",
-			},
 		},
 		{
 			Names:  []string{"personality"},
@@ -519,7 +510,7 @@ func DefaultProfile() *types.Seccomp {
 			Args: []*types.Arg{
 				{
 					Index:    0,
-					Value:    unix.CLONE_NEWNS | unix.CLONE_NEWUTS | unix.CLONE_NEWIPC | unix.CLONE_NEWUSER | unix.CLONE_NEWPID | unix.CLONE_NEWNET | unix.CLONE_NEWCGROUP,
+					Value:    unix.CLONE_NEWNS | unix.CLONE_NEWUTS | unix.CLONE_NEWIPC | unix.CLONE_NEWUSER | unix.CLONE_NEWPID | unix.CLONE_NEWNET,
 					ValueTwo: 0,
 					Op:       types.OpMaskedEqual,
 				},
@@ -537,7 +528,7 @@ func DefaultProfile() *types.Seccomp {
 			Args: []*types.Arg{
 				{
 					Index:    1,
-					Value:    unix.CLONE_NEWNS | unix.CLONE_NEWUTS | unix.CLONE_NEWIPC | unix.CLONE_NEWUSER | unix.CLONE_NEWPID | unix.CLONE_NEWNET | unix.CLONE_NEWCGROUP,
+					Value:    unix.CLONE_NEWNS | unix.CLONE_NEWUTS | unix.CLONE_NEWIPC | unix.CLONE_NEWUSER | unix.CLONE_NEWPID | unix.CLONE_NEWNET,
 					ValueTwo: 0,
 					Op:       types.OpMaskedEqual,
 				},

@@ -369,17 +369,11 @@ func (r *controller) Shutdown(ctx context.Context) error {
 	}
 
 	if err := r.adapter.shutdown(ctx); err != nil {
-		if !(isUnknownContainer(err) || isStoppedContainer(err)) {
-			return err
+		if isUnknownContainer(err) || isStoppedContainer(err) {
+			return nil
 		}
-	}
 
-	// Try removing networks referenced in this task in case this
-	// task is the last one referencing it
-	if err := r.adapter.removeNetworks(ctx); err != nil {
-		if !isUnknownContainer(err) {
-			return err
-		}
+		return err
 	}
 
 	return nil
@@ -423,6 +417,15 @@ func (r *controller) Remove(ctx context.Context) error {
 		}
 		// This may fail if the task was already shut down.
 		log.G(ctx).WithError(err).Debug("shutdown failed on removal")
+	}
+
+	// Try removing networks referenced in this task in case this
+	// task is the last one referencing it
+	if err := r.adapter.removeNetworks(ctx); err != nil {
+		if isUnknownContainer(err) {
+			return nil
+		}
+		return err
 	}
 
 	if err := r.adapter.remove(ctx); err != nil {
@@ -508,9 +511,7 @@ func (r *controller) Logs(ctx context.Context, publisher exec.LogPublisher, opti
 	var (
 		// use a rate limiter to keep things under control but also provides some
 		// ability coalesce messages.
-		// this will implement a "token bucket" of size 10 MB, initially full and refilled
-		// at rate 10 MB tokens per second.
-		limiter = rate.NewLimiter(10<<20, 10<<20) // 10 MB/s
+		limiter = rate.NewLimiter(rate.Every(time.Second), 10<<20) // 10 MB/s
 		msgctx  = api.LogContext{
 			NodeID:    r.task.NodeID,
 			ServiceID: r.task.ServiceID,

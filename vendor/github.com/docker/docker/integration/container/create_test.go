@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"testing"
 	"time"
@@ -12,8 +13,6 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/versions"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/errdefs"
 	ctr "github.com/docker/docker/integration/internal/container"
 	"github.com/docker/docker/internal/test/request"
 	"github.com/docker/docker/oci"
@@ -25,7 +24,7 @@ import (
 
 func TestCreateFailsWhenIdentifierDoesNotExist(t *testing.T) {
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 
 	testCases := []struct {
 		doc           string
@@ -60,14 +59,13 @@ func TestCreateFailsWhenIdentifierDoesNotExist(t *testing.T) {
 				"",
 			)
 			assert.Check(t, is.ErrorContains(err, tc.expectedError))
-			assert.Check(t, errdefs.IsNotFound(err))
 		})
 	}
 }
 
 func TestCreateWithInvalidEnv(t *testing.T) {
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 
 	testCases := []struct {
 		env           string
@@ -101,7 +99,6 @@ func TestCreateWithInvalidEnv(t *testing.T) {
 				"",
 			)
 			assert.Check(t, is.ErrorContains(err, tc.expectedError))
-			assert.Check(t, errdefs.IsInvalidParameter(err))
 		})
 	}
 }
@@ -111,7 +108,7 @@ func TestCreateTmpfsMountsTarget(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType == "windows")
 
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 
 	testCases := []struct {
 		target        string
@@ -147,14 +144,13 @@ func TestCreateTmpfsMountsTarget(t *testing.T) {
 			"",
 		)
 		assert.Check(t, is.ErrorContains(err, tc.expectedError))
-		assert.Check(t, errdefs.IsInvalidParameter(err))
 	}
 }
 func TestCreateWithCustomMaskedPaths(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType != "linux")
 
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -229,137 +225,11 @@ func TestCreateWithCustomMaskedPaths(t *testing.T) {
 	}
 }
 
-func TestCreateWithCapabilities(t *testing.T) {
-	skip.If(t, testEnv.DaemonInfo.OSType == "windows", "FIXME: test should be able to run on LCOW")
-	skip.If(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.40"), "Capabilities was added in API v1.40")
-
-	defer setupTest(t)()
-	ctx := context.Background()
-	clientNew := request.NewAPIClient(t)
-	clientOld := request.NewAPIClient(t, client.WithVersion("1.39"))
-
-	testCases := []struct {
-		doc           string
-		hostConfig    container.HostConfig
-		expected      []string
-		expectedError string
-		oldClient     bool
-	}{
-		{
-			doc:        "no capabilities",
-			hostConfig: container.HostConfig{},
-		},
-		{
-			doc: "empty capabilities",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{},
-			},
-			expected: []string{},
-		},
-		{
-			doc: "valid capabilities",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{"CAP_NET_RAW", "CAP_SYS_CHROOT"},
-			},
-			expected: []string{"CAP_NET_RAW", "CAP_SYS_CHROOT"},
-		},
-		{
-			doc: "invalid capabilities",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{"NET_RAW"},
-			},
-			expectedError: `invalid Capabilities: unknown capability: "NET_RAW"`,
-		},
-		{
-			doc: "duplicate capabilities",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{"CAP_SYS_NICE", "CAP_SYS_NICE"},
-			},
-			expected: []string{"CAP_SYS_NICE", "CAP_SYS_NICE"},
-		},
-		{
-			doc: "capabilities API v1.39",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{"CAP_NET_RAW", "CAP_SYS_CHROOT"},
-			},
-			expected:  nil,
-			oldClient: true,
-		},
-		{
-			doc: "empty capadd",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{"CAP_NET_ADMIN"},
-				CapAdd:       []string{},
-			},
-			expected: []string{"CAP_NET_ADMIN"},
-		},
-		{
-			doc: "empty capdrop",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{"CAP_NET_ADMIN"},
-				CapDrop:      []string{},
-			},
-			expected: []string{"CAP_NET_ADMIN"},
-		},
-		{
-			doc: "capadd capdrop",
-			hostConfig: container.HostConfig{
-				CapAdd:  []string{"SYS_NICE", "CAP_SYS_NICE"},
-				CapDrop: []string{"SYS_NICE", "CAP_SYS_NICE"},
-			},
-		},
-		{
-			doc: "conflict with capadd",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{"CAP_NET_ADMIN"},
-				CapAdd:       []string{"SYS_NICE"},
-			},
-			expectedError: `conflicting options: Capabilities and CapAdd`,
-		},
-		{
-			doc: "conflict with capdrop",
-			hostConfig: container.HostConfig{
-				Capabilities: []string{"CAP_NET_ADMIN"},
-				CapDrop:      []string{"NET_RAW"},
-			},
-			expectedError: `conflicting options: Capabilities and CapDrop`,
-		},
-	}
-
-	for _, tc := range testCases {
-		tc := tc
-		t.Run(tc.doc, func(t *testing.T) {
-			t.Parallel()
-			client := clientNew
-			if tc.oldClient {
-				client = clientOld
-			}
-
-			c, err := client.ContainerCreate(context.Background(),
-				&container.Config{Image: "busybox"},
-				&tc.hostConfig,
-				&network.NetworkingConfig{},
-				"",
-			)
-			if tc.expectedError == "" {
-				assert.NilError(t, err)
-				ci, err := client.ContainerInspect(ctx, c.ID)
-				assert.NilError(t, err)
-				assert.Check(t, ci.HostConfig != nil)
-				assert.DeepEqual(t, tc.expected, ci.HostConfig.Capabilities)
-			} else {
-				assert.ErrorContains(t, err, tc.expectedError)
-				assert.Check(t, errdefs.IsInvalidParameter(err))
-			}
-		})
-	}
-}
-
 func TestCreateWithCustomReadonlyPaths(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType != "linux")
 
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -436,8 +306,6 @@ func TestCreateWithCustomReadonlyPaths(t *testing.T) {
 
 func TestCreateWithInvalidHealthcheckParams(t *testing.T) {
 	defer setupTest(t)()
-	client := testEnv.APIClient()
-	ctx := context.Background()
 
 	testCases := []struct {
 		doc         string
@@ -485,31 +353,38 @@ func TestCreateWithInvalidHealthcheckParams(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
+		i := i
 		tc := tc
 		t.Run(tc.doc, func(t *testing.T) {
 			t.Parallel()
-			cfg := container.Config{
-				Image: "busybox",
-				Healthcheck: &container.HealthConfig{
-					Interval: tc.interval,
-					Timeout:  tc.timeout,
-					Retries:  tc.retries,
-				},
+			healthCheck := map[string]interface{}{
+				"Interval": tc.interval,
+				"Timeout":  tc.timeout,
+				"Retries":  tc.retries,
 			}
 			if tc.startPeriod != 0 {
-				cfg.Healthcheck.StartPeriod = tc.startPeriod
+				healthCheck["StartPeriod"] = tc.startPeriod
 			}
 
-			resp, err := client.ContainerCreate(ctx, &cfg, &container.HostConfig{}, nil, "")
-			assert.Check(t, is.Equal(len(resp.Warnings), 0))
+			config := map[string]interface{}{
+				"Image":       "busybox",
+				"Healthcheck": healthCheck,
+			}
+
+			res, body, err := request.Post("/containers/create?name="+fmt.Sprintf("test_%d_", i)+t.Name(), request.JSONBody(config))
+			assert.NilError(t, err)
 
 			if versions.LessThan(testEnv.DaemonAPIVersion(), "1.32") {
-				assert.Check(t, errdefs.IsSystem(err))
+				assert.Check(t, is.Equal(http.StatusInternalServerError, res.StatusCode))
 			} else {
-				assert.Check(t, errdefs.IsInvalidParameter(err))
+				assert.Check(t, is.Equal(http.StatusBadRequest, res.StatusCode))
 			}
-			assert.ErrorContains(t, err, tc.expectedErr)
+
+			buf, err := request.ReadBody(body)
+			assert.NilError(t, err)
+
+			assert.Check(t, is.Contains(string(buf), tc.expectedErr))
 		})
 	}
 }

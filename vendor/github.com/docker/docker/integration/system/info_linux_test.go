@@ -7,14 +7,14 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/docker/docker/internal/test/request"
 	req "github.com/docker/docker/internal/test/request"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 )
 
 func TestInfoBinaryCommits(t *testing.T) {
-	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 
 	info, err := client.Info(context.Background())
 	assert.NilError(t, err)

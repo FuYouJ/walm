@@ -144,7 +144,8 @@ func (c *Cluster) CreateService(s types.ServiceSpec, encodedAuth string, queryRe
 		case *swarmapi.TaskSpec_Generic:
 			switch serviceSpec.Task.GetGeneric().Kind {
 			case string(types.RuntimePlugin):
-				if !c.config.Backend.HasExperimental() {
+				info, _ := c.config.Backend.SystemInfo()
+				if !info.ExperimentalBuild {
 					return fmt.Errorf("runtime type %q only supported in experimental", types.RuntimePlugin)
 				}
 				if s.TaskTemplate.PluginSpec == nil {

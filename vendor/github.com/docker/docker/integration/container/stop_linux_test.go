@@ -10,6 +10,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/integration/internal/container"
+	"github.com/docker/docker/internal/test/request"
 	"gotest.tools/assert"
 	"gotest.tools/icmd"
 	"gotest.tools/poll"
@@ -21,7 +22,7 @@ import (
 // waiting is not limited (issue #35311).
 func TestStopContainerWithTimeout(t *testing.T) {
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
 	testCmd := container.WithCmd("sh", "-c", "sleep 2 && exit 42")
@@ -54,7 +55,7 @@ func TestStopContainerWithTimeout(t *testing.T) {
 		d := d
 		t.Run(strconv.Itoa(d.timeout), func(t *testing.T) {
 			t.Parallel()
-			id := container.Run(ctx, t, client, testCmd)
+			id := container.Run(t, ctx, client, testCmd)
 
 			timeout := time.Duration(d.timeout) * time.Second
 			err := client.ContainerStop(ctx, id, &timeout)
@@ -72,13 +73,13 @@ func TestStopContainerWithTimeout(t *testing.T) {
 
 func TestDeleteDevicemapper(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.Driver != "devicemapper")
-	skip.If(t, testEnv.IsRemoteDaemon)
+	skip.If(t, testEnv.IsRemoteDaemon, "cannot start daemon on remote test run")
 
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
-	id := container.Run(ctx, t, client, container.WithName("foo-"+t.Name()), container.WithCmd("echo"))
+	id := container.Run(t, ctx, client, container.WithName("foo-"+t.Name()), container.WithCmd("echo"))
 
 	poll.WaitOn(t, container.IsStopped(ctx, client, id), poll.WithDelay(100*time.Millisecond))
 

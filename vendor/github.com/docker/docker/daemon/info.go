@@ -21,14 +21,11 @@ import (
 	"github.com/docker/docker/pkg/system"
 	"github.com/docker/docker/registry"
 	"github.com/docker/go-connections/sockets"
-	"github.com/docker/go-metrics"
 	"github.com/sirupsen/logrus"
 )
 
 // SystemInfo returns information about the host server the daemon is running on.
 func (daemon *Daemon) SystemInfo() (*types.Info, error) {
-	defer metrics.StartTimer(hostInfoFunctions.WithValues("system_info"))()
-
 	sysInfo := sysinfo.New(true)
 	cRunning, cPaused, cStopped := stateCtr.get()
 
@@ -52,7 +49,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 		NEventsListener:    daemon.EventsService.SubscribersCount(),
 		KernelVersion:      kernelVersion(),
 		OperatingSystem:    operatingSystem(),
-		OSVersion:          osVersion(),
 		IndexServerAddress: registry.IndexServer,
 		OSType:             platform.OSType,
 		Architecture:       platform.Architecture,
@@ -86,8 +82,6 @@ func (daemon *Daemon) SystemInfo() (*types.Info, error) {
 
 // SystemVersion returns version information about the daemon.
 func (daemon *Daemon) SystemVersion() types.Version {
-	defer metrics.StartTimer(hostInfoFunctions.WithValues("system_version"))()
-
 	kernelVersion := kernelVersion()
 
 	v := types.Version{
@@ -124,7 +118,6 @@ func (daemon *Daemon) SystemVersion() types.Version {
 
 	v.Platform.Name = dockerversion.PlatformName
 
-	daemon.fillPlatformVersion(&v)
 	return v
 }
 
@@ -181,13 +174,6 @@ func (daemon *Daemon) fillSecurityOptions(v *types.Info, sysInfo *sysinfo.SysInf
 	if rootIDs := daemon.idMapping.RootPair(); rootIDs.UID != 0 || rootIDs.GID != 0 {
 		securityOptions = append(securityOptions, "name=userns")
 	}
-	if daemon.Rootless() {
-		securityOptions = append(securityOptions, "name=rootless")
-	}
-	if daemon.cgroupNamespacesEnabled(sysInfo) {
-		securityOptions = append(securityOptions, "name=cgroupns")
-	}
-
 	v.SecurityOptions = securityOptions
 }
 
@@ -246,9 +232,8 @@ func memInfo() *system.MemInfo {
 	return memInfo
 }
 
-func operatingSystem() (operatingSystem string) {
-	defer metrics.StartTimer(hostInfoFunctions.WithValues("operating_system"))()
-
+func operatingSystem() string {
+	var operatingSystem string
 	if s, err := operatingsystem.GetOperatingSystem(); err != nil {
 		logrus.Warnf("Could not get operating system name: %v", err)
 	} else {
@@ -263,19 +248,7 @@ func operatingSystem() (operatingSystem string) {
 			operatingSystem += " (containerized)"
 		}
 	}
-
 	return operatingSystem
-}
-
-func osVersion() (version string) {
-	defer metrics.StartTimer(hostInfoFunctions.WithValues("os_version"))()
-
-	version, err := operatingsystem.GetOperatingSystemVersion()
-	if err != nil {
-		logrus.Warnf("Could not get operating system version: %v", err)
-	}
-
-	return version
 }
 
 func maskCredentials(rawURL string) string {

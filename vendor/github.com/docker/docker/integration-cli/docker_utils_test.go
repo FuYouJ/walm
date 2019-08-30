@@ -16,12 +16,18 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/docker/docker/integration-cli/cli"
 	"github.com/docker/docker/integration-cli/daemon"
+	"github.com/docker/docker/internal/test/request"
 	"github.com/go-check/check"
-	"gotest.tools/assert"
 	"gotest.tools/icmd"
 )
+
+// Deprecated
+func daemonHost() string {
+	return request.DaemonHost()
+}
 
 func deleteImages(images ...string) error {
 	args := []string{dockerBinary, "rmi", "-f"}
@@ -66,7 +72,7 @@ func getContainerCount(c *check.C) int {
 			output = strings.TrimLeft(output, containers)
 			output = strings.Trim(output, " ")
 			containerCount, err := strconv.Atoi(output)
-			assert.NilError(c, err)
+			c.Assert(err, checker.IsNil)
 			return containerCount
 		}
 	}
@@ -100,7 +106,7 @@ func inspectFieldWithError(name, field string) (string, error) {
 func inspectField(c *check.C, name, field string) string {
 	out, err := inspectFilter(name, fmt.Sprintf(".%s", field))
 	if c != nil {
-		assert.NilError(c, err)
+		c.Assert(err, check.IsNil)
 	}
 	return out
 }
@@ -109,7 +115,7 @@ func inspectField(c *check.C, name, field string) string {
 func inspectFieldJSON(c *check.C, name, field string) string {
 	out, err := inspectFilter(name, fmt.Sprintf("json .%s", field))
 	if c != nil {
-		assert.NilError(c, err)
+		c.Assert(err, check.IsNil)
 	}
 	return out
 }
@@ -118,7 +124,7 @@ func inspectFieldJSON(c *check.C, name, field string) string {
 func inspectFieldMap(c *check.C, name, path, field string) string {
 	out, err := inspectFilter(name, fmt.Sprintf("index .%s %q", path, field))
 	if c != nil {
-		assert.NilError(c, err)
+		c.Assert(err, check.IsNil)
 	}
 	return out
 }
@@ -181,7 +187,7 @@ func inspectImage(c *check.C, name, filter string) string {
 
 func getIDByName(c *check.C, name string) string {
 	id, err := inspectFieldWithError(name, "Id")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	return id
 }
 
@@ -203,18 +209,18 @@ func writeFile(dst, content string, c *check.C) {
 	// Create subdirectories if necessary
 	c.Assert(os.MkdirAll(path.Dir(dst), 0700), check.IsNil)
 	f, err := os.OpenFile(dst, os.O_CREATE|os.O_RDWR|os.O_TRUNC, 0700)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 	defer f.Close()
 	// Write content (truncate if it exists)
 	_, err = io.Copy(f, strings.NewReader(content))
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 }
 
 // Return the contents of file at path `src`.
 // Fail the test when error occurs.
 func readFile(src string, c *check.C) (content string) {
 	data, err := ioutil.ReadFile(src)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	return string(data)
 }
@@ -236,11 +242,11 @@ func runCommandAndReadContainerFile(c *check.C, filename string, command string,
 
 func readContainerFile(c *check.C, containerID, filename string) []byte {
 	f, err := os.Open(containerStorageFile(containerID, filename))
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	defer f.Close()
 
 	content, err := ioutil.ReadAll(f)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	return content
 }
 
@@ -255,12 +261,12 @@ func daemonTime(c *check.C) time.Time {
 	if testEnv.IsLocalDaemon() {
 		return time.Now()
 	}
-	cli, err := client.NewClientWithOpts(client.FromEnv)
-	assert.NilError(c, err)
+	cli, err := client.NewEnvClient()
+	c.Assert(err, check.IsNil)
 	defer cli.Close()
 
 	info, err := cli.Info(context.Background())
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	dt, err := time.Parse(time.RFC3339Nano, info.SystemTime)
 	c.Assert(err, check.IsNil, check.Commentf("invalid time format in GET /info response"))
@@ -306,12 +312,12 @@ func appendBaseEnv(isTLS bool, env ...string) []string {
 
 func createTmpFile(c *check.C, content string) string {
 	f, err := ioutil.TempFile("", "testfile")
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	filename := f.Name()
 
 	err = ioutil.WriteFile(filename, []byte(content), 0644)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	return filename
 }
@@ -337,17 +343,17 @@ func waitInspectWithArgs(name, expr, expected string, timeout time.Duration, arg
 
 func getInspectBody(c *check.C, version, id string) []byte {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithVersion(version))
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 	defer cli.Close()
 	_, body, err := cli.ContainerInspectWithRaw(context.Background(), id, false)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 	return body
 }
 
 // Run a long running idle task in a background container using the
 // system-specific default image and command.
 func runSleepingContainer(c *check.C, extraArgs ...string) string {
-	return runSleepingContainerInImage(c, "busybox", extraArgs...)
+	return runSleepingContainerInImage(c, defaultSleepImage, extraArgs...)
 }
 
 // Run a long running idle task in a background container using the specified
@@ -367,7 +373,7 @@ func minimalBaseImage() string {
 }
 
 func getGoroutineNumber() (int, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.NewEnvClient()
 	if err != nil {
 		return 0, err
 	}

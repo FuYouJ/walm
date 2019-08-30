@@ -14,6 +14,7 @@ import (
 	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/integration/internal/container"
+	"github.com/docker/docker/internal/test/request"
 	"github.com/docker/docker/pkg/mount"
 	"github.com/docker/docker/pkg/system"
 	"gotest.tools/assert"
@@ -25,7 +26,7 @@ import (
 
 func TestContainerNetworkMountsNoChown(t *testing.T) {
 	// chown only applies to Linux bind mounted volumes; must be same host to verify
-	skip.If(t, testEnv.IsRemoteDaemon)
+	skip.If(t, testEnv.DaemonInfo.OSType == "windows" || testEnv.IsRemoteDaemon())
 
 	defer setupTest(t)()
 
@@ -59,7 +60,7 @@ func TestContainerNetworkMountsNoChown(t *testing.T) {
 		},
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv)
+	cli, err := client.NewEnvClient()
 	assert.NilError(t, err)
 	defer cli.Close()
 
@@ -85,10 +86,10 @@ func TestContainerNetworkMountsNoChown(t *testing.T) {
 }
 
 func TestMountDaemonRoot(t *testing.T) {
-	skip.If(t, testEnv.IsRemoteDaemon)
+	skip.If(t, testEnv.DaemonInfo.OSType == "windows" || testEnv.IsRemoteDaemon())
+	t.Parallel()
 
-	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 	info, err := client.Info(ctx)
 	if err != nil {
@@ -212,7 +213,7 @@ func TestMountDaemonRoot(t *testing.T) {
 }
 
 func TestContainerBindMountNonRecursive(t *testing.T) {
-	skip.If(t, testEnv.IsRemoteDaemon)
+	skip.If(t, testEnv.DaemonInfo.OSType != "linux" || testEnv.IsRemoteDaemon())
 	skip.If(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.40"), "BindOptions.NonRecursive requires API v1.40")
 
 	defer setupTest(t)()
@@ -254,11 +255,11 @@ func TestContainerBindMountNonRecursive(t *testing.T) {
 	nonRecursiveVerifier := []string{"test", "!", "-f", "/foo/mnt/file"}
 
 	ctx := context.Background()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	containers := []string{
-		container.Run(ctx, t, client, container.WithMount(implicit), container.WithCmd(recursiveVerifier...)),
-		container.Run(ctx, t, client, container.WithMount(recursive), container.WithCmd(recursiveVerifier...)),
-		container.Run(ctx, t, client, container.WithMount(nonRecursive), container.WithCmd(nonRecursiveVerifier...)),
+		container.Run(t, ctx, client, container.WithMount(implicit), container.WithCmd(recursiveVerifier...)),
+		container.Run(t, ctx, client, container.WithMount(recursive), container.WithCmd(recursiveVerifier...)),
+		container.Run(t, ctx, client, container.WithMount(nonRecursive), container.WithCmd(nonRecursiveVerifier...)),
 	}
 
 	for _, c := range containers {

@@ -246,7 +246,6 @@ func ServiceSpecToGRPC(s types.ServiceSpec) (swarmapi.ServiceSpec, error) {
 		spec.Task.Placement = &swarmapi.Placement{
 			Constraints: s.TaskTemplate.Placement.Constraints,
 			Preferences: preferences,
-			MaxReplicas: s.TaskTemplate.Placement.MaxReplicas,
 			Platforms:   platforms,
 		}
 	}
@@ -473,7 +472,6 @@ func placementFromGRPC(p *swarmapi.Placement) *types.Placement {
 	}
 	r := &types.Placement{
 		Constraints: p.Constraints,
-		MaxReplicas: p.MaxReplicas,
 	}
 
 	for _, pref := range p.Preferences {

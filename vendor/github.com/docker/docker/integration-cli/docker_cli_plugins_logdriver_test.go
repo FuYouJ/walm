@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
-	"gotest.tools/assert"
 )
 
 func (s *DockerSuite) TestPluginLogDriver(c *check.C) {
@@ -17,11 +17,11 @@ func (s *DockerSuite) TestPluginLogDriver(c *check.C) {
 	dockerCmd(c, "plugin", "install", pluginName)
 	dockerCmd(c, "run", "--log-driver", pluginName, "--name=test", "busybox", "echo", "hello")
 	out, _ := dockerCmd(c, "logs", "test")
-	assert.Equal(c, strings.TrimSpace(out), "hello")
+	c.Assert(strings.TrimSpace(out), checker.Equals, "hello")
 
 	dockerCmd(c, "start", "-a", "test")
 	out, _ = dockerCmd(c, "logs", "test")
-	assert.Equal(c, strings.TrimSpace(out), "hello\nhello")
+	c.Assert(strings.TrimSpace(out), checker.Equals, "hello\nhello")
 
 	dockerCmd(c, "rm", "test")
 	dockerCmd(c, "plugin", "disable", pluginName)
@@ -35,14 +35,14 @@ func (s *DockerSuite) TestPluginLogDriverInfoList(c *check.C) {
 
 	dockerCmd(c, "plugin", "install", pluginName)
 
-	cli, err := client.NewClientWithOpts(client.FromEnv)
-	assert.NilError(c, err)
+	cli, err := client.NewEnvClient()
+	c.Assert(err, checker.IsNil)
 	defer cli.Close()
 
 	info, err := cli.Info(context.Background())
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	drivers := strings.Join(info.Plugins.Log, " ")
-	assert.Assert(c, strings.Contains(drivers, "json-file"))
-	assert.Assert(c, !strings.Contains(drivers, pluginName))
+	c.Assert(drivers, checker.Contains, "json-file")
+	c.Assert(drivers, checker.Not(checker.Contains), pluginName)
 }

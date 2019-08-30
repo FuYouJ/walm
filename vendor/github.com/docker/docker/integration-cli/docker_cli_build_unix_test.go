@@ -21,7 +21,6 @@ import (
 	"github.com/docker/docker/internal/test/fakecontext"
 	"github.com/docker/go-units"
 	"github.com/go-check/check"
-	"gotest.tools/assert"
 	"gotest.tools/icmd"
 )
 
@@ -97,7 +96,7 @@ func (s *DockerSuite) TestBuildAddChangeOwnership(c *check.C) {
 			RUN [ $(stat -c %U:%G "/bar/foo") = 'root:root' ]
 			`
 		tmpDir, err := ioutil.TempDir("", "fake-context")
-		assert.NilError(c, err)
+		c.Assert(err, check.IsNil)
 		testFile, err := os.Create(filepath.Join(tmpDir, "foo"))
 		if err != nil {
 			c.Fatalf("failed to create foo file: %v", err)
@@ -136,9 +135,9 @@ func (s *DockerSuite) TestBuildCancellationKillsSleep(c *check.C) {
 	name := "testbuildcancellation"
 
 	observer, err := newEventObserver(c)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	err = observer.Start()
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	defer observer.Stop()
 
 	// (Note: one year, will never finish)
@@ -149,7 +148,7 @@ func (s *DockerSuite) TestBuildCancellationKillsSleep(c *check.C) {
 	buildCmd.Dir = ctx.Dir
 
 	stdoutBuild, err := buildCmd.StdoutPipe()
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	if err := buildCmd.Start(); err != nil {
 		c.Fatalf("failed to run build: %s", err)

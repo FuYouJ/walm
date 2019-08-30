@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -237,10 +238,7 @@ func (daemon *Daemon) buildSandboxOptions(container *container.Container) ([]lib
 
 func (daemon *Daemon) updateNetworkSettings(container *container.Container, n libnetwork.Network, endpointConfig *networktypes.EndpointSettings) error {
 	if container.NetworkSettings == nil {
-		container.NetworkSettings = &network.Settings{}
-	}
-	if container.NetworkSettings.Networks == nil {
-		container.NetworkSettings.Networks = make(map[string]*network.EndpointSettings)
+		container.NetworkSettings = &network.Settings{Networks: make(map[string]*network.EndpointSettings)}
 	}
 
 	if !container.HostConfig.NetworkMode.IsHost() && containertypes.NetworkMode(n.Type()).IsHost() {
@@ -356,15 +354,6 @@ func (daemon *Daemon) findAndAttachNetwork(container *container.Container, idOrN
 	if n != nil {
 		if container.Managed || !n.Info().Dynamic() {
 			return n, nil, nil
-		}
-		// Throw an error if the container is already attached to the network
-		if container.NetworkSettings.Networks != nil {
-			networkName := n.Name()
-			containerName := strings.TrimPrefix(container.Name, "/")
-			if network, ok := container.NetworkSettings.Networks[networkName]; ok && network.EndpointID != "" {
-				err := fmt.Errorf("%s is already attached to network %s", containerName, networkName)
-				return n, nil, errdefs.Conflict(err)
-			}
 		}
 	}
 
@@ -604,9 +593,9 @@ func (daemon *Daemon) getNetworkSandbox(container *container.Container) libnetwo
 	return sb
 }
 
-// hasUserDefinedIPAddress returns whether the passed IPAM configuration contains IP address configuration
-func hasUserDefinedIPAddress(ipamConfig *networktypes.EndpointIPAMConfig) bool {
-	return ipamConfig != nil && (len(ipamConfig.IPv4Address) > 0 || len(ipamConfig.IPv6Address) > 0)
+// hasUserDefinedIPAddress returns whether the passed endpoint configuration contains IP address configuration
+func hasUserDefinedIPAddress(epConfig *networktypes.EndpointSettings) bool {
+	return epConfig != nil && epConfig.IPAMConfig != nil && (len(epConfig.IPAMConfig.IPv4Address) > 0 || len(epConfig.IPAMConfig.IPv6Address) > 0)
 }
 
 // User specified ip address is acceptable only for networks with user specified subnets.
@@ -614,18 +603,9 @@ func validateNetworkingConfig(n libnetwork.Network, epConfig *networktypes.Endpo
 	if n == nil || epConfig == nil {
 		return nil
 	}
-	if !containertypes.NetworkMode(n.Name()).IsUserDefined() {
-		if hasUserDefinedIPAddress(epConfig.IPAMConfig) && !enableIPOnPredefinedNetwork() {
-			return runconfig.ErrUnsupportedNetworkAndIP
-		}
-		if len(epConfig.Aliases) > 0 && !serviceDiscoveryOnDefaultNetwork() {
-			return runconfig.ErrUnsupportedNetworkAndAlias
-		}
-	}
-	if !hasUserDefinedIPAddress(epConfig.IPAMConfig) {
+	if !hasUserDefinedIPAddress(epConfig) {
 		return nil
 	}
-
 	_, _, nwIPv4Configs, nwIPv6Configs := n.Info().IpamConfig()
 	for _, s := range []struct {
 		ipConfigured  bool
@@ -674,7 +654,14 @@ func cleanOperationalData(es *network.EndpointSettings) {
 
 func (daemon *Daemon) updateNetworkConfig(container *container.Container, n libnetwork.Network, endpointConfig *networktypes.EndpointSettings, updateSettings bool) error {
 
-	if containertypes.NetworkMode(n.Name()).IsUserDefined() {
+	if !containertypes.NetworkMode(n.Name()).IsUserDefined() {
+		if hasUserDefinedIPAddress(endpointConfig) && !enableIPOnPredefinedNetwork() {
+			return runconfig.ErrUnsupportedNetworkAndIP
+		}
+		if endpointConfig != nil && len(endpointConfig.Aliases) > 0 && !container.EnableServiceDiscoveryOnDefaultNetwork() {
+			return runconfig.ErrUnsupportedNetworkAndAlias
+		}
+	} else {
 		addShortID := true
 		shortID := stringid.TruncateID(container.ID)
 		for _, alias := range endpointConfig.Aliases {
@@ -685,18 +672,6 @@ func (daemon *Daemon) updateNetworkConfig(container *container.Container, n libn
 		}
 		if addShortID {
 			endpointConfig.Aliases = append(endpointConfig.Aliases, shortID)
-		}
-		if container.Name != container.Config.Hostname {
-			addHostname := true
-			for _, alias := range endpointConfig.Aliases {
-				if alias == container.Config.Hostname {
-					addHostname = false
-					break
-				}
-			}
-			if addHostname {
-				endpointConfig.Aliases = append(endpointConfig.Aliases, container.Config.Hostname)
-			}
 		}
 	}
 
@@ -750,7 +725,8 @@ func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName 
 		}
 	}
 
-	if err := daemon.updateNetworkConfig(container, n, endpointConfig, updateSettings); err != nil {
+	err = daemon.updateNetworkConfig(container, n, endpointConfig, updateSettings)
+	if err != nil {
 		return err
 	}
 
@@ -825,7 +801,7 @@ func (daemon *Daemon) connectToNetwork(container *container.Container, idOrName 
 	return nil
 }
 
-func updateJoinInfo(networkSettings *network.Settings, n libnetwork.Network, ep libnetwork.Endpoint) error {
+func updateJoinInfo(networkSettings *network.Settings, n libnetwork.Network, ep libnetwork.Endpoint) error { // nolint: interfacer
 	if ep == nil {
 		return errors.New("invalid enppoint whhile building portmap info")
 	}
@@ -1064,6 +1040,8 @@ func (daemon *Daemon) ConnectToNetwork(container *container.Container, idOrName 
 				EndpointSettings: endpointConfig,
 			}
 		}
+	} else if !daemon.isNetworkHotPluggable() {
+		return fmt.Errorf(runtime.GOOS + " does not support connecting a running container to a network")
 	} else {
 		if err := daemon.connectToNetwork(container, idOrName, endpointConfig, true); err != nil {
 			return err
@@ -1092,6 +1070,8 @@ func (daemon *Daemon) DisconnectFromNetwork(container *container.Container, netw
 			return fmt.Errorf("container %s is not connected to the network %s", container.ID, networkName)
 		}
 		delete(container.NetworkSettings.Networks, networkName)
+	} else if err == nil && !daemon.isNetworkHotPluggable() {
+		return fmt.Errorf(runtime.GOOS + " does not support connecting a running container to a network")
 	} else if err == nil {
 		if container.HostConfig.NetworkMode.IsHost() && containertypes.NetworkMode(n.Type()).IsHost() {
 			return runconfig.ErrConflictHostNetwork

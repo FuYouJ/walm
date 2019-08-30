@@ -17,12 +17,6 @@ func GetOperatingSystem() (string, error) {
 	return string(osName), nil
 }
 
-// GetOperatingSystemVersion gets the version of the current operating system, as a string.
-func GetOperatingSystemVersion() (string, error) {
-	// there's no standard unix way of getting this, sadly...
-	return "", errors.New("Unsupported on generic unix")
-}
-
 // IsContainerized returns true if we are running inside a container.
 // No-op on FreeBSD and Darwin, always returns false.
 func IsContainerized() (bool, error) {

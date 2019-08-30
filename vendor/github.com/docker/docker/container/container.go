@@ -730,7 +730,7 @@ func (i *rio) Close() error {
 }
 
 func (i *rio) Wait() {
-	i.sc.Wait(context.Background())
+	i.sc.Wait()
 
 	i.IO.Wait()
 }

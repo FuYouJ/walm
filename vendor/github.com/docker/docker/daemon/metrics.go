@@ -17,7 +17,6 @@ const metricsPluginType = "MetricsCollector"
 var (
 	containerActions          metrics.LabeledTimer
 	networkActions            metrics.LabeledTimer
-	hostInfoFunctions         metrics.LabeledTimer
 	engineInfo                metrics.LabeledGauge
 	engineCpus                metrics.Gauge
 	engineMemory              metrics.Gauge
@@ -39,7 +38,6 @@ func init() {
 	} {
 		containerActions.WithValues(a).Update(0)
 	}
-	hostInfoFunctions = ns.NewLabeledTimer("host_info_functions", "The number of seconds it takes to call functions gathering info about the host", "function")
 
 	networkActions = ns.NewLabeledTimer("network_actions", "The number of seconds it takes to process each network action", "action")
 	engineInfo = ns.NewLabeledGauge("engine", "The information related to the engine and the OS it is running on", metrics.Unit("info"),
@@ -47,10 +45,8 @@ func init() {
 		"commit",
 		"architecture",
 		"graphdriver",
-		"kernel",
-		"os",
+		"kernel", "os",
 		"os_type",
-		"os_version",
 		"daemon_id", // ID is a randomly generated unique identifier (e.g. UUID4)
 	)
 	engineCpus = ns.NewGauge("engine_cpus", "The number of cpus that the host system of the engine has", metrics.Unit("cpus"))
@@ -147,7 +143,7 @@ type metricsPlugin interface {
 	StopMetrics() error
 }
 
-func makePluginAdapter(p plugingetter.CompatPlugin) (metricsPlugin, error) {
+func makePluginAdapter(p plugingetter.CompatPlugin) (metricsPlugin, error) { // nolint: interfacer
 	if pc, ok := p.(plugingetter.PluginWithV1Client); ok {
 		return &metricsPluginAdapter{pc.Client(), p.Name()}, nil
 	}

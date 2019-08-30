@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/docker/internal/test/registry"
 	"github.com/go-check/check"
-	"gotest.tools/assert"
 )
 
 func makefile(path string, contents string) (string, error) {
@@ -28,7 +27,7 @@ func makefile(path string, contents string) (string, error) {
 func (s *DockerRegistrySuite) TestV2Only(c *check.C) {
 	reg, err := registry.NewMock(c)
 	defer reg.Close()
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	reg.RegisterHandler("/v2/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
@@ -43,11 +42,11 @@ func (s *DockerRegistrySuite) TestV2Only(c *check.C) {
 	s.d.Start(c, "--insecure-registry", reg.URL())
 
 	tmp, err := ioutil.TempDir("", "integration-cli-")
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 	defer os.RemoveAll(tmp)
 
 	dockerfileName, err := makefile(tmp, fmt.Sprintf("FROM %s/busybox", reg.URL()))
-	assert.NilError(c, err, "Unable to create test dockerfile")
+	c.Assert(err, check.IsNil, check.Commentf("Unable to create test dockerfile"))
 
 	s.d.Cmd("build", "--file", dockerfileName, tmp)
 

@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
-	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -20,7 +19,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/pkg/fileutils"
 	"google.golang.org/grpc"
 
 	"github.com/containerd/containerd"
@@ -44,7 +42,6 @@ import (
 	"github.com/moby/buildkit/util/resolver"
 	"github.com/moby/buildkit/util/tracing"
 	"github.com/sirupsen/logrus"
-
 	// register graph drivers
 	_ "github.com/docker/docker/daemon/graphdriver/register"
 	"github.com/docker/docker/daemon/stats"
@@ -53,7 +50,6 @@ import (
 	"github.com/docker/docker/image"
 	"github.com/docker/docker/layer"
 	"github.com/docker/docker/libcontainerd"
-	libcontainerdtypes "github.com/docker/docker/libcontainerd/types"
 	"github.com/docker/docker/pkg/idtools"
 	"github.com/docker/docker/pkg/locker"
 	"github.com/docker/docker/pkg/plugingetter"
@@ -109,7 +105,7 @@ type Daemon struct {
 	pluginManager         *plugin.Manager
 	linkIndex             *linkIndex
 	containerdCli         *containerd.Client
-	containerd            libcontainerdtypes.Client
+	containerd            libcontainerd.Client
 	defaultIsolation      containertypes.Isolation // Default isolation mode on Windows
 	clusterProvider       cluster.Provider
 	cluster               Cluster
@@ -161,18 +157,15 @@ func (daemon *Daemon) NewResolveOptionsFunc() resolver.ResolveOptionsFunc {
 		)
 		// must trim "https://" or "http://" prefix
 		for i, v := range daemon.configStore.Mirrors {
-			if uri, err := url.Parse(v); err == nil {
-				v = uri.Host
-			}
+			v = strings.TrimPrefix(v, "https://")
+			v = strings.TrimPrefix(v, "http://")
 			mirrors[i] = v
 		}
 		// set "registry-mirrors"
 		m[registryKey] = resolver.RegistryConf{Mirrors: mirrors}
 		// set "insecure-registries"
 		for _, v := range daemon.configStore.InsecureRegistries {
-			if uri, err := url.Parse(v); err == nil {
-				v = uri.Host
-			}
+			v = strings.TrimPrefix(v, "http://")
 			m[v] = resolver.RegistryConf{
 				PlainHTTP: true,
 			}
@@ -267,7 +260,7 @@ func (daemon *Daemon) restore() error {
 	restartContainers := make(map[*container.Container]chan struct{})
 	activeSandboxes := make(map[string]interface{})
 
-	for _, c := range containers {
+	for id, c := range containers {
 		group.Add(1)
 		go func(c *container.Container) {
 			defer group.Done()
@@ -277,14 +270,14 @@ func (daemon *Daemon) restore() error {
 			if err := daemon.registerName(c); err != nil {
 				logrus.Errorf("Failed to register container name %s: %s", c.ID, err)
 				mapLock.Lock()
-				delete(containers, c.ID)
+				delete(containers, id)
 				mapLock.Unlock()
 				return
 			}
 			if err := daemon.Register(c); err != nil {
 				logrus.Errorf("Failed to register container %s: %s", c.ID, err)
 				mapLock.Lock()
-				delete(containers, c.ID)
+				delete(containers, id)
 				mapLock.Unlock()
 				return
 			}
@@ -326,16 +319,15 @@ func (daemon *Daemon) restore() error {
 				alive    bool
 				ec       uint32
 				exitedAt time.Time
-				process  libcontainerdtypes.Process
 			)
 
-			alive, _, process, err = daemon.containerd.Restore(context.Background(), c.ID, c.InitializeStdio)
+			alive, _, err = daemon.containerd.Restore(context.Background(), c.ID, c.InitializeStdio)
 			if err != nil && !errdefs.IsNotFound(err) {
 				logrus.Errorf("Failed to restore container %s with containerd: %s", c.ID, err)
 				return
 			}
-			if !alive && process != nil {
-				ec, exitedAt, err = process.Delete(context.Background())
+			if !alive {
+				ec, exitedAt, err = daemon.containerd.DeleteTask(context.Background(), c.ID)
 				if err != nil && !errdefs.IsNotFound(err) {
 					logrus.WithError(err).Errorf("Failed to delete container %s from containerd", c.ID)
 					return
@@ -359,11 +351,11 @@ func (daemon *Daemon) restore() error {
 						logrus.WithField("container", c.ID).WithField("state", s).
 							Info("restored container paused")
 						switch s {
-						case containerd.Paused, containerd.Pausing:
+						case libcontainerd.StatusPaused, libcontainerd.StatusPausing:
 							// nothing to do
-						case containerd.Stopped:
+						case libcontainerd.StatusStopped:
 							alive = false
-						case containerd.Unknown:
+						case libcontainerd.StatusUnknown:
 							logrus.WithField("container", c.ID).
 								Error("Unknown status for container during restore")
 						default:
@@ -487,14 +479,12 @@ func (daemon *Daemon) restore() error {
 			// ignore errors here as this is a best effort to wait for children to be
 			//   running before we try to start the container
 			children := daemon.children(c)
-			timeout := time.NewTimer(5 * time.Second)
-			defer timeout.Stop()
-
+			timeout := time.After(5 * time.Second)
 			for _, child := range children {
 				if notifier, exists := restartContainers[child]; exists {
 					select {
 					case <-notifier:
-					case <-timeout.C:
+					case <-timeout:
 					}
 				}
 			}
@@ -612,7 +602,6 @@ func (daemon *Daemon) waitForNetworks(c *container.Container) {
 	if daemon.discoveryWatcher == nil {
 		return
 	}
-
 	// Make sure if the container has a network that requires discovery that the discovery service is available before starting
 	for netName := range c.NetworkSettings.Networks {
 		// If we get `ErrNoSuchNetwork` here, we can assume that it is due to discovery not being ready
@@ -621,19 +610,13 @@ func (daemon *Daemon) waitForNetworks(c *container.Container) {
 			if _, ok := err.(libnetwork.ErrNoSuchNetwork); !ok {
 				continue
 			}
-
 			// use a longish timeout here due to some slowdowns in libnetwork if the k/v store is on anything other than --net=host
 			// FIXME: why is this slow???
-			dur := 60 * time.Second
-			timer := time.NewTimer(dur)
-
 			logrus.Debugf("Container %s waiting for network to be ready", c.Name)
 			select {
 			case <-daemon.discoveryWatcher.ReadyCh():
-			case <-timer.C:
+			case <-time.After(60 * time.Second):
 			}
-			timer.Stop()
-
 			return
 		}
 	}
@@ -683,14 +666,10 @@ func (daemon *Daemon) DaemonLeavesCluster() {
 	// This is called also on graceful daemon shutdown. We need to
 	// wait, because the ingress release has to happen before the
 	// network controller is stopped.
-
 	if done, err := daemon.ReleaseIngress(); err == nil {
-		timeout := time.NewTimer(5 * time.Second)
-		defer timeout.Stop()
-
 		select {
 		case <-done:
-		case <-timeout.C:
+		case <-time.After(5 * time.Second):
 			logrus.Warn("timeout while waiting for ingress network removal")
 		}
 	} else {
@@ -766,13 +745,13 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 	if err != nil {
 		return nil, fmt.Errorf("Unable to get the TempDir under %s: %s", config.Root, err)
 	}
-	realTmp, err := fileutils.ReadSymlinkedDirectory(tmp)
+	realTmp, err := getRealPath(tmp)
 	if err != nil {
 		return nil, fmt.Errorf("Unable to get the full path to the TempDir (%s): %s", tmp, err)
 	}
 	if runtime.GOOS == "windows" {
 		if _, err := os.Stat(realTmp); err != nil && os.IsNotExist(err) {
-			if err := system.MkdirAll(realTmp, 0700); err != nil {
+			if err := system.MkdirAll(realTmp, 0700, ""); err != nil {
 				return nil, fmt.Errorf("Unable to create the TempDir (%s): %s", realTmp, err)
 			}
 		}
@@ -821,7 +800,6 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		logrus.Warnf("Failed to configure golang's threads limit: %v", err)
 	}
 
-	// ensureDefaultAppArmorProfile does nothing if apparmor is disabled
 	if err := ensureDefaultAppArmorProfile(); err != nil {
 		logrus.Errorf(err.Error())
 	}
@@ -834,7 +812,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 	// Create the directory where we'll store the runtime scripts (i.e. in
 	// order to support runtimeArgs)
 	daemonRuntimes := filepath.Join(config.Root, "runtimes")
-	if err := system.MkdirAll(daemonRuntimes, 0700); err != nil {
+	if err := system.MkdirAll(daemonRuntimes, 0700, ""); err != nil {
 		return nil, err
 	}
 	if err := d.loadRuntimes(); err != nil {
@@ -842,7 +820,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 	}
 
 	if runtime.GOOS == "windows" {
-		if err := system.MkdirAll(filepath.Join(config.Root, "credentialspecs"), 0); err != nil {
+		if err := system.MkdirAll(filepath.Join(config.Root, "credentialspecs"), 0, ""); err != nil {
 			return nil, err
 		}
 	}
@@ -889,7 +867,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		grpc.WithDefaultCallOptions(grpc.MaxCallSendMsgSize(defaults.DefaultMaxSendMsgSize)),
 	}
 	if config.ContainerdAddr != "" {
-		d.containerdCli, err = containerd.New(config.ContainerdAddr, containerd.WithDefaultNamespace(config.ContainerdNamespace), containerd.WithDialOpts(gopts), containerd.WithTimeout(60*time.Second))
+		d.containerdCli, err = containerd.New(config.ContainerdAddr, containerd.WithDefaultNamespace(ContainersNamespace), containerd.WithDialOpts(gopts), containerd.WithTimeout(60*time.Second))
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to dial %q", config.ContainerdAddr)
 		}
@@ -901,13 +879,13 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		// Windows is not currently using containerd, keep the
 		// client as nil
 		if config.ContainerdAddr != "" {
-			pluginCli, err = containerd.New(config.ContainerdAddr, containerd.WithDefaultNamespace(config.ContainerdPluginNamespace), containerd.WithDialOpts(gopts), containerd.WithTimeout(60*time.Second))
+			pluginCli, err = containerd.New(config.ContainerdAddr, containerd.WithDefaultNamespace(pluginexec.PluginNamespace), containerd.WithDialOpts(gopts), containerd.WithTimeout(60*time.Second))
 			if err != nil {
 				return nil, errors.Wrapf(err, "failed to dial %q", config.ContainerdAddr)
 			}
 		}
 
-		return pluginexec.New(ctx, getPluginExecRoot(config.Root), pluginCli, config.ContainerdPluginNamespace, m)
+		return pluginexec.New(ctx, getPluginExecRoot(config.Root), pluginCli, m)
 	}
 
 	// Plugin system initialization should happen before restore. Do not change order.
@@ -943,9 +921,11 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		if err != nil {
 			return nil, err
 		}
+	}
 
-		// As layerstore initialization may set the driver
-		d.graphDrivers[operatingSystem] = layerStores[operatingSystem].DriverName()
+	// As layerstore initialization may set the driver
+	for os := range d.graphDrivers {
+		d.graphDrivers[os] = layerStores[os].DriverName()
 	}
 
 	// Configure and validate the kernels security support. Note this is a Linux/FreeBSD
@@ -981,7 +961,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 
 	trustDir := filepath.Join(config.Root, "trust")
 
-	if err := system.MkdirAll(trustDir, 0700); err != nil {
+	if err := system.MkdirAll(trustDir, 0700, ""); err != nil {
 		return nil, err
 	}
 
@@ -1055,7 +1035,7 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 
 	go d.execCommandGC()
 
-	d.containerd, err = libcontainerd.NewClient(ctx, d.containerdCli, filepath.Join(config.ExecRoot, "containerd"), config.ContainerdNamespace, d)
+	d.containerd, err = libcontainerd.NewClient(ctx, d.containerdCli, filepath.Join(config.ExecRoot, "containerd"), ContainersNamespace, d)
 	if err != nil {
 		return nil, err
 	}
@@ -1076,7 +1056,6 @@ func NewDaemon(ctx context.Context, config *config.Config, pluginStore *plugin.S
 		info.KernelVersion,
 		info.OperatingSystem,
 		info.OSType,
-		info.OSVersion,
 		info.ID,
 	).Set(1)
 	engineCpus.Set(float64(info.NCPU))
@@ -1448,7 +1427,7 @@ func CreateDaemonRoot(config *config.Config) error {
 	if _, err := os.Stat(config.Root); err != nil && os.IsNotExist(err) {
 		realRoot = config.Root
 	} else {
-		realRoot, err = fileutils.ReadSymlinkedDirectory(config.Root)
+		realRoot, err = getRealPath(config.Root)
 		if err != nil {
 			return fmt.Errorf("Unable to get the full path to root (%s): %s", config.Root, err)
 		}

@@ -29,27 +29,30 @@ func hasSystemd() bool {
 //  https://github.com/moby/moby/issues/35123
 func TestCgroupDriverSystemdMemoryLimit(t *testing.T) {
 	skip.If(t, testEnv.DaemonInfo.OSType == "windows")
-	skip.If(t, !hasSystemd())
 	t.Parallel()
 
-	d := daemon.New(t)
-	c := d.NewClientT(t)
+	if !hasSystemd() {
+		t.Skip("systemd not available")
+	}
 
+	d := daemon.New(t)
+	client, err := d.NewClient()
+	assert.NilError(t, err)
 	d.StartWithBusybox(t, "--exec-opt", "native.cgroupdriver=systemd", "--iptables=false")
 	defer d.Stop(t)
 
 	const mem = 64 * 1024 * 1024 // 64 MB
 
 	ctx := context.Background()
-	ctrID := container.Create(ctx, t, c, func(ctr *container.TestContainerConfig) {
-		ctr.HostConfig.Resources.Memory = mem
+	ctrID := container.Create(t, ctx, client, func(c *container.TestContainerConfig) {
+		c.HostConfig.Resources.Memory = mem
 	})
-	defer c.ContainerRemove(ctx, ctrID, types.ContainerRemoveOptions{Force: true})
+	defer client.ContainerRemove(ctx, ctrID, types.ContainerRemoveOptions{Force: true})
 
-	err := c.ContainerStart(ctx, ctrID, types.ContainerStartOptions{})
+	err = client.ContainerStart(ctx, ctrID, types.ContainerStartOptions{})
 	assert.NilError(t, err)
 
-	s, err := c.ContainerInspect(ctx, ctrID)
+	s, err := client.ContainerInspect(ctx, ctrID)
 	assert.NilError(t, err)
 	assert.Equal(t, s.HostConfig.Memory, mem)
 }

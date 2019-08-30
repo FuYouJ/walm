@@ -2,13 +2,6 @@ package daemon
 
 import "github.com/docker/docker/internal/test/environment"
 
-// WithDefaultCgroupNamespaceMode sets the default cgroup namespace mode for the daemon
-func WithDefaultCgroupNamespaceMode(mode string) func(*Daemon) {
-	return func(d *Daemon) {
-		d.defaultCgroupNamespaceMode = mode
-	}
-}
-
 // WithExperimental sets the daemon in experimental mode
 func WithExperimental(d *Daemon) {
 	d.experimental = true
@@ -68,12 +61,5 @@ func WithEnvironment(e environment.Execution) func(*Daemon) {
 		if e.DaemonInfo.ExperimentalBuild {
 			d.experimental = true
 		}
-	}
-}
-
-// WithStorageDriver sets store driver option
-func WithStorageDriver(driver string) func(d *Daemon) {
-	return func(d *Daemon) {
-		d.storageDriver = driver
 	}
 }

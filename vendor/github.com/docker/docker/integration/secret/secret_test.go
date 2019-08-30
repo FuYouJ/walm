@@ -303,7 +303,7 @@ func TestTemplatedSecret(t *testing.T) {
 
 	var tasks []swarmtypes.Task
 	waitAndAssert(t, 60*time.Second, func(t *testing.T) bool {
-		tasks = swarm.GetRunningTasks(t, client, serviceID)
+		tasks = swarm.GetRunningTasks(t, d, serviceID)
 		return len(tasks) > 0
 	})
 
@@ -397,7 +397,7 @@ func waitAndAssert(t *testing.T, timeout time.Duration, f func(*testing.T) bool)
 	for {
 		select {
 		case <-after:
-			t.Fatal("timed out waiting for condition")
+			t.Fatalf("timed out waiting for condition")
 		default:
 		}
 		if f(t) {

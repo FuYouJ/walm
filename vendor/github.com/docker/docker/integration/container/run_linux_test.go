@@ -10,7 +10,7 @@ import (
 	containertypes "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/versions"
 	"github.com/docker/docker/integration/internal/container"
-	net "github.com/docker/docker/integration/internal/network"
+	"github.com/docker/docker/internal/test/request"
 	"gotest.tools/assert"
 	is "gotest.tools/assert/cmp"
 	"gotest.tools/poll"
@@ -23,14 +23,14 @@ func TestKernelTCPMemory(t *testing.T) {
 	skip.If(t, !testEnv.DaemonInfo.KernelMemoryTCP)
 
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
 	const (
 		kernelMemoryTCP int64 = 200 * 1024 * 1024
 	)
 
-	cID := container.Run(ctx, t, client, func(c *container.TestContainerConfig) {
+	cID := container.Run(t, ctx, client, func(c *container.TestContainerConfig) {
 		c.HostConfig.Resources = containertypes.Resources{
 			KernelMemoryTCP: kernelMemoryTCP,
 		}
@@ -51,14 +51,10 @@ func TestKernelTCPMemory(t *testing.T) {
 }
 
 func TestNISDomainname(t *testing.T) {
-	// Older versions of the daemon would concatenate hostname and domainname,
-	// so hostname "foobar" and domainname "baz.cyphar.com" would produce
-	// `foobar.baz.cyphar.com` as hostname.
-	skip.If(t, versions.LessThan(testEnv.DaemonAPIVersion(), "1.40"), "skip test from new feature")
 	skip.If(t, testEnv.DaemonInfo.OSType != "linux")
 
 	defer setupTest(t)()
-	client := testEnv.APIClient()
+	client := request.NewAPIClient(t)
 	ctx := context.Background()
 
 	const (
@@ -66,7 +62,7 @@ func TestNISDomainname(t *testing.T) {
 		domainname = "baz.cyphar.com"
 	)
 
-	cID := container.Run(ctx, t, client, func(c *container.TestContainerConfig) {
+	cID := container.Run(t, ctx, client, func(c *container.TestContainerConfig) {
 		c.Config.Hostname = hostname
 		c.Config.Domainname = domainname
 	})
@@ -93,38 +89,4 @@ func TestNISDomainname(t *testing.T) {
 	assert.Assert(t, is.Len(res.Stderr(), 0))
 	assert.Equal(t, 0, res.ExitCode)
 	assert.Check(t, is.Equal(domainname, strings.TrimSpace(res.Stdout())))
-}
-
-func TestHostnameDnsResolution(t *testing.T) {
-	skip.If(t, testEnv.DaemonInfo.OSType != "linux")
-
-	defer setupTest(t)()
-	client := testEnv.APIClient()
-	ctx := context.Background()
-
-	const (
-		hostname = "foobar"
-	)
-
-	// using user defined network as we want to use internal DNS
-	netName := "foobar-net"
-	net.CreateNoError(context.Background(), t, client, netName, net.WithDriver("bridge"))
-
-	cID := container.Run(ctx, t, client, func(c *container.TestContainerConfig) {
-		c.Config.Hostname = hostname
-		c.HostConfig.NetworkMode = containertypes.NetworkMode(netName)
-	})
-
-	poll.WaitOn(t, container.IsInState(ctx, client, cID, "running"), poll.WithDelay(100*time.Millisecond))
-
-	inspect, err := client.ContainerInspect(ctx, cID)
-	assert.NilError(t, err)
-	assert.Check(t, is.Equal(hostname, inspect.Config.Hostname))
-
-	// Clear hosts file so ping will use DNS for hostname resolution
-	res, err := container.Exec(ctx, client, cID,
-		[]string{"sh", "-c", "echo 127.0.0.1 localhost | tee /etc/hosts && ping -c 1 foobar"})
-	assert.NilError(t, err)
-	assert.Check(t, is.Equal("", res.Stderr()))
-	assert.Equal(t, 0, res.ExitCode)
 }

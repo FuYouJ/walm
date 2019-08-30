@@ -244,36 +244,28 @@ func TestValidateConfigurationErrors(t *testing.T) {
 		{
 			config: &Config{
 				CommonConfig: CommonConfig{
-					DNSConfig: DNSConfig{
-						DNS: []string{"1.1.1.1o"},
-					},
+					DNS: []string{"1.1.1.1o"},
 				},
 			},
 		},
 		{
 			config: &Config{
 				CommonConfig: CommonConfig{
-					DNSConfig: DNSConfig{
-						DNS: []string{"2.2.2.2", "1.1.1.1o"},
-					},
+					DNS: []string{"2.2.2.2", "1.1.1.1o"},
 				},
 			},
 		},
 		{
 			config: &Config{
 				CommonConfig: CommonConfig{
-					DNSConfig: DNSConfig{
-						DNSSearch: []string{"123456"},
-					},
+					DNSSearch: []string{"123456"},
 				},
 			},
 		},
 		{
 			config: &Config{
 				CommonConfig: CommonConfig{
-					DNSConfig: DNSConfig{
-						DNSSearch: []string{"a.b.c", "123456"},
-					},
+					DNSSearch: []string{"a.b.c", "123456"},
 				},
 			},
 		},
@@ -337,18 +329,14 @@ func TestValidateConfiguration(t *testing.T) {
 		{
 			config: &Config{
 				CommonConfig: CommonConfig{
-					DNSConfig: DNSConfig{
-						DNS: []string{"1.1.1.1"},
-					},
+					DNS: []string{"1.1.1.1"},
 				},
 			},
 		},
 		{
 			config: &Config{
 				CommonConfig: CommonConfig{
-					DNSConfig: DNSConfig{
-						DNSSearch: []string{"a.b.c"},
-					},
+					DNSSearch: []string{"a.b.c"},
 				},
 			},
 		},

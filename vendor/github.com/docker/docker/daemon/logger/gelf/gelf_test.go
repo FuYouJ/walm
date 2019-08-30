@@ -98,7 +98,6 @@ func TestUDPValidateLogOpt(t *testing.T) {
 		"gelf-address":           "udp://127.0.0.1:12201",
 		"tag":                    "testtag",
 		"labels":                 "testlabel",
-		"labels-regex":           "testlabel-regex",
 		"env":                    "testenv",
 		"env-regex":              "testenv-regex",
 		"gelf-compression-level": "9",

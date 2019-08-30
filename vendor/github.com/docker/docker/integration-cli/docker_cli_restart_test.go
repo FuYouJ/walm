@@ -8,8 +8,6 @@ import (
 
 	"github.com/docker/docker/integration-cli/checker"
 	"github.com/go-check/check"
-	"gotest.tools/assert"
-	is "gotest.tools/assert/cmp"
 )
 
 func (s *DockerSuite) TestRestartStoppedContainer(c *check.C) {
@@ -17,16 +15,16 @@ func (s *DockerSuite) TestRestartStoppedContainer(c *check.C) {
 	cleanedContainerID := getIDByName(c, "test")
 
 	out, _ := dockerCmd(c, "logs", cleanedContainerID)
-	assert.Equal(c, out, "foobar\n")
+	c.Assert(out, checker.Equals, "foobar\n")
 
 	dockerCmd(c, "restart", cleanedContainerID)
 
 	// Wait until the container has stopped
 	err := waitInspect(cleanedContainerID, "{{.State.Running}}", "false", 20*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	out, _ = dockerCmd(c, "logs", cleanedContainerID)
-	assert.Equal(c, out, "foobar\nfoobar\n")
+	c.Assert(out, checker.Equals, "foobar\nfoobar\n")
 }
 
 func (s *DockerSuite) TestRestartRunningContainer(c *check.C) {
@@ -34,7 +32,7 @@ func (s *DockerSuite) TestRestartRunningContainer(c *check.C) {
 
 	cleanedContainerID := strings.TrimSpace(out)
 
-	assert.NilError(c, waitRun(cleanedContainerID))
+	c.Assert(waitRun(cleanedContainerID), checker.IsNil)
 
 	getLogs := func(c *check.C) (interface{}, check.CommentInterface) {
 		out, _ := dockerCmd(c, "logs", cleanedContainerID)
@@ -45,7 +43,7 @@ func (s *DockerSuite) TestRestartRunningContainer(c *check.C) {
 	waitAndAssert(c, 10*time.Second, getLogs, checker.Equals, "foobar\n")
 
 	dockerCmd(c, "restart", "-t", "1", cleanedContainerID)
-	assert.NilError(c, waitRun(cleanedContainerID))
+	c.Assert(waitRun(cleanedContainerID), checker.IsNil)
 
 	// Wait 10 seconds for first 'echo' appear (again) in the logs
 	waitAndAssert(c, 10*time.Second, getLogs, checker.Equals, "foobar\nfoobar\n")
@@ -58,40 +56,40 @@ func (s *DockerSuite) TestRestartWithVolumes(c *check.C) {
 
 	cleanedContainerID := strings.TrimSpace(out)
 	out, err := inspectFilter(cleanedContainerID, "len .Mounts")
-	assert.NilError(c, err, "failed to inspect %s: %s", cleanedContainerID, out)
+	c.Assert(err, check.IsNil, check.Commentf("failed to inspect %s: %s", cleanedContainerID, out))
 	out = strings.Trim(out, " \n\r")
-	assert.Equal(c, out, "1")
+	c.Assert(out, checker.Equals, "1")
 
 	source, err := inspectMountSourceField(cleanedContainerID, prefix+slash+"test")
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	dockerCmd(c, "restart", cleanedContainerID)
 
 	out, err = inspectFilter(cleanedContainerID, "len .Mounts")
-	assert.NilError(c, err, "failed to inspect %s: %s", cleanedContainerID, out)
+	c.Assert(err, check.IsNil, check.Commentf("failed to inspect %s: %s", cleanedContainerID, out))
 	out = strings.Trim(out, " \n\r")
-	assert.Equal(c, out, "1")
+	c.Assert(out, checker.Equals, "1")
 
 	sourceAfterRestart, err := inspectMountSourceField(cleanedContainerID, prefix+slash+"test")
-	assert.NilError(c, err)
-	assert.Equal(c, source, sourceAfterRestart)
+	c.Assert(err, checker.IsNil)
+	c.Assert(source, checker.Equals, sourceAfterRestart)
 }
 
 func (s *DockerSuite) TestRestartDisconnectedContainer(c *check.C) {
-	testRequires(c, DaemonIsLinux, testEnv.IsLocalDaemon, NotUserNamespace, NotArm)
+	testRequires(c, DaemonIsLinux, SameHostDaemon, NotUserNamespace, NotArm)
 
 	// Run a container on the default bridge network
 	out, _ := dockerCmd(c, "run", "-d", "--name", "c0", "busybox", "top")
 	cleanedContainerID := strings.TrimSpace(out)
-	assert.NilError(c, waitRun(cleanedContainerID))
+	c.Assert(waitRun(cleanedContainerID), checker.IsNil)
 
 	// Disconnect the container from the network
-	out, exitCode := dockerCmd(c, "network", "disconnect", "bridge", "c0")
-	assert.Assert(c, exitCode == 0, out)
+	out, err := dockerCmd(c, "network", "disconnect", "bridge", "c0")
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 
 	// Restart the container
-	out, exitCode = dockerCmd(c, "restart", "c0")
-	assert.Assert(c, exitCode == 0, out)
+	dockerCmd(c, "restart", "c0")
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
 }
 
 func (s *DockerSuite) TestRestartPolicyNO(c *check.C) {
@@ -99,7 +97,7 @@ func (s *DockerSuite) TestRestartPolicyNO(c *check.C) {
 
 	id := strings.TrimSpace(string(out))
 	name := inspectField(c, id, "HostConfig.RestartPolicy.Name")
-	assert.Equal(c, name, "no")
+	c.Assert(name, checker.Equals, "no")
 }
 
 func (s *DockerSuite) TestRestartPolicyAlways(c *check.C) {
@@ -107,18 +105,18 @@ func (s *DockerSuite) TestRestartPolicyAlways(c *check.C) {
 
 	id := strings.TrimSpace(string(out))
 	name := inspectField(c, id, "HostConfig.RestartPolicy.Name")
-	assert.Equal(c, name, "always")
+	c.Assert(name, checker.Equals, "always")
 
 	MaximumRetryCount := inspectField(c, id, "HostConfig.RestartPolicy.MaximumRetryCount")
 
 	// MaximumRetryCount=0 if the restart policy is always
-	assert.Equal(c, MaximumRetryCount, "0")
+	c.Assert(MaximumRetryCount, checker.Equals, "0")
 }
 
 func (s *DockerSuite) TestRestartPolicyOnFailure(c *check.C) {
 	out, _, err := dockerCmdWithError("create", "--restart=on-failure:-1", "busybox")
-	assert.ErrorContains(c, err, "", out)
-	assert.Assert(c, strings.Contains(out, "maximum retry count cannot be negative"))
+	c.Assert(err, check.NotNil, check.Commentf("%s", out))
+	c.Assert(out, checker.Contains, "maximum retry count cannot be negative")
 
 	out, _ = dockerCmd(c, "create", "--restart=on-failure:1", "busybox")
 
@@ -126,8 +124,8 @@ func (s *DockerSuite) TestRestartPolicyOnFailure(c *check.C) {
 	name := inspectField(c, id, "HostConfig.RestartPolicy.Name")
 	maxRetry := inspectField(c, id, "HostConfig.RestartPolicy.MaximumRetryCount")
 
-	assert.Equal(c, name, "on-failure")
-	assert.Equal(c, maxRetry, "1")
+	c.Assert(name, checker.Equals, "on-failure")
+	c.Assert(maxRetry, checker.Equals, "1")
 
 	out, _ = dockerCmd(c, "create", "--restart=on-failure:0", "busybox")
 
@@ -135,8 +133,8 @@ func (s *DockerSuite) TestRestartPolicyOnFailure(c *check.C) {
 	name = inspectField(c, id, "HostConfig.RestartPolicy.Name")
 	maxRetry = inspectField(c, id, "HostConfig.RestartPolicy.MaximumRetryCount")
 
-	assert.Equal(c, name, "on-failure")
-	assert.Equal(c, maxRetry, "0")
+	c.Assert(name, checker.Equals, "on-failure")
+	c.Assert(maxRetry, checker.Equals, "0")
 
 	out, _ = dockerCmd(c, "create", "--restart=on-failure", "busybox")
 
@@ -144,8 +142,8 @@ func (s *DockerSuite) TestRestartPolicyOnFailure(c *check.C) {
 	name = inspectField(c, id, "HostConfig.RestartPolicy.Name")
 	maxRetry = inspectField(c, id, "HostConfig.RestartPolicy.MaximumRetryCount")
 
-	assert.Equal(c, name, "on-failure")
-	assert.Equal(c, maxRetry, "0")
+	c.Assert(name, checker.Equals, "on-failure")
+	c.Assert(maxRetry, checker.Equals, "0")
 }
 
 // a good container with --restart=on-failure:3
@@ -155,119 +153,114 @@ func (s *DockerSuite) TestRestartContainerwithGoodContainer(c *check.C) {
 
 	id := strings.TrimSpace(string(out))
 	err := waitInspect(id, "{{ .State.Restarting }} {{ .State.Running }}", "false false", 30*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	count := inspectField(c, id, "RestartCount")
-	assert.Equal(c, count, "0")
+	c.Assert(count, checker.Equals, "0")
 
 	MaximumRetryCount := inspectField(c, id, "HostConfig.RestartPolicy.MaximumRetryCount")
-	assert.Equal(c, MaximumRetryCount, "3")
+	c.Assert(MaximumRetryCount, checker.Equals, "3")
+
 }
 
 func (s *DockerSuite) TestRestartContainerSuccess(c *check.C) {
-	// Skipped for Hyper-V isolated containers. Test is currently written
-	// such that it assumes there is a host process to kill. In Hyper-V
-	// containers, the process is inside the utility VM, not on the host.
-	testRequires(c, testEnv.IsLocalDaemon, IsolationIsProcess)
+	testRequires(c, SameHostDaemon)
 
 	out := runSleepingContainer(c, "-d", "--restart=always")
 	id := strings.TrimSpace(out)
-	assert.NilError(c, waitRun(id))
+	c.Assert(waitRun(id), check.IsNil)
 
 	pidStr := inspectField(c, id, "State.Pid")
 
 	pid, err := strconv.Atoi(pidStr)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	p, err := os.FindProcess(pid)
-	assert.NilError(c, err)
-	assert.Assert(c, p != nil)
+	c.Assert(err, check.IsNil)
+	c.Assert(p, check.NotNil)
 
 	err = p.Kill()
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	err = waitInspect(id, "{{.RestartCount}}", "1", 30*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	err = waitInspect(id, "{{.State.Status}}", "running", 30*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 }
 
 func (s *DockerSuite) TestRestartWithPolicyUserDefinedNetwork(c *check.C) {
 	// TODO Windows. This may be portable following HNS integration post TP5.
-	testRequires(c, DaemonIsLinux, testEnv.IsLocalDaemon, NotUserNamespace, NotArm)
+	testRequires(c, DaemonIsLinux, SameHostDaemon, NotUserNamespace, NotArm)
 	dockerCmd(c, "network", "create", "-d", "bridge", "udNet")
 
 	dockerCmd(c, "run", "-d", "--net=udNet", "--name=first", "busybox", "top")
-	assert.NilError(c, waitRun("first"))
+	c.Assert(waitRun("first"), check.IsNil)
 
 	dockerCmd(c, "run", "-d", "--restart=always", "--net=udNet", "--name=second",
 		"--link=first:foo", "busybox", "top")
-	assert.NilError(c, waitRun("second"))
+	c.Assert(waitRun("second"), check.IsNil)
 
 	// ping to first and its alias foo must succeed
 	_, _, err := dockerCmdWithError("exec", "second", "ping", "-c", "1", "first")
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 	_, _, err = dockerCmdWithError("exec", "second", "ping", "-c", "1", "foo")
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	// Now kill the second container and let the restart policy kick in
 	pidStr := inspectField(c, "second", "State.Pid")
 
 	pid, err := strconv.Atoi(pidStr)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	p, err := os.FindProcess(pid)
-	assert.NilError(c, err)
-	assert.Assert(c, p != nil)
+	c.Assert(err, check.IsNil)
+	c.Assert(p, check.NotNil)
 
 	err = p.Kill()
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	err = waitInspect("second", "{{.RestartCount}}", "1", 5*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	err = waitInspect("second", "{{.State.Status}}", "running", 5*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	// ping to first and its alias foo must still succeed
 	_, _, err = dockerCmdWithError("exec", "second", "ping", "-c", "1", "first")
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 	_, _, err = dockerCmdWithError("exec", "second", "ping", "-c", "1", "foo")
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 }
 
 func (s *DockerSuite) TestRestartPolicyAfterRestart(c *check.C) {
-	// Skipped for Hyper-V isolated containers. Test is currently written
-	// such that it assumes there is a host process to kill. In Hyper-V
-	// containers, the process is inside the utility VM, not on the host.
-	testRequires(c, testEnv.IsLocalDaemon, IsolationIsProcess)
+	testRequires(c, SameHostDaemon)
 
 	out := runSleepingContainer(c, "-d", "--restart=always")
 	id := strings.TrimSpace(out)
-	assert.NilError(c, waitRun(id))
+	c.Assert(waitRun(id), check.IsNil)
 
 	dockerCmd(c, "restart", id)
 
-	assert.NilError(c, waitRun(id))
+	c.Assert(waitRun(id), check.IsNil)
 
 	pidStr := inspectField(c, id, "State.Pid")
 
 	pid, err := strconv.Atoi(pidStr)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	p, err := os.FindProcess(pid)
-	assert.NilError(c, err)
-	assert.Assert(c, p != nil)
+	c.Assert(err, check.IsNil)
+	c.Assert(p, check.NotNil)
 
 	err = p.Kill()
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	err = waitInspect(id, "{{.RestartCount}}", "1", 30*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 
 	err = waitInspect(id, "{{.State.Status}}", "running", 30*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, check.IsNil)
 }
 
 func (s *DockerSuite) TestRestartContainerwithRestartPolicy(c *check.C) {
@@ -281,7 +274,7 @@ func (s *DockerSuite) TestRestartContainerwithRestartPolicy(c *check.C) {
 		waitTimeout = 150 * time.Second
 	}
 	err := waitInspect(id1, "{{ .State.Restarting }} {{ .State.Running }}", "false false", waitTimeout)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	dockerCmd(c, "restart", id1)
 	dockerCmd(c, "restart", id2)
@@ -292,13 +285,13 @@ func (s *DockerSuite) TestRestartContainerwithRestartPolicy(c *check.C) {
 	dockerCmd(c, "start", id1)
 	dockerCmd(c, "start", id2)
 
-	// Kill the containers, making sure they are stopped at the end of the test
+	// Kill the containers, making sure the are stopped at the end of the test
 	dockerCmd(c, "kill", id1)
 	dockerCmd(c, "kill", id2)
 	err = waitInspect(id1, "{{ .State.Restarting }} {{ .State.Running }}", "false false", waitTimeout)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 	err = waitInspect(id2, "{{ .State.Restarting }} {{ .State.Running }}", "false false", waitTimeout)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 }
 
 func (s *DockerSuite) TestRestartAutoRemoveContainer(c *check.C) {
@@ -307,10 +300,10 @@ func (s *DockerSuite) TestRestartAutoRemoveContainer(c *check.C) {
 	id := strings.TrimSpace(string(out))
 	dockerCmd(c, "restart", id)
 	err := waitInspect(id, "{{ .State.Restarting }} {{ .State.Running }}", "false true", 15*time.Second)
-	assert.NilError(c, err)
+	c.Assert(err, checker.IsNil)
 
 	out, _ = dockerCmd(c, "ps")
-	assert.Assert(c, is.Contains(out, id[:12]), "container should be restarted instead of removed: %v", out)
+	c.Assert(out, checker.Contains, id[:12], check.Commentf("container should be restarted instead of removed: %v", out))
 
 	// Kill the container to make sure it will be removed
 	dockerCmd(c, "kill", id)
