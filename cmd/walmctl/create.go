@@ -72,7 +72,7 @@ func newCreateCmd(out io.Writer) *cobra.Command {
 	cmd.Flags().StringVar(&cc.name, "name", "", "name for release or project you create, overrides field name in file, required!!!")
 	cmd.Flags().StringVar(&cc.withchart, "withchart", "", "update release with local chart, absolutely or relative path to source file")
 	cmd.Flags().Int64Var(&cc.timeoutSec, "timeoutSec", 0, "timeout")
-	cmd.Flags().BoolVar(&cc.async, "async", true, "whether asynchronous")
+	cmd.Flags().BoolVar(&cc.async, "async", false, "whether asynchronous")
 
 	cmd.MarkFlagRequired("file")
 	return cmd
