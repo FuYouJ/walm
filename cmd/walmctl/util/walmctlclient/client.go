@@ -70,7 +70,7 @@ func (c *WalmctlClient) CreateRelease(namespace, chart string, releaseName strin
 			Post(chartFullUrl)
 	} else {
 		resp, err = resty.R().
-			SetHeader("Accept", "application/json").
+			SetHeader("Content-Type", "application/json").
 			SetBody(filestr).
 			Post(fullUrl)
 	}
@@ -95,7 +95,7 @@ func (c *WalmctlClient) UpdateRelease(namespace string, newConfigStr string, asy
 	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
 
-	resp, err = resty.R().SetHeader("Accept", "application/json").
+	resp, err = resty.R().SetHeader("Content-Type", "application/json").
 		SetBody(newConfigStr).
 		Put(fullUrl)
 	if resp.StatusCode() != 200 {

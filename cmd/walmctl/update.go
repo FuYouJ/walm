@@ -176,17 +176,13 @@ func (uc *updateCmd) run() error {
 		if err != nil {
 			return err
 		}
-		uc.withchart, err = filepath.Abs(uc.withchart)
-		if err != nil {
-			return err
-		}
-		_, err = ioutil.ReadFile(uc.withchart)
-		if err != nil {
-			return err
-		}
 		if uc.withchart == "" {
 			resp, err = client.UpdateRelease(namespace, string(releaseRequestByte), uc.async, uc.timeoutSec)
 		} else {
+			uc.withchart, err = filepath.Abs(uc.withchart)
+			if err != nil {
+				return err
+			}
 			resp, err = client.UpdateReleaseWithChart(namespace, uc.sourceName, uc.withchart, string(releaseRequestByte))
 		}
 		if err != nil {
