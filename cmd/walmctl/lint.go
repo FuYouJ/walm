@@ -6,14 +6,15 @@ import (
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"io/ioutil"
 	"helm.sh/helm/pkg/action"
 	"helm.sh/helm/pkg/chart"
 	"helm.sh/helm/pkg/chart/loader"
 	"helm.sh/helm/pkg/chartutil"
+	"helm.sh/helm/pkg/kube"
 	"helm.sh/helm/pkg/release"
 	"helm.sh/helm/pkg/storage"
 	"helm.sh/helm/pkg/storage/driver"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -26,7 +27,6 @@ import (
 	"encoding/json"
 	"github.com/ghodss/yaml"
 	"github.com/sergi/go-diff/diffmatchpatch"
-	kubefake "helm.sh/helm/pkg/kube/fake"
 )
 
 var longLintHelp = `
@@ -69,6 +69,7 @@ func newLintCmd() *cobra.Command {
 	cmd.PersistentFlags().StringVar(&lint.ciPath, "ciPath", "", "test chart ci path")
 	cmd.PersistentFlags().StringVar(&lint.kubeconfig, "kubeconfig", "kubeconfig", "kubeconfig path")
 	cmd.MarkPersistentFlagRequired("chartPath")
+	cmd.MarkPersistentFlagRequired("kubeconfig")
 	return cmd
 }
 
@@ -154,29 +155,34 @@ func (lint *lintOptions) run() error {
 
 	chartLoader, err := loader.Loader(lint.chartPath)
 	if err != nil {
+		glog.Errorf("read chart error %v...", err)
 		return err
 	}
 
 	rawChart, err := chartLoader.Load()
 	if err != nil {
+		glog.Errorf("load chart error %v...", err)
 		return err
 	}
 
 	if !isOpenSource {
 		err = lint.loadJsonnetAppLib(rawChart)
 		if err != nil {
+			glog.Errorf("load common lib error %v...", err)
 			return err
 		}
 	}
 
 	if req := rawChart.Metadata.Dependencies; req != nil {
 		if err := checkDependencies(rawChart, req); err != nil {
+			glog.Errorf("check dependencies error %v...", err)
 			return err
 		}
 	}
 
 	testCases, err := lint.loadCICases()
 	if err != nil {
+		glog.Errorf("find ci cases error %v...", err)
 		return err
 	}
 	for _, testCase := range testCases {
@@ -188,14 +194,16 @@ func (lint *lintOptions) run() error {
 			return err
 		}
 		repo := ""
-		err = transwarpjsonnet.ProcessJsonnetChart(repo, rawChart, testCase.caseNamespace, testCase.caseName,
-			testCase.userConfigs, testCase.dependencyConfigs, testCase.dependencies, testCase.releaseLabels, "")
+		err = transwarpjsonnet.ProcessJsonnetChart(
+			repo, rawChart, testCase.caseNamespace,
+			testCase.caseName, testCase.userConfigs, testCase.dependencyConfigs,
+			testCase.dependencies, testCase.releaseLabels, "",
+		)
 
-		inst := mockInst()
+		inst := lint.mockInst()
 		inst.Namespace = testCase.caseNamespace
 		inst.ReleaseName = testCase.caseName
 		rel, err := inst.Run(rawChart, valueOverride)
-
 		if err != nil {
 			return err
 		}
@@ -310,16 +318,19 @@ func (lint *lintOptions) loadJsonnetAppLib(ch *chart.Chart) error {
 	return err
 }
 
-func mockInst() *action.Install {
+func (lint *lintOptions) mockInst() *action.Install {
 	// dry-run using the Kubernetes mock
+	kc := kube.New(kube.GetConfig(lint.kubeconfig, "", ""))
 	customConfig := &action.Configuration{
 		// Add mock objects in here so it doesn't use Kube API server
-		Releases:   storage.Init(driver.NewMemory()),
-		KubeClient: &kubefake.PrintingKubeClient{Out: ioutil.Discard},
+		Releases:         storage.Init(driver.NewMemory()),
+		KubeClient:       kc,
+		RESTClientGetter: kube.GetConfig(lint.kubeconfig, "", ""),
 		Log: func(format string, v ...interface{}) {
 			fmt.Fprintf(os.Stdout, format, v...)
 		},
 	}
+
 	inst := action.NewInstall(customConfig)
 	inst.DryRun = true
 	inst.Replace = true // Skip running the name check

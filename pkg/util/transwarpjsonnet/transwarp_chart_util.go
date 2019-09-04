@@ -3,7 +3,6 @@ package transwarpjsonnet
 import (
 	"encoding/json"
 	"io/ioutil"
-
 	"os"
 	"path"
 	"path/filepath"
@@ -80,7 +79,10 @@ func loadCommonJsonnetLib(templates map[string]string) (err error) {
 	return nil
 }
 
-func buildConfigValuesToRender(rawChart *chart.Chart, namespace, name string, userConfigs, dependencyConfigs map[string]interface{}) (configValues map[string]interface{}, err error) {
+func buildConfigValuesToRender(
+	rawChart *chart.Chart, namespace, name string,
+	userConfigs, dependencyConfigs map[string]interface{},
+) (configValues map[string]interface{}, err error) {
 	configValues = map[string]interface{}{}
 	util.MergeValues(configValues, rawChart.Values, false)
 	//TODO merge system values
@@ -109,9 +111,11 @@ func buildConfigValuesToRender(rawChart *chart.Chart, namespace, name string, us
 //     c. merge dependency release output configs
 //     d. merge configs user provided
 // 3. render jsonnet template files to generate native chart templates
-func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace, releaseName string,
-	userConfigs, dependencyConfigs map[string]interface{}, dependencies, releaseLabels map[string]string,
-	chartImage string) error {
+func ProcessJsonnetChart(
+	repo string, rawChart *chart.Chart, releaseNamespace,
+	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
+	dependencies, releaseLabels map[string]string, chartImage string,
+) error {
 	jsonnetTemplateFiles := make(map[string]string, 0)
 	var rawChartFiles []*chart.File
 	for _, f := range rawChart.Files {
@@ -130,9 +134,12 @@ func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace, r
 		}
 	}
 
-	autoGenReleaseConfig, err := buildAutoGenReleaseConfig(releaseNamespace, releaseName, repo,
-		rawChart.Metadata.Name, rawChart.Metadata.Version, rawChart.Metadata.AppVersion,
-		releaseLabels, dependencies, dependencyConfigs, userConfigs, chartImage)
+	autoGenReleaseConfig, err := buildAutoGenReleaseConfig(
+		releaseNamespace, releaseName, repo,
+		rawChart.Metadata.Name, rawChart.Metadata.Version,
+		rawChart.Metadata.AppVersion, releaseLabels, dependencies,
+		dependencyConfigs, userConfigs, chartImage,
+	)
 	if err != nil {
 		logrus.Errorf("failed to auto gen release config : %s", err.Error())
 		return err
@@ -148,6 +155,7 @@ func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace, r
 		logrus.Infof("chart %s is native chart", rawChart.Metadata.Name)
 		return nil
 	}
+
 	// load values.yaml
 	valueYamlContent, err := json.Marshal(rawChart.Values)
 	jsonnetTemplateFiles[path.Join(releaseName, rawChart.Metadata.AppVersion, "values.yaml")] = string(valueYamlContent)
@@ -159,7 +167,6 @@ func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace, r
 		logrus.Errorf("failed to build config values to render jsonnet template files : %s", err.Error())
 		return err
 	}
-
 	jsonStr, err := renderMainJsonnetFile(jsonnetTemplateFiles, configValues)
 	if err != nil {
 		logrus.Errorf("failed to render jsonnet files : %s", err.Error())
@@ -218,4 +225,3 @@ func buildAutoGenReleaseConfig(releaseNamespace, releaseName, repo, chartName, c
 	}
 	return releaseConfigBytes, nil
 }
-
