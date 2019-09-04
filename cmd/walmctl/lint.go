@@ -199,6 +199,10 @@ func (lint *lintOptions) run() error {
 			testCase.caseName, testCase.userConfigs, testCase.dependencyConfigs,
 			testCase.dependencies, testCase.releaseLabels, "",
 		)
+		if err != nil {
+			glog.Errorf("processJsonnetChart error %v", err)
+			return err
+		}
 
 		inst := lint.mockInst()
 		inst.Namespace = testCase.caseNamespace
