@@ -1,23 +1,23 @@
 package impl
 
 import (
-	"net/url"
-	"strings"
-	"github.com/go-resty/resty"
-	"github.com/sirupsen/logrus"
-	"fmt"
-	"path/filepath"
-	"io/ioutil"
-	"helm.sh/helm/pkg/repo"
-	"github.com/ghodss/yaml"
-	"WarpCloud/walm/pkg/util/transwarpjsonnet"
+	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/util/transwarpjsonnet"
+	"encoding/json"
+	"fmt"
+	"github.com/ghodss/yaml"
+	"github.com/go-resty/resty"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"helm.sh/helm/pkg/chart"
 	"helm.sh/helm/pkg/chart/loader"
-	"encoding/json"
-	errorModel "WarpCloud/walm/pkg/models/error"
 	"helm.sh/helm/pkg/registry"
+	"helm.sh/helm/pkg/repo"
+	"io/ioutil"
+	"net/url"
+	"path/filepath"
+	"strings"
 )
 
 func (helmImpl *Helm) GetChartAutoDependencies(repoName, chartName, chartVersion string) (subChartNames []string, err error) {
@@ -39,7 +39,7 @@ func (helmImpl *Helm) GetChartAutoDependencies(repoName, chartName, chartVersion
 	return subChartNames, nil
 }
 
-func (helmImpl *Helm)GetRepoList() *release.RepoInfoList {
+func (helmImpl *Helm) GetRepoList() *release.RepoInfoList {
 	repoInfoList := new(release.RepoInfoList)
 	repoInfoList.Items = make([]*release.RepoInfo, 0)
 	for _, v := range helmImpl.chartRepoMap {
@@ -51,7 +51,7 @@ func (helmImpl *Helm)GetRepoList() *release.RepoInfoList {
 	return repoInfoList
 }
 
-func (helmImpl *Helm)GetChartDetailInfo(repoName, chartName, chartVersion string) (*release.ChartDetailInfo, error) {
+func (helmImpl *Helm) GetChartDetailInfo(repoName, chartName, chartVersion string) (*release.ChartDetailInfo, error) {
 	rawChart, err := helmImpl.getRawChartFromRepo(repoName, chartName, chartVersion)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
@@ -63,7 +63,7 @@ func (helmImpl *Helm)GetChartDetailInfo(repoName, chartName, chartVersion string
 	return buildChartInfo(rawChart)
 }
 
-func (helmImpl *Helm)GetChartList(repoName string) (*release.ChartInfoList, error) {
+func (helmImpl *Helm) GetChartList(repoName string) (*release.ChartInfoList, error) {
 	chartInfoList := new(release.ChartInfoList)
 	chartInfoList.Items = make([]*release.ChartInfo, 0)
 	chartRepository, ok := helmImpl.chartRepoMap[repoName]
@@ -88,7 +88,7 @@ func (helmImpl *Helm)GetChartList(repoName string) (*release.ChartInfoList, erro
 	return chartInfoList, nil
 }
 
-func (helmImpl *Helm)GetDetailChartInfoByImage(chartImage string) (*release.ChartDetailInfo, error) {
+func (helmImpl *Helm) GetDetailChartInfoByImage(chartImage string) (*release.ChartDetailInfo, error) {
 	rawChart, err := helmImpl.getRawChartByImage(chartImage)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {

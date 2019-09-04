@@ -1,35 +1,35 @@
 package impl
 
 import (
-	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/k8s"
+	k8sHelm "WarpCloud/walm/pkg/k8s/client/helm"
 	"WarpCloud/walm/pkg/models/common"
-	"helm.sh/helm/pkg/walm"
-	"helm.sh/helm/pkg/walm/plugins"
-	"github.com/sirupsen/logrus"
+	errorModel "WarpCloud/walm/pkg/models/error"
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/release/utils"
+	"WarpCloud/walm/pkg/setting"
 	"WarpCloud/walm/pkg/util"
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
+	"bytes"
+	"crypto/tls"
+	"fmt"
+	"github.com/containerd/containerd/remotes/docker"
+	"github.com/hashicorp/golang-lru"
+	"github.com/sirupsen/logrus"
+	"helm.sh/helm/pkg/action"
 	"helm.sh/helm/pkg/chart"
 	"helm.sh/helm/pkg/chart/loader"
-	"helm.sh/helm/pkg/registry"
-	"fmt"
-	"strings"
-	"WarpCloud/walm/pkg/k8s"
-	k8sModel "WarpCloud/walm/pkg/models/k8s"
-	"github.com/hashicorp/golang-lru"
-	"helm.sh/helm/pkg/storage/driver"
-	helmRelease "helm.sh/helm/pkg/release"
 	"helm.sh/helm/pkg/chartutil"
-	"bytes"
-	errorModel "WarpCloud/walm/pkg/models/error"
-	"helm.sh/helm/pkg/action"
-	k8sHelm "WarpCloud/walm/pkg/k8s/client/helm"
+	"helm.sh/helm/pkg/registry"
+	helmRelease "helm.sh/helm/pkg/release"
 	"helm.sh/helm/pkg/storage"
-	"crypto/tls"
+	"helm.sh/helm/pkg/storage/driver"
+	"helm.sh/helm/pkg/walm"
+	"helm.sh/helm/pkg/walm/plugins"
 	"net/http"
 	"os"
-	"github.com/containerd/containerd/remotes/docker"
-	"WarpCloud/walm/pkg/setting"
-	"WarpCloud/walm/pkg/release/utils"
+	"strings"
 )
 
 type ChartRepository struct {
@@ -172,8 +172,11 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		return nil, err
 	}
 
-	err = transwarpjsonnet.ProcessJsonnetChart(releaseRequest.RepoName, rawChart, namespace, releaseRequest.Name, configValues,
-		dependencyConfigs, dependencies, releaseLabels, releaseRequest.ChartImage)
+	err = transwarpjsonnet.ProcessJsonnetChart(
+		releaseRequest.RepoName, rawChart, namespace,
+		releaseRequest.Name, configValues, dependencyConfigs,
+		dependencies, releaseLabels, releaseRequest.ChartImage,
+	)
 	if err != nil {
 		logrus.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
 		return nil, err
@@ -203,8 +206,8 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	})
 
 	valueOverride := map[string]interface{}{}
-	util.MergeValues(valueOverride, configValues, false)
 	util.MergeValues(valueOverride, dependencyConfigs, false)
+	util.MergeValues(valueOverride, configValues, false)
 
 	walmPlugins := convertReleasePlugins(releasePlugins)
 	valueOverride[walm.WalmPluginConfigKey] = walmPlugins
@@ -241,6 +244,7 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 		}
 		action.DryRun = dryRun
 		action.Namespace = namespace
+		action.MaxHistory = 3
 		helmRelease, err = action.Run(releaseRequest.Name, rawChart, valueOverride)
 		if err != nil {
 			logrus.Errorf("failed to upgrade release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
@@ -502,8 +506,8 @@ func NewHelm(repoList []*setting.ChartRepo, registryClient *registry.Client, k8s
 		k8sCache:       k8sCache,
 		kubeClients:    kubeClients,
 		registryClient: registryClient,
-		chartRepoMap:  chartRepoMap,
-		actionConfigs: actionConfigs,
+		chartRepoMap:   chartRepoMap,
+		actionConfigs:  actionConfigs,
 	}
 
 	actionConfig, err := helm.getActionConfig("")

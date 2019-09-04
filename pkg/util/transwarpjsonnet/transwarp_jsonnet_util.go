@@ -3,19 +3,19 @@ package transwarpjsonnet
 import (
 	"bytes"
 	"crypto/md5"
-	"github.com/sirupsen/logrus"
 	"encoding/json"
-	"io"
-	"io/ioutil"
-	"os"
-	"strings"
 	"fmt"
 	"github.com/google/go-jsonnet"
-	"path/filepath"
-	"path"
-	"gopkg.in/yaml.v2"
 	jsonnetAst "github.com/google/go-jsonnet/ast"
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+	"io"
+	"io/ioutil"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -218,7 +218,7 @@ func renderMainJsonnetFile(templateFiles map[string]string, configValues map[str
 }
 
 func BuildNotRenderedFileName(fileName string) (notRenderFileName string) {
-	notRenderFileName = path.Join(path.Dir(fileName),  path.Base(fileName) + TranswarpJsonetFileSuffix)
+	notRenderFileName = path.Join(path.Dir(fileName), path.Base(fileName)+TranswarpJsonetFileSuffix)
 	return
 }
 
