@@ -31,7 +31,6 @@ func TestE2e(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	setting.InitConfig(configPath)
-	//transwarpscheme.AddToScheme(clientsetscheme.Scheme)
 
 	err := framework.InitFramework()
 	Expect(err).NotTo(HaveOccurred())

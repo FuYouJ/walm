@@ -12,8 +12,7 @@ import (
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/task"
 	"WarpCloud/walm/pkg/models/k8s"
-	"helm.sh/helm/pkg/walm"
-	"helm.sh/helm/pkg/walm/plugins"
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 )
 
 func TestHelm_PauseRelease(t *testing.T) {
@@ -98,7 +97,7 @@ func TestHelm_PauseRelease(t *testing.T) {
 						Name:      "test-name",
 					},
 					ComputedValues: map[string]interface{}{
-						walm.WalmPluginConfigKey: []interface{}{
+						plugins.WalmPluginConfigKey: []interface{}{
 							map[string]interface{}{
 								"name": "test-plugin",
 								"args": "test-args",

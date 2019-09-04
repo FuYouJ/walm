@@ -3,8 +3,7 @@ package helm
 import (
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/common"
-	"helm.sh/helm/pkg/walm"
-	"helm.sh/helm/pkg/walm/plugins"
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 )
 
 type Helm interface {
@@ -29,8 +28,8 @@ type Helm interface {
 func BuildReleasePluginsByConfigValues(configValues map[string]interface{}) (releasePlugins []*release.ReleasePlugin, hasPauseReleasePlugin bool, err error){
 	releasePlugins = []*release.ReleasePlugin{}
 	if configValues != nil {
-		if walmPlugins, ok := configValues[walm.WalmPluginConfigKey]; ok {
-			delete(configValues, walm.WalmPluginConfigKey)
+		if walmPlugins, ok := configValues[plugins.WalmPluginConfigKey]; ok {
+			delete(configValues, plugins.WalmPluginConfigKey)
 			for _, plugin := range walmPlugins.([]interface{}) {
 				walmPlugin := plugin.(map[string]interface{})
 				if walmPlugin["name"].(string) != plugins.ValidateReleaseConfigPluginName && !walmPlugin["disable"].(bool) {

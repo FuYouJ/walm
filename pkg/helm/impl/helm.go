@@ -9,6 +9,7 @@ import (
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/release/utils"
 	"WarpCloud/walm/pkg/setting"
+	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/util"
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
 	"bytes"
@@ -16,7 +17,6 @@ import (
 	"fmt"
 	"github.com/containerd/containerd/remotes/docker"
 	"github.com/hashicorp/golang-lru"
-	"github.com/sirupsen/logrus"
 	"helm.sh/helm/pkg/action"
 	"helm.sh/helm/pkg/chart"
 	"helm.sh/helm/pkg/chart/loader"
@@ -25,11 +25,14 @@ import (
 	helmRelease "helm.sh/helm/pkg/release"
 	"helm.sh/helm/pkg/storage"
 	"helm.sh/helm/pkg/storage/driver"
-	"helm.sh/helm/pkg/walm"
-	"helm.sh/helm/pkg/walm/plugins"
 	"net/http"
 	"os"
 	"strings"
+	"k8s.io/apimachinery/pkg/runtime"
+	"WarpCloud/walm/pkg/helm/impl/plugins"
+	"github.com/ghodss/yaml"
+	"helm.sh/helm/pkg/kube"
+	"github.com/pkg/errors"
 )
 
 type ChartRepository struct {
@@ -209,32 +212,61 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	util.MergeValues(valueOverride, dependencyConfigs, false)
 	util.MergeValues(valueOverride, configValues, false)
 
-	walmPlugins := convertReleasePlugins(releasePlugins)
-	valueOverride[walm.WalmPluginConfigKey] = walmPlugins
-	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, valueOverride, update, dryRun)
+	valueOverride[plugins.WalmPluginConfigKey] = releasePlugins
+	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, valueOverride, update, dryRun, releasePlugins)
 	if err != nil {
 		logrus.Errorf("failed to create or update release from chart : %s", err.Error())
 		return nil, err
 	}
-	return releaseCache, nil
-}
 
-func convertReleasePlugins(releasePlugins []*release.ReleasePlugin) []*walm.WalmPlugin {
-	results := []*walm.WalmPlugin{}
-	for _, plugin := range releasePlugins {
-		results = append(results, &walm.WalmPlugin{
-			Name:    plugin.Name,
-			Args:    plugin.Args,
-			Version: plugin.Version,
-			Disable: plugin.Disable,
-		})
-	}
-	return results
+	return releaseCache, nil
 }
 
 func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 	releaseRequest *release.ReleaseRequestV2, rawChart *chart.Chart, valueOverride map[string]interface{},
-	update bool, dryRun bool) (releaseCache *release.ReleaseCache, err error) {
+	update bool, dryRun bool, releasePlugins []*release.ReleasePlugin) (releaseCache *release.ReleaseCache, err error) {
+
+	releaseChan := make(chan *helmRelease.Release, 1)
+	releaseErrChan := make(chan error, 1)
+
+	expChan := make(chan struct{})
+	_, kubeClient := helmImpl.kubeClients.GetKubeClient(namespace)
+
+	// execute pre_install plugins
+	go func() {
+		select {
+		case release := <-releaseChan:
+			defer func() {
+				if err := recover(); err != nil {
+					releaseErrChan <- errors.New(fmt.Sprintf("panic happend: %v", err))
+				}
+			}()
+			context, err := buildContext(kubeClient, release)
+			if err != nil {
+				releaseErrChan <- err
+				return
+			}
+
+			err = runPlugins(releasePlugins, context, plugins.Pre_Install)
+			if err != nil {
+				releaseErrChan <- err
+				return
+			}
+
+			manifest, err := buildManifest(context.Resources)
+			if err != nil {
+				logrus.Errorf("failed to build manifest : %s", err.Error())
+				releaseErrChan <- err
+				return
+			}
+			release.Manifest = manifest
+			releaseChan <- release
+		case <-expChan:
+			logrus.Warn("failed to execute pre_install plugins with exception")
+		}
+
+	}()
+	defer close(expChan)
 
 	var helmRelease *helmRelease.Release
 	if update {
@@ -245,6 +277,8 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 		action.DryRun = dryRun
 		action.Namespace = namespace
 		action.MaxHistory = 3
+		action.ReleaseChan = releaseChan
+		action.ReleaseErrChan = releaseErrChan
 		helmRelease, err = action.Run(releaseRequest.Name, rawChart, valueOverride)
 		if err != nil {
 			logrus.Errorf("failed to upgrade release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
@@ -258,6 +292,8 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 		action.DryRun = dryRun
 		action.Namespace = namespace
 		action.ReleaseName = releaseRequest.Name
+		action.ReleaseChan = releaseChan
+		action.ReleaseErrChan = releaseErrChan
 		helmRelease, err = action.Run(rawChart, valueOverride)
 		if err != nil {
 			logrus.Errorf("failed to install release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
@@ -275,7 +311,66 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 			return nil, err
 		}
 	}
+
+	// execute post_install plugins
+	context, err := buildContext(kubeClient, helmRelease)
+	if err != nil {
+		return nil, err
+	}
+
+	err = runPlugins(releasePlugins, context, plugins.Post_Install)
+	if err != nil {
+		return nil, err
+	}
 	return helmImpl.convertHelmRelease(helmRelease)
+}
+
+func buildContext(kubeClient *kube.Client, release *helmRelease.Release) (*plugins.PluginContext, error) {
+	resources, err := kubeClient.Build(bytes.NewBufferString(release.Manifest))
+	if err != nil {
+		logrus.Errorf("failed to build k8s resources : %s", err.Error())
+		return nil, err
+	}
+	context := &plugins.PluginContext{
+		R:         release,
+		Resources: []runtime.Object{},
+	}
+	for _, resource := range resources {
+		context.Resources = append(context.Resources, resource.Object)
+	}
+	return context, nil
+}
+
+func runPlugins(releasePlugins []*release.ReleasePlugin, context *plugins.PluginContext, runnerType plugins.RunnerType) error {
+	for _, plugin := range releasePlugins {
+		if plugin.Disable {
+			continue
+		}
+		runner := plugins.GetRunner(plugin)
+		if runner != nil && runner.Type == runnerType {
+			logrus.Infof("start to exec %s plugin %s", runnerType, plugin.Name)
+			err := runner.Run(context, plugin.Args)
+			if err != nil {
+				logrus.Errorf("failed to exec %s plugin %s : %s", runnerType, plugin.Name, err.Error())
+				return err
+			}
+			logrus.Infof("succeed to exec %s plugin %s", runnerType, plugin.Name)
+		}
+	}
+	return nil
+}
+
+func buildManifest(resources []runtime.Object) (string, error) {
+	var sb strings.Builder
+	for _, resource := range resources {
+		resourceBytes, err := yaml.Marshal(resource)
+		if err != nil {
+			return "", err
+		}
+		sb.WriteString("\n---\n")
+		sb.Write(resourceBytes)
+	}
+	return sb.String(), nil
 }
 
 func (helmImpl *Helm) convertHelmRelease(helmRelease *helmRelease.Release) (releaseCache *release.ReleaseCache, err error) {
