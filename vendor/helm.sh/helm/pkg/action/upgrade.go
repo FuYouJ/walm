@@ -29,7 +29,6 @@ import (
 	"helm.sh/helm/pkg/kube"
 	"helm.sh/helm/pkg/release"
 	"helm.sh/helm/pkg/releaseutil"
-	"helm.sh/helm/pkg/walm"
 )
 
 // Upgrade is the action for upgrading releases.
@@ -55,6 +54,9 @@ type Upgrade struct {
 	// MaxHistory limits the maximum number of revisions saved per release
 	MaxHistory int
 	Atomic     bool
+
+	ReleaseChan    chan *release.Release
+	ReleaseErrChan chan error
 }
 
 // NewUpgrade creates a new Upgrade object with the given configuration.
@@ -195,10 +197,16 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 }
 
 func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Release) (*release.Release, error) {
-	walmPluginManager := walm.NewWalmPluginManager(u.cfg.KubeClient, upgradedRelease, u.cfg.Log)
-	err := walmPluginManager.ExecPlugins(walm.Pre_Install)
-	if err != nil {
-		return upgradedRelease, err
+	if u.ReleaseChan != nil && u.ReleaseErrChan != nil {
+		u.ReleaseChan <- upgradedRelease
+		u.cfg.Log("waiting for executing pre_install plugins")
+		select {
+		case err := <- u.ReleaseErrChan:
+			u.cfg.Log("failed to execute pre_install plugins")
+			return upgradedRelease, err
+		case upgradedRelease = <- u.ReleaseChan:
+			u.cfg.Log("succeed to execute pre_install plugins")
+		}
 	}
 
 	if u.DryRun {
@@ -253,11 +261,6 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 		if err := u.cfg.execHook(upgradedRelease, release.HookPostUpgrade, u.Timeout); err != nil {
 			return u.failRelease(upgradedRelease, fmt.Errorf("post-upgrade hooks failed: %s", err))
 		}
-	}
-
-	err = walmPluginManager.ExecPlugins(walm.Post_Install)
-	if err != nil {
-		return upgradedRelease, err
 	}
 
 	originalRelease.Info.Status = release.StatusSuperseded
