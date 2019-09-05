@@ -11,12 +11,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/sirupsen/logrus"
 	"helm.sh/helm/pkg/chart"
-	"helm.sh/helm/pkg/walm/plugins"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 
 	"WarpCloud/walm/pkg/setting"
 	"WarpCloud/walm/pkg/util"
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 )
 
 const (

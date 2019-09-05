@@ -101,7 +101,7 @@ func (helm *Helm) doInstallUpgradeRelease(namespace string, releaseRequest *rele
 
 	releaseCache, err := helm.helm.InstallOrCreateRelease(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, paused)
 	if err != nil {
-		logrus.Errorf("failed to install or create release %s/%s : %s", namespace, releaseRequest.Name, err.Error())
+		logrus.Errorf("failed to install or update release %s/%s : %s", namespace, releaseRequest.Name, err.Error())
 		return nil, err
 	}
 	if !dryRun {

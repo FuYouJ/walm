@@ -4,8 +4,7 @@ import (
 	"testing"
 	"WarpCloud/walm/pkg/models/release"
 	"github.com/stretchr/testify/assert"
-	"helm.sh/helm/pkg/walm"
-	"helm.sh/helm/pkg/walm/plugins"
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 )
 
 func Test_BuildReleasePluginsByConfigValues(t *testing.T) {
@@ -17,7 +16,7 @@ func Test_BuildReleasePluginsByConfigValues(t *testing.T) {
 	}{
 		{
 			configValues: map[string]interface{}{
-				walm.WalmPluginConfigKey: []interface{}{
+				plugins.WalmPluginConfigKey: []interface{}{
 					map[string]interface{}{
 						"name": "test-plugin",
 						"args": "test-args",
@@ -39,7 +38,7 @@ func Test_BuildReleasePluginsByConfigValues(t *testing.T) {
 		},
 		{
 			configValues: map[string]interface{}{
-				walm.WalmPluginConfigKey: []interface{}{
+				plugins.WalmPluginConfigKey: []interface{}{
 					map[string]interface{}{
 						"name": "test-plugin",
 						"args": "test-args",
@@ -55,7 +54,7 @@ func Test_BuildReleasePluginsByConfigValues(t *testing.T) {
 		},
 		{
 			configValues: map[string]interface{}{
-				walm.WalmPluginConfigKey: []interface{}{
+				plugins.WalmPluginConfigKey: []interface{}{
 					map[string]interface{}{
 						"name": plugins.ValidateReleaseConfigPluginName,
 						"args": "test-args",
@@ -71,7 +70,7 @@ func Test_BuildReleasePluginsByConfigValues(t *testing.T) {
 		},
 		{
 			configValues: map[string]interface{}{
-				walm.WalmPluginConfigKey: []interface{}{
+				plugins.WalmPluginConfigKey: []interface{}{
 					map[string]interface{}{
 						"name": "test-plugin",
 						"args": "test-args",

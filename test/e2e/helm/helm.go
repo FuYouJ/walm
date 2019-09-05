@@ -12,11 +12,10 @@ import (
 	"github.com/ghodss/yaml"
 	"errors"
 	"WarpCloud/walm/pkg/util"
-	"helm.sh/helm/pkg/walm"
-	"helm.sh/helm/pkg/walm/plugins"
 	"fmt"
 	"path/filepath"
 	"strings"
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 )
 
 var _ = Describe("HelmRelease", func() {
@@ -67,7 +66,7 @@ var _ = Describe("HelmRelease", func() {
 			tomcatComputedValues = map[string]interface{}{}
 			tomcatComputedValues = util.MergeValues(tomcatComputedValues, defaultValues, false)
 			tomcatComputedValues = util.MergeValues(tomcatComputedValues, map[string]interface{}{
-				walm.WalmPluginConfigKey: []*walm.WalmPlugin{
+				plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
 					{
 						Name: plugins.ValidateReleaseConfigPluginName,
 					},
@@ -181,7 +180,7 @@ var _ = Describe("HelmRelease", func() {
 			computedValues := map[string]interface{}{}
 			computedValues = util.MergeValues(computedValues, defaultValues, false)
 			computedValues = util.MergeValues(computedValues, map[string]interface{}{
-				walm.WalmPluginConfigKey: []*walm.WalmPlugin{
+				plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
 					{
 						Name: plugins.ValidateReleaseConfigPluginName,
 					},
@@ -299,7 +298,7 @@ var _ = Describe("HelmRelease", func() {
 				"0.2.0", "7", 1)
 
 			tomcatComputedValues = util.MergeValues(tomcatComputedValues, map[string]interface{}{
-				walm.WalmPluginConfigKey: []*walm.WalmPlugin{
+				plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
 					{
 						Name: plugins.LabelPodPluginName,
 						Args: "{\"labelsToAdd\":{\"test_key\":\"test_value\"}}",
@@ -398,7 +397,7 @@ var _ = Describe("HelmRelease", func() {
 				computedValues := map[string]interface{}{}
 				computedValues = util.MergeValues(computedValues, defaultValues, false)
 				computedValues = util.MergeValues(computedValues, map[string]interface{}{
-					walm.WalmPluginConfigKey: []*walm.WalmPlugin{
+					plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
 						{
 							Name: plugins.ValidateReleaseConfigPluginName,
 						},
@@ -434,7 +433,7 @@ var _ = Describe("HelmRelease", func() {
 				computedValues = map[string]interface{}{}
 				computedValues = util.MergeValues(computedValues, defaultValues, false)
 				computedValues = util.MergeValues(computedValues, map[string]interface{}{
-					walm.WalmPluginConfigKey: []*walm.WalmPlugin{
+					plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
 						{
 							Name: plugins.ValidateReleaseConfigPluginName,
 						},
@@ -522,7 +521,7 @@ var _ = Describe("HelmRelease", func() {
 				"0.2.0", "7", 1)
 
 			tomcatComputedValues = util.MergeValues(tomcatComputedValues, map[string]interface{}{
-				walm.WalmPluginConfigKey: []*walm.WalmPlugin{
+				plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
 					{
 						Version: "1.0",
 						Name:    plugins.PauseReleasePluginName,
@@ -559,7 +558,7 @@ var _ = Describe("HelmRelease", func() {
 				"0.2.0", "7", 2)
 
 			tomcatComputedValues = util.MergeValues(tomcatComputedValues, map[string]interface{}{
-				walm.WalmPluginConfigKey: []*walm.WalmPlugin{
+				plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
 					{
 						Version: "1.0",
 						Name:    plugins.PauseReleasePluginName,

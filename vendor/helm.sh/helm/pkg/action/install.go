@@ -44,7 +44,6 @@ import (
 	"helm.sh/helm/pkg/repo"
 	"helm.sh/helm/pkg/storage"
 	"helm.sh/helm/pkg/storage/driver"
-	"helm.sh/helm/pkg/walm"
 )
 
 // releaseNameMaxLen is the maximum length of a release name.
@@ -83,6 +82,9 @@ type Install struct {
 	OutputDir        string
 	Atomic           bool
 	SkipCRDs         bool
+
+	ReleaseChan    chan *release.Release
+	ReleaseErrChan chan error
 }
 
 // ChartPathOptions captures common options used for controlling chart paths
@@ -194,10 +196,17 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 	// Mark this release as in-progress
 	rel.SetStatus(release.StatusPendingInstall, "Initial install underway")
 
-	walmPluginManager := walm.NewWalmPluginManager(i.cfg.KubeClient, rel, i.cfg.Log)
-	err = walmPluginManager.ExecPlugins(walm.Pre_Install)
-	if err != nil{
-		return rel, err
+	if i.ReleaseChan != nil && i.ReleaseErrChan != nil {
+		i.ReleaseChan <- rel
+		i.cfg.Log("waiting for executing pre_install plugins")
+		select {
+		case err = <- i.ReleaseErrChan:
+			i.cfg.Log("failed to execute pre_install plugins")
+			rel.SetStatus(release.StatusFailed, fmt.Sprintf("failed to execute pre_install plugins: %s", err.Error()))
+			return rel, err
+		case rel = <- i.ReleaseChan:
+			i.cfg.Log("succeed to execute pre_install plugins")
+		}
 	}
 
 	resources, err := i.cfg.KubeClient.Build(bytes.NewBufferString(rel.Manifest))
@@ -252,11 +261,6 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 		if err := i.cfg.execHook(rel, release.HookPostInstall, i.Timeout); err != nil {
 			return i.failRelease(rel, fmt.Errorf("failed post-install: %s", err))
 		}
-	}
-
-	err = walmPluginManager.ExecPlugins(walm.Post_Install)
-	if err != nil {
-		return rel, err
 	}
 
 	rel.SetStatus(release.StatusDeployed, "Install complete")
