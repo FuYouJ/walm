@@ -33,6 +33,7 @@ import (
 	"github.com/ghodss/yaml"
 	"helm.sh/helm/pkg/kube"
 	"github.com/pkg/errors"
+	"WarpCloud/walm/pkg/redis"
 )
 
 type ChartRepository struct {
@@ -82,13 +83,40 @@ func (helmImpl *Helm) ListAllReleases() (releaseCaches []*release.ReleaseCache, 
 		logrus.Errorf("failed to list helm releases: %s\n", err.Error())
 		return nil, err
 	}
-	for _, helmRelease := range helmReleases {
+
+	filteredHelmReleases := filterHelmReleases(helmReleases)
+	for _, helmRelease := range filteredHelmReleases {
 		releaseCache, err := helmImpl.convertHelmRelease(helmRelease)
 		if err != nil {
 			logrus.Errorf("failed to convert helm release %s/%s : %s", helmRelease.Namespace, helmRelease.Name, err.Error())
 			return nil, err
 		}
 		releaseCaches = append(releaseCaches, releaseCache)
+	}
+	return
+}
+
+// keep latest deployed one. if there is no deployed one ,keep the latest version.
+func filterHelmReleases(releases []*helmRelease.Release) (filteredReleases map[string]*helmRelease.Release) {
+	filteredReleases = map[string]*helmRelease.Release{}
+	for _, release := range releases {
+		filedName := redis.BuildFieldName(release.Namespace, release.Name)
+		if existedRelease, ok := filteredReleases[filedName]; ok {
+			if existedRelease.Info != nil && existedRelease.Info.Status == helmRelease.StatusDeployed {
+				if  release.Info != nil && release.Info.Status == helmRelease.StatusDeployed &&
+					existedRelease.Version < release.Version {
+					filteredReleases[filedName] = release
+				}
+			} else {
+				if release.Info != nil && release.Info.Status == helmRelease.StatusDeployed {
+					filteredReleases[filedName] = release
+				} else if existedRelease.Version < release.Version {
+					filteredReleases[filedName] = release
+				}
+			}
+		} else {
+			filteredReleases[filedName] = release
+		}
 	}
 	return
 }
