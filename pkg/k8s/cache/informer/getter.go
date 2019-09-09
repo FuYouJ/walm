@@ -47,7 +47,7 @@ func (informer *Informer) getDaemonSet(namespace, name string) (k8s.Resource, er
 			Meta: k8s.NewNotFoundMeta(k8s.DaemonSetKind, namespace, name),
 		})
 	}
-	pods, err := informer.listPods(namespace, resource.Spec.Selector)
+	pods, err := informer.listPods(namespace, resource.Spec.Selector, false)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func (informer *Informer) getDeployment(namespace, name string) (k8s.Resource, e
 			Meta: k8s.NewNotFoundMeta(k8s.DeploymentKind, namespace, name),
 		})
 	}
-	pods, err := informer.listPods(namespace, resource.Spec.Selector)
+	pods, err := informer.listPods(namespace, resource.Spec.Selector, false)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (informer *Informer) getJob(namespace, name string) (k8s.Resource, error) {
 			Meta: k8s.NewNotFoundMeta(k8s.JobKind, namespace, name),
 		})
 	}
-	pods, err := informer.listPods(namespace, resource.Spec.Selector)
+	pods, err := informer.listPods(namespace, resource.Spec.Selector, true)
 	if err != nil {
 		return nil, err
 	}
@@ -124,25 +124,34 @@ func (informer *Informer) getStatefulSet(namespace, name string) (k8s.Resource, 
 			Meta: k8s.NewNotFoundMeta(k8s.StatefulSetKind, namespace, name),
 		})
 	}
-	pods, err := informer.listPods(namespace, resource.Spec.Selector)
+	pods, err := informer.listPods(namespace, resource.Spec.Selector, false)
 	if err != nil {
 		return nil, err
 	}
 	return converter.ConvertStatefulSetFromK8s(resource, pods)
 }
 
-func (informer *Informer) listPods(namespace string, labelSelector *metav1.LabelSelector) ([]*corev1.Pod, error) {
+func (informer *Informer) listPods(namespace string, labelSelector *metav1.LabelSelector, fromJob bool) ([]*corev1.Pod, error) {
 	selector, err := utils.ConvertLabelSelectorToSelector(labelSelector)
 	if err != nil {
 		logrus.Errorf("failed to convert label selector : %s", err.Error())
 		return nil, err
 	}
 	pods, err := informer.podLister.Pods(namespace).List(selector)
+	var walmPods []*corev1.Pod
+	for _, pod := range pods {
+		if !fromJob {
+			if pod.Status.Phase == corev1.PodFailed || pod.Status.Phase == corev1.PodSucceeded {
+				continue
+			}
+		}
+		walmPods = append(walmPods, pod)
+	}
 	if err != nil {
 		logrus.Errorf("failed to list pods : %s", err.Error())
 		return nil, err
 	}
-	return pods, nil
+	return walmPods, nil
 }
 
 func (informer *Informer) getEndpoints(namespace, name string) (*corev1.Endpoints, error) {
