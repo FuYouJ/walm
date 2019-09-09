@@ -173,7 +173,7 @@ func (informer *Informer) ListStatefulSets(namespace string, labelSelectorStr st
 
 	statefulSets := []*k8s.StatefulSet{}
 	for _, resource := range resources {
-		pods, err := informer.listPods(namespace, resource.Spec.Selector)
+		pods, err := informer.listPods(namespace, resource.Spec.Selector, false)
 		if err != nil {
 			return nil, err
 		}
