@@ -1,14 +1,14 @@
 package helm
 
 import (
-	releaseModel "WarpCloud/walm/pkg/models/release"
-	"github.com/sirupsen/logrus"
-	"fmt"
-	k8sModel "WarpCloud/walm/pkg/models/k8s"
-	errorModel "WarpCloud/walm/pkg/models/error"
-	"sync"
-	"errors"
 	walmHelm "WarpCloud/walm/pkg/helm"
+	errorModel "WarpCloud/walm/pkg/models/error"
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
+	releaseModel "WarpCloud/walm/pkg/models/release"
+	"errors"
+	"fmt"
+	"k8s.io/klog"
+	"sync"
 )
 
 func (helm *Helm) GetRelease(namespace, name string) (releaseV2 *releaseModel.ReleaseInfoV2, err error) {
@@ -34,10 +34,10 @@ func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.Rele
 		releaseCache, err = helm.releaseCache.GetReleaseCache(releaseTask.Namespace, releaseTask.Name)
 		if err != nil {
 			if errorModel.IsNotFoundError(err) {
-				logrus.Warnf("release cache %s/%s is not found in redis", releaseTask.Namespace, releaseTask.Name)
+				klog.Warningf("release cache %s/%s is not found in redis", releaseTask.Namespace, releaseTask.Name)
 				err = nil
 			} else {
-				logrus.Errorf("failed to get release cache of %s/%s : %s", releaseTask.Namespace, releaseTask.Name, err.Error())
+				klog.Errorf("failed to get release cache of %s/%s : %s", releaseTask.Namespace, releaseTask.Name, err.Error())
 				return
 			}
 		}
@@ -46,7 +46,7 @@ func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.Rele
 	if releaseCache != nil {
 		releaseV2, err = helm.buildReleaseInfoV2(releaseCache)
 		if err != nil {
-			logrus.Errorf("failed to build v2 release info : %s", err.Error())
+			klog.Errorf("failed to build v2 release info : %s", err.Error())
 			return
 		}
 	}
@@ -57,7 +57,7 @@ func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.Rele
 			err = nil
 			return releaseV2, nil
 		} else {
-			logrus.Errorf("failed to get task state : %s", err.Error())
+			klog.Errorf("failed to get task state : %s", err.Error())
 			return nil, err
 		}
 	}
@@ -76,7 +76,7 @@ func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.Rele
 func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*releaseModel.ReleaseInfoV2, error) {
 	releaseV1, err := helm.buildReleaseInfo(releaseCache)
 	if err != nil {
-		logrus.Errorf("failed to build release info: %s", err.Error())
+		klog.Errorf("failed to build release info: %s", err.Error())
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 			releaseV2.OutputConfigValues = map[string]interface{}{}
 			releaseV2.ReleaseLabels = map[string]string{}
 		} else {
-			logrus.Errorf("failed to get release config : %s", err.Error())
+			klog.Errorf("failed to get release config : %s", err.Error())
 			return nil, err
 		}
 	} else {
@@ -119,7 +119,7 @@ func (helm *Helm) buildReleaseInfo(releaseCache *releaseModel.ReleaseCache) (rel
 
 	releaseInfo.Status, err = helm.k8sCache.GetResourceSet(releaseCache.ReleaseResourceMetas)
 	if err != nil {
-		logrus.Errorf(fmt.Sprintf("Failed to build the status of releaseInfo: %s", releaseInfo.Name))
+		klog.Errorf(fmt.Sprintf("Failed to build the status of releaseInfo: %s", releaseInfo.Name))
 		return
 	}
 	ready, notReadyResource := releaseInfo.Status.IsReady()
@@ -135,13 +135,13 @@ func (helm *Helm) buildReleaseInfo(releaseCache *releaseModel.ReleaseCache) (rel
 func (helm *Helm) ListReleases(namespace string) ([]*releaseModel.ReleaseInfoV2, error) {
 	releaseTasks, err := helm.releaseCache.GetReleaseTasks(namespace)
 	if err != nil {
-		logrus.Errorf("failed to get release tasks with namespace=%s : %s", namespace, err.Error())
+		klog.Errorf("failed to get release tasks with namespace=%s : %s", namespace, err.Error())
 		return nil, err
 	}
 
 	releaseCaches, err := helm.releaseCache.GetReleaseCaches(namespace)
 	if err != nil {
-		logrus.Errorf("failed to get release caches with namespace=%s : %s", namespace, err.Error())
+		klog.Errorf("failed to get release caches with namespace=%s : %s", namespace, err.Error())
 		return nil, err
 	}
 
@@ -151,7 +151,7 @@ func (helm *Helm) ListReleases(namespace string) ([]*releaseModel.ReleaseInfoV2,
 func (helm *Helm) ListReleasesByLabels(namespace string, labelSelectorStr string) ([]*releaseModel.ReleaseInfoV2, error) {
 	releaseConfigs, err := helm.k8sCache.ListReleaseConfigs(namespace, labelSelectorStr)
 	if err != nil {
-		logrus.Errorf("failed to list release configs : %s", err.Error())
+		klog.Errorf("failed to list release configs : %s", err.Error())
 		return nil, err
 	}
 
@@ -164,13 +164,13 @@ func (helm *Helm) listReleasesByReleaseConfigs(releaseConfigs []*k8sModel.Releas
 	}
 	releaseTasks, err := helm.releaseCache.GetReleaseTasksByReleaseConfigs(releaseConfigs)
 	if err != nil {
-		logrus.Errorf("failed to get release tasks : %s", err.Error())
+		klog.Errorf("failed to get release tasks : %s", err.Error())
 		return nil, err
 	}
 
 	releaseCaches, err := helm.releaseCache.GetReleaseCachesByReleaseConfigs(releaseConfigs)
 	if err != nil {
-		logrus.Errorf("failed to get release caches : %s", err.Error())
+		klog.Errorf("failed to get release caches : %s", err.Error())
 		return nil, err
 	}
 
@@ -194,7 +194,7 @@ func (helm *Helm) doListReleases(releaseTasks []*releaseModel.ReleaseTask, relea
 			info, err1 := helm.buildReleaseInfoV2ByReleaseTask(releaseTask, releaseCache)
 			if err1 != nil {
 				err = errors.New(fmt.Sprintf("failed to build release info: %s", err1.Error()))
-				logrus.Error(err.Error())
+				klog.Error(err.Error())
 				return
 			}
 			mux.Lock()

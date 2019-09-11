@@ -1,14 +1,14 @@
 package usecase
 
 import (
-	"WarpCloud/walm/pkg/models/tenant"
-	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/k8s"
-	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	errorModel "WarpCloud/walm/pkg/models/error"
-	"fmt"
-	"sync"
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/tenant"
 	"WarpCloud/walm/pkg/release"
+	"fmt"
+	"k8s.io/klog"
+	"sync"
 )
 
 type Tenant struct {
@@ -24,7 +24,7 @@ func (tenantImpl *Tenant) CreateTenant(tenantName string, tenantParams *tenant.T
 			namespace := buildNamespace(tenantParams, tenantName)
 			err = tenantImpl.k8sOperator.CreateNamespace(namespace)
 			if err != nil {
-				logrus.Errorf("failed to create namespace %s : %s", tenantName, err.Error())
+				klog.Errorf("failed to create namespace %s : %s", tenantName, err.Error())
 				return err
 			}
 
@@ -33,18 +33,18 @@ func (tenantImpl *Tenant) CreateTenant(tenantName string, tenantParams *tenant.T
 				// rollback
 				err1 := tenantImpl.k8sOperator.DeleteNamespace(tenantName)
 				if err1 != nil {
-					logrus.Warnf("failed to rollback deleting namespace %s", err1.Error())
+					klog.Warningf("failed to rollback deleting namespace %s", err1.Error())
 				}
 				return err
 			}
-			logrus.Infof("succeed to create tenant %s", tenantName)
+			klog.Infof("succeed to create tenant %s", tenantName)
 			return nil
 		}
-		logrus.Errorf("failed to get tenant : %s", err.Error())
+		klog.Errorf("failed to get tenant : %s", err.Error())
 		return err
 
 	}
-	logrus.Warnf("namespace %s exists", tenantName)
+	klog.Warningf("namespace %s exists", tenantName)
 	return nil
 }
 
@@ -68,14 +68,14 @@ func (tenantImpl *Tenant) doCreateTenant(tenantName string, tenantParams *tenant
 	for _, tenantQuota := range tenantParams.TenantQuotas {
 		err := tenantImpl.createResourceQuota(tenantName, tenantQuota)
 		if err != nil {
-			logrus.Errorf("failed to create resource quota : %s", err.Error())
+			klog.Errorf("failed to create resource quota : %s", err.Error())
 			return err
 		}
 	}
 
 	err := tenantImpl.k8sOperator.CreateLimitRange(getDefaultLimitRange(tenantName))
 	if err != nil {
-		logrus.Errorf("failed to create limitrange : %s", err.Error())
+		klog.Errorf("failed to create limitrange : %s", err.Error())
 		return err
 	}
 
@@ -105,7 +105,7 @@ func (tenantImpl *Tenant) createResourceQuota(tenantName string, tenantQuota *te
 	resourceQuota := buildResourceQuota(tenantName, tenantQuota)
 	err := tenantImpl.k8sOperator.CreateResourceQuota(resourceQuota)
 	if err != nil {
-		logrus.Errorf("failed to create resource quota : %s", err.Error())
+		klog.Errorf("failed to create resource quota : %s", err.Error())
 		return err
 	}
 	return nil
@@ -134,7 +134,7 @@ func (tenantImpl *Tenant) updateResourceQuota(tenantName string, tenantQuota *te
 	resourceQuota := buildResourceQuota(tenantName, tenantQuota)
 	err := tenantImpl.k8sOperator.CreateOrUpdateResourceQuota(resourceQuota)
 	if err != nil {
-		logrus.Errorf("failed to update resource quota : %s", err.Error())
+		klog.Errorf("failed to update resource quota : %s", err.Error())
 		return err
 	}
 	return nil
@@ -160,7 +160,7 @@ func (tenantImpl *Tenant) DeleteTenant(tenantName string) error {
 
 	releases, err := tenantImpl.releaseUseCase.ListReleases(tenantName)
 	if err != nil {
-		logrus.Errorf("failed to get releases in tenant %s : %s", tenantName, err.Error())
+		klog.Errorf("failed to get releases in tenant %s : %s", tenantName, err.Error())
 		return err
 	}
 
@@ -172,7 +172,7 @@ func (tenantImpl *Tenant) DeleteTenant(tenantName string) error {
 			err1 := tenantImpl.releaseUseCase.DeleteReleaseWithRetry(tenantName, releaseName, false, false, 0)
 			if err1 != nil {
 				err = fmt.Errorf("failed to delete release %s under tenant %s : %s", releaseName, tenantName, err1.Error())
-				logrus.Error(err.Error())
+				klog.Error(err.Error())
 			}
 		}(release.Name)
 	}
@@ -184,36 +184,36 @@ func (tenantImpl *Tenant) DeleteTenant(tenantName string) error {
 
 	err = tenantImpl.k8sOperator.DeleteNamespace(tenantName)
 	if err != nil {
-		logrus.Errorf("failed to delete namespace %s : %s", tenantName, err.Error())
+		klog.Errorf("failed to delete namespace %s : %s", tenantName, err.Error())
 		return err
 	}
 
-	logrus.Infof("succeed to delete tenant %s", tenantName)
+	klog.Infof("succeed to delete tenant %s", tenantName)
 	return nil
 }
 
 func (tenantImpl *Tenant) UpdateTenant(tenantName string, tenantParams *tenant.TenantParams) error {
 	_, err := tenantImpl.k8sCache.GetTenant(tenantName)
 	if err != nil {
-		logrus.Errorf("failed to get tenantInfo : %s", err.Error())
+		klog.Errorf("failed to get tenantInfo : %s", err.Error())
 		return err
 	}
 
 	namespace := buildNamespace(tenantParams, tenantName)
 	err = tenantImpl.k8sOperator.UpdateNamespace(namespace)
 	if err != nil {
-		logrus.Errorf("failed to update namespace : %s", err.Error())
+		klog.Errorf("failed to update namespace : %s", err.Error())
 		return err
 	}
 
 	for _, tenantQuota := range tenantParams.TenantQuotas {
 		err := tenantImpl.updateResourceQuota(tenantName, tenantQuota)
 		if err != nil {
-			logrus.Errorf("failed to update resource quota : %s", err.Error())
+			klog.Errorf("failed to update resource quota : %s", err.Error())
 			return err
 		}
 	}
-	logrus.Infof("succeed to update tenant %s", tenantName)
+	klog.Infof("succeed to update tenant %s", tenantName)
 	return nil
 }
 

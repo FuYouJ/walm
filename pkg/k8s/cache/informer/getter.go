@@ -1,13 +1,13 @@
 package informer
 
 import (
-	"WarpCloud/walm/pkg/models/k8s"
-	"WarpCloud/walm/pkg/k8s/utils"
-	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/k8s/converter"
+	"WarpCloud/walm/pkg/k8s/utils"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	"WarpCloud/walm/pkg/models/k8s"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 )
 
 func (informer *Informer) getReleaseConfig(namespace, name string) (k8s.Resource, error) {
@@ -111,7 +111,7 @@ func (informer *Informer) getService(namespace, name string) (k8s.Resource, erro
 	}
 
 	endpoints, err := informer.getEndpoints(namespace, name)
-	if err != nil && !errorModel.IsNotFoundError(err){
+	if err != nil && !errorModel.IsNotFoundError(err) {
 		return nil, err
 	}
 	return converter.ConvertServiceFromK8s(resource, endpoints)
@@ -134,7 +134,7 @@ func (informer *Informer) getStatefulSet(namespace, name string) (k8s.Resource, 
 func (informer *Informer) listPods(namespace string, labelSelector *metav1.LabelSelector, fromJob bool) ([]*corev1.Pod, error) {
 	selector, err := utils.ConvertLabelSelectorToSelector(labelSelector)
 	if err != nil {
-		logrus.Errorf("failed to convert label selector : %s", err.Error())
+		klog.Errorf("failed to convert label selector : %s", err.Error())
 		return nil, err
 	}
 	pods, err := informer.podLister.Pods(namespace).List(selector)
@@ -148,7 +148,7 @@ func (informer *Informer) listPods(namespace string, labelSelector *metav1.Label
 		walmPods = append(walmPods, pod)
 	}
 	if err != nil {
-		logrus.Errorf("failed to list pods : %s", err.Error())
+		klog.Errorf("failed to list pods : %s", err.Error())
 		return nil, err
 	}
 	return walmPods, nil
@@ -158,10 +158,10 @@ func (informer *Informer) getEndpoints(namespace, name string) (*corev1.Endpoint
 	endpoints, err := informer.endpointsLister.Endpoints(namespace).Get(name)
 	if err != nil {
 		if utils.IsK8sResourceNotFoundErr(err) {
-			logrus.Warnf("endpoints %s/%s is not found", namespace, name)
+			klog.Warningf("endpoints %s/%s is not found", namespace, name)
 			return nil, errorModel.NotFoundError{}
 		}
-		logrus.Errorf("failed to get endpoints : %s", err.Error())
+		klog.Errorf("failed to get endpoints : %s", err.Error())
 		return nil, err
 	}
 
@@ -178,7 +178,7 @@ func (informer *Informer) getNode(namespace, name string) (k8s.Resource, error) 
 
 	podsOnNode, err := informer.getNonTermiatedPodsOnNode(name, nil)
 	if err != nil {
-		logrus.Errorf("failed to get pods on node : %s", err.Error())
+		klog.Errorf("failed to get pods on node : %s", err.Error())
 		return nil, err
 	}
 	return converter.ConvertNodeFromK8s(resource, podsOnNode)
@@ -192,7 +192,7 @@ func (informer *Informer) getNonTermiatedPodsOnNode(nodeName string, labelSelect
 
 	pods, err := informer.podLister.Pods("").List(selector)
 	if err != nil {
-		logrus.Errorf("failed to list pods : %s", err.Error())
+		klog.Errorf("failed to list pods : %s", err.Error())
 		return nil, err
 	}
 
@@ -210,7 +210,6 @@ func (informer *Informer) getNonTermiatedPodsOnNode(nodeName string, labelSelect
 
 }
 
-
 func (informer *Informer) getStorageClass(namespace, name string) (k8s.Resource, error) {
 	resource, err := informer.storageClassLister.Get(name)
 	if err != nil {
@@ -224,9 +223,9 @@ func (informer *Informer) getStorageClass(namespace, name string) (k8s.Resource,
 
 func convertResourceError(err error, notFoundResource k8s.Resource) (k8s.Resource, error) {
 	if utils.IsK8sResourceNotFoundErr(err) {
-		logrus.Warnf(" %s %s/%s is not found", notFoundResource.GetKind(), notFoundResource.GetNamespace(), notFoundResource.GetName())
+		klog.Warningf(" %s %s/%s is not found", notFoundResource.GetKind(), notFoundResource.GetNamespace(), notFoundResource.GetName())
 		return notFoundResource, errorModel.NotFoundError{}
 	}
-	logrus.Errorf("failed to get %s %s/%s : %s", notFoundResource.GetKind(), notFoundResource.GetNamespace(), notFoundResource.GetName(), err.Error())
+	klog.Errorf("failed to get %s %s/%s : %s", notFoundResource.GetKind(), notFoundResource.GetNamespace(), notFoundResource.GetName(), err.Error())
 	return nil, err
 }

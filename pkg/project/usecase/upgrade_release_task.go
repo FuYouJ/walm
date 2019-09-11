@@ -1,10 +1,10 @@
 package usecase
 
 import (
-	"github.com/sirupsen/logrus"
-	"encoding/json"
-	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/project"
+	"WarpCloud/walm/pkg/models/release"
+	"encoding/json"
+	"k8s.io/klog"
 )
 
 const (
@@ -17,7 +17,7 @@ type UpgradeReleaseTaskArgs struct {
 	ReleaseParams *release.ReleaseRequestV2
 }
 
-func (projectImpl *Project) registerUpgradeReleaseTask() error{
+func (projectImpl *Project) registerUpgradeReleaseTask() error {
 	return projectImpl.task.RegisterTask(upgradeReleaseTaskName, projectImpl.UpgradeReleaseTask)
 }
 
@@ -25,7 +25,7 @@ func (projectImpl *Project) UpgradeReleaseTask(upgradeReleaseTaskArgsStr string)
 	upgradeReleaseTaskArgs := &UpgradeReleaseTaskArgs{}
 	err := json.Unmarshal([]byte(upgradeReleaseTaskArgsStr), upgradeReleaseTaskArgs)
 	if err != nil {
-		logrus.Errorf("upgrade release task arg is not valid : %s", err.Error())
+		klog.Errorf("upgrade release task arg is not valid : %s", err.Error())
 		return err
 	}
 	return projectImpl.upgradeRelease(upgradeReleaseTaskArgs.Namespace, upgradeReleaseTaskArgs.ProjectName, upgradeReleaseTaskArgs.ReleaseParams)
@@ -37,9 +37,9 @@ func (projectImpl *Project) upgradeRelease(namespace, projectName string, releas
 	}
 	releaseParams.ReleaseLabels[project.ProjectNameLabelKey] = projectName
 
-	err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams,  nil, false, 0, nil)
+	err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams, nil, false, 0, nil)
 	if err != nil {
-		logrus.Errorf("failed to upgrade release %s in project %s/%s : %s", releaseParams.Name, namespace, projectName, err.Error())
+		klog.Errorf("failed to upgrade release %s in project %s/%s : %s", releaseParams.Name, namespace, projectName, err.Error())
 		return
 	}
 	return

@@ -1,15 +1,15 @@
 package helm
 
 import (
-	"WarpCloud/walm/pkg/k8s"
 	"WarpCloud/walm/pkg/helm"
-	"WarpCloud/walm/pkg/task"
-	"WarpCloud/walm/pkg/release"
-	"github.com/sirupsen/logrus"
-	"fmt"
-	releaseModel "WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/k8s"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	releaseModel "WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/release"
 	"WarpCloud/walm/pkg/release/utils"
+	"WarpCloud/walm/pkg/task"
+	"fmt"
+	"k8s.io/klog"
 )
 
 type Helm struct {
@@ -25,23 +25,23 @@ func (helm *Helm) ReloadRelease(namespace, name string) error {
 	releaseInfo, err := helm.GetRelease(namespace, name)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
-			logrus.Warnf("release %s/%s is not found， ignore to reload release", namespace, name)
+			klog.Warningf("release %s/%s is not found， ignore to reload release", namespace, name)
 			return nil
 		}
-		logrus.Errorf("failed to get release %s/%s : %s", namespace, name, err.Error())
+		klog.Errorf("failed to get release %s/%s : %s", namespace, name, err.Error())
 		return err
 	}
 
 	chartInfo, err := helm.helm.GetChartDetailInfo(releaseInfo.RepoName, releaseInfo.ChartName, releaseInfo.ChartVersion)
 	if err != nil {
-		logrus.Errorf("failed to get chart info : %s", err.Error())
+		klog.Errorf("failed to get chart info : %s", err.Error())
 		return err
 	}
 
 	oldDependenciesConfigValues := releaseInfo.DependenciesConfigValues
 	newDependenciesConfigValues, err := helm.helm.GetDependencyOutputConfigs(namespace, releaseInfo.Dependencies, chartInfo.MetaInfo)
 	if err != nil {
-		logrus.Errorf("failed to get dependencies output configs of %s/%s : %s", namespace, name, err.Error())
+		klog.Errorf("failed to get dependencies output configs of %s/%s : %s", namespace, name, err.Error())
 		return err
 	}
 
@@ -49,12 +49,12 @@ func (helm *Helm) ReloadRelease(namespace, name string) error {
 		releaseRequest := releaseInfo.BuildReleaseRequestV2()
 		err = helm.InstallUpgradeRelease(namespace, releaseRequest, nil, false, 0, nil)
 		if err != nil {
-			logrus.Errorf("failed to upgrade release v2 %s/%s : %s", namespace, name, err.Error())
+			klog.Errorf("failed to upgrade release v2 %s/%s : %s", namespace, name, err.Error())
 			return err
 		}
-		logrus.Infof("succeed to reload release %s/%s", namespace, name)
+		klog.Infof("succeed to reload release %s/%s", namespace, name)
 	} else {
-		logrus.Infof("ignore reloading release %s/%s : dependencies config value does not change", namespace, name)
+		klog.Infof("ignore reloading release %s/%s : dependencies config value does not change", namespace, name)
 	}
 
 	return nil
@@ -64,7 +64,7 @@ func (helm *Helm) validateReleaseTask(namespace, name string, allowReleaseTaskNo
 	releaseTask, err = helm.releaseCache.GetReleaseTask(namespace, name)
 	if err != nil {
 		if !errorModel.IsNotFoundError(err) {
-			logrus.Errorf("failed to get release task : %s", err.Error())
+			klog.Errorf("failed to get release task : %s", err.Error())
 			return
 		} else if !allowReleaseTaskNotExist {
 			return
@@ -78,14 +78,14 @@ func (helm *Helm) validateReleaseTask(namespace, name string, allowReleaseTaskNo
 				err = nil
 				return releaseTask, err
 			} else {
-				logrus.Errorf("failed to get the last release task state : %s", err.Error())
+				klog.Errorf("failed to get the last release task state : %s", err.Error())
 				return releaseTask, err
 			}
 		}
 
 		if !(taskState.IsFinished() || taskState.IsTimeout()) {
-			err = fmt.Errorf(release.WaitReleaseTaskMsgPrefix+ " %s-%s finished or timeout", releaseTask.LatestReleaseTaskSig.Name, releaseTask.LatestReleaseTaskSig.UUID)
-			logrus.Warn(err.Error())
+			err = fmt.Errorf(release.WaitReleaseTaskMsgPrefix+" %s-%s finished or timeout", releaseTask.LatestReleaseTaskSig.Name, releaseTask.LatestReleaseTaskSig.UUID)
+			klog.Warning(err.Error())
 			return releaseTask, err
 		}
 	}

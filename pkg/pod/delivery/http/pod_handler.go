@@ -2,24 +2,24 @@ package http
 
 import (
 	"WarpCloud/walm/pkg/k8s"
-	"github.com/emicklei/go-restful"
 	"WarpCloud/walm/pkg/models/http"
-	"github.com/emicklei/go-restful-openapi"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
-	"strconv"
-	"github.com/sirupsen/logrus"
 	httpUtils "WarpCloud/walm/pkg/util/http"
 	"fmt"
+	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-openapi"
+	"k8s.io/klog"
+	"strconv"
 )
 
 type PodHandler struct {
-	k8sCache k8s.Cache
+	k8sCache    k8s.Cache
 	k8sOperator k8s.Operator
 }
 
 func RegisterPodHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.WebService {
 	handler := &PodHandler{
-		k8sCache: k8sCache,
+		k8sCache:    k8sCache,
 		k8sOperator: k8sOperator,
 	}
 
@@ -62,7 +62,7 @@ func RegisterPodHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 	return ws
 }
 
-func (handler *PodHandler)RestartPod(request *restful.Request, response *restful.Response) {
+func (handler *PodHandler) RestartPod(request *restful.Request, response *restful.Response) {
 	namespace := request.PathParameter("namespace")
 	name := request.PathParameter("pod")
 	err := handler.k8sOperator.RestartPod(namespace, name)
@@ -72,7 +72,7 @@ func (handler *PodHandler)RestartPod(request *restful.Request, response *restful
 	}
 }
 
-func (handler *PodHandler)GetPodEvents(request *restful.Request, response *restful.Response) {
+func (handler *PodHandler) GetPodEvents(request *restful.Request, response *restful.Response) {
 	namespace := request.PathParameter("namespace")
 	name := request.PathParameter("pod")
 	events, err := handler.k8sCache.GetPodEventList(namespace, name)
@@ -83,7 +83,7 @@ func (handler *PodHandler)GetPodEvents(request *restful.Request, response *restf
 	response.WriteEntity(*events)
 }
 
-func (handler *PodHandler)GetPodLogs(request *restful.Request, response *restful.Response) {
+func (handler *PodHandler) GetPodLogs(request *restful.Request, response *restful.Response) {
 	namespace := request.PathParameter("namespace")
 	name := request.PathParameter("pod")
 	containerName := request.QueryParameter("container")
@@ -106,7 +106,7 @@ func getTailLinesQueryParam(request *restful.Request) (tailLines int64, err erro
 	if len(tailLinesStr) > 0 {
 		tailLines, err = strconv.ParseInt(tailLinesStr, 10, 64)
 		if err != nil {
-			logrus.Errorf("failed to parse query parameter tail %s : %s", tailLinesStr, err.Error())
+			klog.Errorf("failed to parse query parameter tail %s : %s", tailLinesStr, err.Error())
 			return
 		}
 	}

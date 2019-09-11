@@ -9,19 +9,19 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-resty/resty"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"helm.sh/helm/pkg/chart"
 	"helm.sh/helm/pkg/chart/loader"
 	"helm.sh/helm/pkg/registry"
 	"helm.sh/helm/pkg/repo"
 	"io/ioutil"
+	"k8s.io/klog"
 	"net/url"
 	"path/filepath"
 	"strings"
 )
 
 func (helmImpl *Helm) GetChartAutoDependencies(repoName, chartName, chartVersion string) (subChartNames []string, err error) {
-	logrus.Debugf("Enter GetAutoDependencies %s %s\n", chartName, chartVersion)
+	klog.V(2).Infof("Enter GetAutoDependencies %s %s\n", chartName, chartVersion)
 
 	subChartNames = []string{}
 	detailChartInfo, err := helmImpl.GetChartDetailInfo(repoName, chartName, chartVersion)
@@ -103,13 +103,13 @@ func (helmImpl *Helm) GetDetailChartInfoByImage(chartImage string) (*release.Cha
 func (helmImpl *Helm) getRawChartFromRepo(repoName, chartName, chartVersion string) (rawChart *chart.Chart, err error) {
 	chartPath, err := helmImpl.downloadChartFromRepo(repoName, chartName, chartVersion)
 	if err != nil {
-		logrus.Errorf("failed to download chart : %s", err.Error())
+		klog.Errorf("failed to download chart : %s", err.Error())
 		return nil, err
 	}
 
 	chartLoader, err := loader.Loader(chartPath)
 	if err != nil {
-		logrus.Errorf("failed to init chartLoader : %s", err.Error())
+		klog.Errorf("failed to init chartLoader : %s", err.Error())
 		return nil, err
 	}
 
@@ -119,19 +119,19 @@ func (helmImpl *Helm) getRawChartFromRepo(repoName, chartName, chartVersion stri
 func (helmImpl *Helm) getRawChartByImage(chartImage string) (*chart.Chart, error) {
 	ref, err := registry.ParseReference(chartImage)
 	if err != nil {
-		logrus.Errorf("failed to parse chart image %s : %s", chartImage, err.Error())
+		klog.Errorf("failed to parse chart image %s : %s", chartImage, err.Error())
 		return nil, err
 	}
 
 	err = helmImpl.registryClient.PullChart(ref)
 	if err != nil {
-		logrus.Errorf("failed to pull chart %s : %s", chartImage, err.Error())
+		klog.Errorf("failed to pull chart %s : %s", chartImage, err.Error())
 		return nil, err
 	}
 
 	chart, err := helmImpl.registryClient.LoadChart(ref)
 	if err != nil {
-		logrus.Errorf("failed to load chart %s : %s", chartImage, err.Error())
+		klog.Errorf("failed to load chart %s : %s", chartImage, err.Error())
 		return nil, err
 	}
 	return chart, nil
@@ -143,7 +143,7 @@ func getChartMetaInfo(rawChart *chart.Chart) (chartMetaInfo *release.ChartMetaIn
 			chartMetaInfo = &release.ChartMetaInfo{}
 			err = yaml.Unmarshal(f.Data, chartMetaInfo)
 			if err != nil {
-				logrus.Error(errors.Wrapf(err, "chart %s-%s MetaInfo Unmarshal metainfo.yaml error",
+				klog.Error(errors.Wrapf(err, "chart %s-%s MetaInfo Unmarshal metainfo.yaml error",
 					rawChart.Metadata.Name, rawChart.Metadata.Version))
 				return
 			}
@@ -165,7 +165,7 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 	if len(rawChart.Values) != 0 {
 		defaultValueBytes, err := json.Marshal(rawChart.Values)
 		if err != nil {
-			logrus.Errorf("failed to marshal raw chart values: %s", err.Error())
+			klog.Errorf("failed to marshal raw chart values: %s", err.Error())
 			return nil, err
 		}
 		chartDetailInfo.DefaultValue = string(defaultValueBytes)
@@ -185,7 +185,7 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 
 	chartMetaInfo, err := getChartMetaInfo(rawChart)
 	if err != nil {
-		logrus.Errorf("failed to get chart meta info : %s", err.Error())
+		klog.Errorf("failed to get chart meta info : %s", err.Error())
 		return nil, err
 	}
 	chartDetailInfo.MetaInfo = chartMetaInfo
@@ -209,7 +209,7 @@ func getChartIndexFile(repoURL, username, password string) (*repo.IndexFile, err
 
 	resp, err := resty.R().Get(indexURL)
 	if err != nil {
-		logrus.Errorf("failed to get index : %s", err.Error())
+		klog.Errorf("failed to get index : %s", err.Error())
 		return nil, err
 	}
 
@@ -222,7 +222,7 @@ func getChartIndexFile(repoURL, username, password string) (*repo.IndexFile, err
 func loadChartFromRepo(repoUrl, username, password, chartName, chartVersion, dest string) (string, error) {
 	indexFile, err := getChartIndexFile(repoUrl, username, password)
 	if err != nil {
-		logrus.Errorf("failed to get chart index file : %s", err.Error())
+		klog.Errorf("failed to get chart index file : %s", err.Error())
 		return "", err
 	}
 
@@ -240,14 +240,14 @@ func loadChartFromRepo(repoUrl, username, password, chartName, chartVersion, des
 	}
 	resp, err := resty.R().Get(absoluteChartURL)
 	if err != nil {
-		logrus.Errorf("failed to get chart : %s", err.Error())
+		klog.Errorf("failed to get chart : %s", err.Error())
 		return "", err
 	}
 
 	name := filepath.Base(absoluteChartURL)
 	destfile := filepath.Join(dest, name)
 	if err := ioutil.WriteFile(destfile, resp.Body(), 0644); err != nil {
-		logrus.Errorf("failed to write file : %s", err.Error())
+		klog.Errorf("failed to write file : %s", err.Error())
 		return "", err
 	}
 	return destfile, nil
@@ -267,7 +267,7 @@ func (helmImpl *Helm) downloadChartFromRepo(repoName, chartName, version string)
 	}
 	filename, err := loadChartFromRepo(repo.URL, repo.Username, repo.Password, chartName, version, tmpDir)
 	if err != nil {
-		logrus.Printf("DownloadTo err %v", err)
+		klog.Infof("DownloadTo err %v", err)
 		return "", err
 	}
 

@@ -2,50 +2,49 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-openapi"
+	"github.com/go-openapi/spec"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"k8s.io/klog"
 	"net/http"
 
-	"github.com/spf13/cobra"
-	"github.com/emicklei/go-restful"
-	"github.com/sirupsen/logrus"
-	"github.com/go-openapi/spec"
-	"github.com/emicklei/go-restful-openapi"
-
-	"WarpCloud/walm/pkg/setting"
-	"os"
-	"WarpCloud/walm/pkg/k8s/elect"
-	"WarpCloud/walm/pkg/k8s/client"
-	"encoding/json"
-	"os/signal"
-	"syscall"
-	"context"
-	"time"
-	"github.com/x-cray/logrus-prefixed-formatter"
-	_ "net/http/pprof"
-	cacheInformer "WarpCloud/walm/pkg/k8s/cache/informer"
-	"WarpCloud/walm/pkg/task/machinery"
-	"errors"
-	"WarpCloud/walm/pkg/redis/impl"
 	helmImpl "WarpCloud/walm/pkg/helm/impl"
+	cacheInformer "WarpCloud/walm/pkg/k8s/cache/informer"
+	"WarpCloud/walm/pkg/k8s/client"
 	k8sHelm "WarpCloud/walm/pkg/k8s/client/helm"
-	"WarpCloud/walm/pkg/sync"
-	releaseconfig "WarpCloud/walm/pkg/release/config"
-	releaseusecase "WarpCloud/walm/pkg/release/usecase/helm"
+	"WarpCloud/walm/pkg/k8s/elect"
 	"WarpCloud/walm/pkg/k8s/operator"
-	releasecache "WarpCloud/walm/pkg/release/cache/redis"
 	kafkaimpl "WarpCloud/walm/pkg/kafka/impl"
-	projectusecase "WarpCloud/walm/pkg/project/usecase"
-	projectcache "WarpCloud/walm/pkg/project/cache/redis"
 	httpModel "WarpCloud/walm/pkg/models/http"
 	nodehttp "WarpCloud/walm/pkg/node/delivery/http"
-	secrethttp "WarpCloud/walm/pkg/secret/delivery/http"
-	storageclasshttp "WarpCloud/walm/pkg/storageclass/delivery/http"
+	podhttp "WarpCloud/walm/pkg/pod/delivery/http"
+	projectcache "WarpCloud/walm/pkg/project/cache/redis"
+	projecthttp "WarpCloud/walm/pkg/project/delivery/http"
+	projectusecase "WarpCloud/walm/pkg/project/usecase"
 	pvchttp "WarpCloud/walm/pkg/pvc/delivery/http"
+	"WarpCloud/walm/pkg/redis/impl"
+	releasecache "WarpCloud/walm/pkg/release/cache/redis"
+	releaseconfig "WarpCloud/walm/pkg/release/config"
+	releasehttp "WarpCloud/walm/pkg/release/delivery/http"
+	releaseusecase "WarpCloud/walm/pkg/release/usecase/helm"
+	secrethttp "WarpCloud/walm/pkg/secret/delivery/http"
+	"WarpCloud/walm/pkg/setting"
+	storageclasshttp "WarpCloud/walm/pkg/storageclass/delivery/http"
+	"WarpCloud/walm/pkg/sync"
+	"WarpCloud/walm/pkg/task/machinery"
 	tenanthttp "WarpCloud/walm/pkg/tenant/delivery/http"
 	tenantusecase "WarpCloud/walm/pkg/tenant/usecase"
-	projecthttp "WarpCloud/walm/pkg/project/delivery/http"
-	releasehttp "WarpCloud/walm/pkg/release/delivery/http"
-	podhttp "WarpCloud/walm/pkg/pod/delivery/http"
+	"context"
+	"encoding/json"
+	"errors"
 	"github.com/thoas/stats"
+	_ "net/http/pprof"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 const servDesc = `
@@ -87,13 +86,12 @@ func (sc *ServCmd) run() error {
 	lockNamespace := os.Getenv("Pod_Namespace")
 	if lockIdentity == "" || lockNamespace == "" {
 		err := errors.New("both env var Pod_Name and Pod_Namespace must not be empty")
-		logrus.Error(err.Error())
+		klog.Error(err.Error())
 		return err
 	}
 
 	sig := make(chan os.Signal, 1)
 
-	logrus.SetFormatter(&prefixed.TextFormatter{})
 	sc.initConfig()
 	config := setting.Config
 	initLogLevel()
@@ -109,42 +107,42 @@ func (sc *ServCmd) run() error {
 	}
 	k8sClient, err := client.NewClient("", kubeConfig)
 	if err != nil {
-		logrus.Errorf("failed to create k8s client : %s", err.Error())
+		klog.Errorf("failed to create k8s client : %s", err.Error())
 		return err
 	}
 	k8sReleaseConfigClient, err := client.NewReleaseConfigClient("", kubeConfig)
 	if err != nil {
-		logrus.Errorf("failed to create k8s release config client : %s", err.Error())
+		klog.Errorf("failed to create k8s release config client : %s", err.Error())
 		return err
 	}
 	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, 0, stopChan)
 
 	if config.TaskConfig == nil {
 		err = errors.New("task config can not be empty")
-		logrus.Error(err.Error())
+		klog.Error(err.Error())
 		return err
 	}
 	task, err := machinery.NewTask(config.TaskConfig)
 	if err != nil {
-		logrus.Errorf("failed to create task manager %s", err.Error())
+		klog.Errorf("failed to create task manager %s", err.Error())
 		return err
 	}
 
 	registryClient, err := helmImpl.NewRegistryClient(config.ChartImageConfig)
 	if err != nil {
-		logrus.Errorf("failed to create registry client : %s", err.Error())
+		klog.Errorf("failed to create registry client : %s", err.Error())
 		return err
 	}
 	kubeClients := k8sHelm.NewHelmKubeClient(kubeConfig, kubeContest)
 	helm, err := helmImpl.NewHelm(config.RepoList, registryClient, k8sCache, kubeClients)
 	if err != nil {
-		logrus.Errorf("failed to create helm manager: %s", err.Error())
+		klog.Errorf("failed to create helm manager: %s", err.Error())
 		return err
 	}
 	k8sOperator := operator.NewOperator(k8sClient, k8sCache, kubeClients)
 	if config.RedisConfig == nil {
 		err = errors.New("redis config can not be empty")
-		logrus.Error(err.Error())
+		klog.Error(err.Error())
 		return err
 	}
 	redisClient := impl.NewRedisClient(config.RedisConfig)
@@ -152,13 +150,13 @@ func (sc *ServCmd) run() error {
 	releaseCache := releasecache.NewCache(redis)
 	releaseUseCase, err := releaseusecase.NewHelm(releaseCache, helm, k8sCache, k8sOperator, task)
 	if err != nil {
-		logrus.Errorf("failed to new release use case : %s", err.Error())
+		klog.Errorf("failed to new release use case : %s", err.Error())
 		return err
 	}
 	projectCache := projectcache.NewProjectCache(redis)
 	projectUseCase, err := projectusecase.NewProject(projectCache, task, releaseUseCase, helm)
 	if err != nil {
-		logrus.Errorf("failed to new project use case : %s", err.Error())
+		klog.Errorf("failed to new project use case : %s", err.Error())
 		return err
 	}
 
@@ -174,20 +172,20 @@ func (sc *ServCmd) run() error {
 	syncManager := sync.NewSync(redisClient, helm, k8sCache, task, "", "", "")
 	kafka, err := kafkaimpl.NewKafka(config.KafkaConfig)
 	if err != nil {
-		logrus.Errorf("failed to create kafka manager: %s", err.Error())
+		klog.Errorf("failed to create kafka manager: %s", err.Error())
 		return err
 	}
 	releaseConfigController := releaseconfig.NewReleaseConfigController(k8sCache, releaseUseCase, kafka, 0)
 	onStartedLeadingFunc := func(context context.Context) {
-		logrus.Info("Succeed to elect leader")
+		klog.Info("Succeed to elect leader")
 		syncManager.Start(context.Done())
 		releaseConfigController.Start(context.Done())
 	}
 	onNewLeaderFunc := func(identity string) {
-		logrus.Infof("Now leader is changed to %s", identity)
+		klog.Infof("Now leader is changed to %s", identity)
 	}
 	onStoppedLeadingFunc := func() {
-		logrus.Info("Stopped being a leader")
+		klog.Info("Stopped being a leader")
 		sig <- syscall.SIGINT
 	}
 
@@ -203,10 +201,10 @@ func (sc *ServCmd) run() error {
 
 	elector, err := elect.NewElector(electorConfig)
 	if err != nil {
-		logrus.Errorf("create leader elector failed")
+		klog.Errorf("create leader elector failed")
 		return err
 	}
-	logrus.Info("Start to elect leader")
+	klog.Info("Start to elect leader")
 	go elector.Run(ctx)
 
 	restful.DefaultRequestContentType(restful.MIME_JSON)
@@ -217,7 +215,7 @@ func (sc *ServCmd) run() error {
 	restful.DefaultContainer.Router(restful.CurlyRouter{})
 	restful.Filter(ServerStatsFilter)
 	restful.Filter(RouteLogging)
-	logrus.Infoln("Adding Route...")
+	klog.Infoln("Adding Route...")
 
 	restful.Add(InitRootRouter())
 	restful.Add(nodehttp.RegisterNodeHandler(k8sCache, k8sOperator))
@@ -230,7 +228,7 @@ func (sc *ServCmd) run() error {
 	restful.Add(releasehttp.RegisterReleaseHandler(releasehttp.NewReleaseHandler(releaseUseCase)))
 	restful.Add(podhttp.RegisterPodHandler(k8sCache, k8sOperator))
 	restful.Add(releasehttp.RegisterChartHandler(helm))
-	logrus.Infoln("Add Route Success")
+	klog.Infoln("Add Route Success")
 	restConfig := restfulspec.Config{
 		// You control what services are visible
 		WebServices:                   restful.RegisteredWebServices(),
@@ -239,12 +237,12 @@ func (sc *ServCmd) run() error {
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(restConfig))
 	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir("swagger-ui/dist"))))
 	http.Handle("/swagger/", http.RedirectHandler("/swagger-ui/?url=/apidocs.json", http.StatusFound))
-	logrus.Infof("ready to serve on port %d", setting.Config.HttpConfig.HTTPPort)
+	klog.Infof("ready to serve on port %d", setting.Config.HttpConfig.HTTPPort)
 
 	if setting.Config.Debug {
 		go func() {
-			logrus.Info("supporting pprof on port 6060...")
-			logrus.Error(http.ListenAndServe(":6060", nil))
+			klog.Info("supporting pprof on port 6060...")
+			klog.Error(http.ListenAndServe(":6060", nil))
 		}()
 	}
 
@@ -252,7 +250,7 @@ func (sc *ServCmd) run() error {
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {
-			logrus.Error(err.Error())
+			klog.Error(err.Error())
 			sig <- syscall.SIGINT
 		}
 	}()
@@ -266,20 +264,20 @@ func (sc *ServCmd) run() error {
 
 	err = server.Shutdown(context.Background())
 	if err != nil {
-		logrus.Error(err.Error())
+		klog.Error(err.Error())
 	}
 	close(stopChan)
 	task.StopWorker(30)
-	logrus.Info("waiting for informer stopping")
+	klog.Info("waiting for informer stopping")
 	time.Sleep(2 * time.Second)
-	logrus.Info("walm server stopped gracefully")
+	klog.Info("walm server stopped gracefully")
 	return nil
 }
 
 func RouteLogging(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
 	now := time.Now()
 	chain.ProcessFilter(req, resp)
-	logrus.Infof("[route-filter (logger)] CLIENT %s OP %s URI %s COST %v RESP %d", req.Request.Host, req.Request.Method, req.Request.URL, time.Now().Sub(now), resp.StatusCode())
+	klog.Infof("[route-filter (logger)] CLIENT %s OP %s URI %s COST %v RESP %d", req.Request.Host, req.Request.Method, req.Request.URL, time.Now().Sub(now), resp.StatusCode())
 }
 
 var ServerStats = stats.New()
@@ -334,24 +332,20 @@ func InitRootRouter() *restful.WebService {
 
 func initLogLevel() {
 	if setting.Config.LogConfig != nil {
-		level, err := logrus.ParseLevel(setting.Config.LogConfig.Level)
-		if err != nil {
-			logrus.Warnf("failed to parse log level %s : %s", setting.Config.LogConfig.Level, err.Error())
-		} else {
-			logrus.SetLevel(level)
-			logrus.Infof("log level is set to %s", setting.Config.LogConfig.Level)
+		if setting.Config.LogConfig.Level == "debug" {
+			pflag.CommandLine.Set("v", "2")
 		}
 	}
 }
 
 func (sc *ServCmd) initConfig() {
-	logrus.Infof("loading configuration from [%s]", sc.cfgFile)
+	klog.Infof("loading configuration from [%s]", sc.cfgFile)
 	setting.InitConfig(sc.cfgFile)
 	settingConfig, err := json.MarshalIndent(setting.Config, "", "  ")
 	if err != nil {
-		logrus.Fatal("failed to marshal setting config")
+		klog.Fatal("failed to marshal setting config")
 	}
-	logrus.Infof("finished loading configuration:\n%s", string(settingConfig))
+	klog.Infof("finished loading configuration:\n%s", string(settingConfig))
 }
 
 func enrichSwaggerObject(swo *spec.Swagger) {

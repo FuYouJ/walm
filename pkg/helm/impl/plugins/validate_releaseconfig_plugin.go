@@ -1,12 +1,12 @@
 package plugins
 
 import (
-	"fmt"
-	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"github.com/sirupsen/logrus"
 	"encoding/json"
+	"fmt"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog"
+	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 )
 
 const (
@@ -32,7 +32,7 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 		if resource.GetObjectKind().GroupVersionKind().Kind == "ReleaseConfig" {
 			rc, err := buildReleaseConfig(resource.(*unstructured.Unstructured))
 			if err != nil {
-				logrus.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Infof("failed to convert unstructured : %s", err.Error())
 				return err
 			}
 			if rc.Name != context.R.Name {
@@ -90,13 +90,13 @@ func buildReleaseConfig(resource *unstructured.Unstructured) (*v1beta1.ReleaseCo
 	releaseConfig := &v1beta1.ReleaseConfig{}
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
-		logrus.Errorf("failed to marshal releaseConfig %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to marshal releaseConfig %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
 	err = json.Unmarshal(resourceBytes, releaseConfig)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal releaseConfig %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to unmarshal releaseConfig %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 

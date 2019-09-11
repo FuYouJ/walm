@@ -1,28 +1,28 @@
 package operator
 
 import (
-	"k8s.io/client-go/kubernetes"
+	"WarpCloud/walm/pkg/k8s"
+	"WarpCloud/walm/pkg/k8s/client/helm"
+	"WarpCloud/walm/pkg/k8s/converter"
+	"WarpCloud/walm/pkg/k8s/utils"
+	errorModel "WarpCloud/walm/pkg/models/error"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
-	"github.com/sirupsen/logrus"
-	"WarpCloud/walm/pkg/k8s"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"WarpCloud/walm/pkg/k8s/utils"
 	"bytes"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/api/extensions/v1beta1"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/core/v1"
+	"k8s.io/api/extensions/v1beta1"
+	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"WarpCloud/walm/pkg/k8s/converter"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
 	"reflect"
-	"fmt"
-	errorModel "WarpCloud/walm/pkg/models/error"
-	"encoding/base64"
-	"WarpCloud/walm/pkg/k8s/client/helm"
 )
 
 const (
@@ -39,7 +39,7 @@ func (op *Operator) DeleteStatefulSetPvcs(statefulSets []*k8sModel.StatefulSet) 
 	for _, statefulSet := range statefulSets {
 		err := op.DeletePvcs(statefulSet.Namespace, statefulSet.Selector)
 		if err != nil {
-			logrus.Errorf("failed to delete pvcs related to stateful set %s/%s : %s", statefulSet.Namespace, statefulSet.Name, err.Error())
+			klog.Errorf("failed to delete pvcs related to stateful set %s/%s : %s", statefulSet.Namespace, statefulSet.Name, err.Error())
 			return err
 		}
 	}
@@ -50,10 +50,10 @@ func (op *Operator) DeletePod(namespace string, name string) error {
 	err := op.client.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
 		if utils.IsK8sResourceNotFoundErr(err) {
-			logrus.Warnf("pod %s/%s is not found ", namespace, name)
+			klog.Warningf("pod %s/%s is not found ", namespace, name)
 			return nil
 		}
-		logrus.Errorf("failed to delete pod %s/%s : %s", namespace, name, err.Error())
+		klog.Errorf("failed to delete pod %s/%s : %s", namespace, name, err.Error())
 		return err
 	}
 	return nil
@@ -62,7 +62,7 @@ func (op *Operator) DeletePod(namespace string, name string) error {
 func (op *Operator) RestartPod(namespace string, name string) error {
 	err := op.client.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
-		logrus.Errorf("failed to restart pod %s/%s : %s", namespace, name, err.Error())
+		klog.Errorf("failed to restart pod %s/%s : %s", namespace, name, err.Error())
 		return err
 	}
 	return nil
@@ -72,7 +72,7 @@ func (op *Operator) BuildManifestObjects(namespace string, manifest string) ([]m
 	_, kubeClient := op.kubeClients.GetKubeClient(namespace)
 	resources, err := kubeClient.Build(bytes.NewBufferString(manifest))
 	if err != nil {
-		logrus.Errorf("failed to build unstructured : %s", err.Error())
+		klog.Errorf("failed to build unstructured : %s", err.Error())
 		return nil, err
 	}
 
@@ -87,7 +87,7 @@ func (op *Operator) ComputeReleaseResourcesByManifest(namespace string, manifest
 	_, kubeClient := op.kubeClients.GetKubeClient(namespace)
 	resources, err := kubeClient.Build(bytes.NewBufferString(manifest))
 	if err != nil {
-		logrus.Errorf("failed to build unstructured : %s", err.Error())
+		klog.Errorf("failed to build unstructured : %s", err.Error())
 		return nil, err
 	}
 
@@ -98,35 +98,35 @@ func (op *Operator) ComputeReleaseResourcesByManifest(namespace string, manifest
 		case "Deployment":
 			releaseResourceDeployment, err := buildReleaseResourceDeployment(unstructured)
 			if err != nil {
-				logrus.Errorf("failed to build release resource deployment %s : %s", unstructured.GetName(), err.Error())
+				klog.Errorf("failed to build release resource deployment %s : %s", unstructured.GetName(), err.Error())
 				return nil, err
 			}
 			result.Deployments = append(result.Deployments, releaseResourceDeployment)
 		case "StatefulSet":
 			releaseResourceStatefulSet, err := buildReleaseResourceStatefulSet(unstructured)
 			if err != nil {
-				logrus.Errorf("failed to build release resource stateful set %s : %s", unstructured.GetName(), err.Error())
+				klog.Errorf("failed to build release resource stateful set %s : %s", unstructured.GetName(), err.Error())
 				return nil, err
 			}
 			result.StatefulSets = append(result.StatefulSets, releaseResourceStatefulSet)
 		case "DaemonSet":
 			releaseResourceDaemonSet, err := buildReleaseResourceDaemonSet(unstructured)
 			if err != nil {
-				logrus.Errorf("failed to build release resource daemon set %s : %s", unstructured.GetName(), err.Error())
+				klog.Errorf("failed to build release resource daemon set %s : %s", unstructured.GetName(), err.Error())
 				return nil, err
 			}
 			result.DaemonSets = append(result.DaemonSets, releaseResourceDaemonSet)
 		case "Job":
 			releaseResourceJob, err := buildReleaseResourceJob(unstructured)
 			if err != nil {
-				logrus.Errorf("failed to build release resource job %s : %s", unstructured.GetName(), err.Error())
+				klog.Errorf("failed to build release resource job %s : %s", unstructured.GetName(), err.Error())
 				return nil, err
 			}
 			result.Jobs = append(result.Jobs, releaseResourceJob)
 		case "PersistentVolumeClaim":
 			pvc, err := buildReleaseResourcePvc(unstructured)
 			if err != nil {
-				logrus.Errorf("failed to build release resource pvc %s : %s", unstructured.GetName(), err.Error())
+				klog.Errorf("failed to build release resource pvc %s : %s", unstructured.GetName(), err.Error())
 				return nil, err
 			}
 			result.Pvcs = append(result.Pvcs, pvc)
@@ -140,13 +140,13 @@ func buildReleaseResourceDeployment(resource *unstructured.Unstructured) (*relea
 	deployment := &v1beta1.Deployment{}
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
-		logrus.Errorf("failed to marshal deployment %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to marshal deployment %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
 	err = json.Unmarshal(resourceBytes, deployment)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal deployment %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to unmarshal deployment %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
@@ -157,7 +157,7 @@ func buildReleaseResourceDeployment(resource *unstructured.Unstructured) (*relea
 
 	releaseResourceDeployment.ReleaseResourceBase, err = buildReleaseResourceBase(resource, deployment.Spec.Template, nil)
 	if err != nil {
-		logrus.Errorf("failed to build release resource : %s", err.Error())
+		klog.Errorf("failed to build release resource : %s", err.Error())
 		return nil, err
 	}
 	return releaseResourceDeployment, nil
@@ -167,13 +167,13 @@ func buildReleaseResourceStatefulSet(resource *unstructured.Unstructured) (*rele
 	statefulSet := &appsv1beta1.StatefulSet{}
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
-		logrus.Errorf("failed to marshal statefulSet %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to marshal statefulSet %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
 	err = json.Unmarshal(resourceBytes, statefulSet)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal statefulSet %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to unmarshal statefulSet %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
@@ -184,7 +184,7 @@ func buildReleaseResourceStatefulSet(resource *unstructured.Unstructured) (*rele
 
 	releaseResource.ReleaseResourceBase, err = buildReleaseResourceBase(resource, statefulSet.Spec.Template, statefulSet.Spec.VolumeClaimTemplates)
 	if err != nil {
-		logrus.Errorf("failed to build release resource : %s", err.Error())
+		klog.Errorf("failed to build release resource : %s", err.Error())
 		return nil, err
 	}
 	return releaseResource, nil
@@ -194,13 +194,13 @@ func buildReleaseResourceDaemonSet(resource *unstructured.Unstructured) (*releas
 	daemonSet := &extv1beta1.DaemonSet{}
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
-		logrus.Errorf("failed to marshal daemonSet %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to marshal daemonSet %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
 	err = json.Unmarshal(resourceBytes, daemonSet)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal daemonSet %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to unmarshal daemonSet %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
@@ -210,7 +210,7 @@ func buildReleaseResourceDaemonSet(resource *unstructured.Unstructured) (*releas
 
 	releaseResource.ReleaseResourceBase, err = buildReleaseResourceBase(resource, daemonSet.Spec.Template, nil)
 	if err != nil {
-		logrus.Errorf("failed to build release resource : %s", err.Error())
+		klog.Errorf("failed to build release resource : %s", err.Error())
 		return nil, err
 	}
 	return releaseResource, nil
@@ -220,13 +220,13 @@ func buildReleaseResourceJob(resource *unstructured.Unstructured) (*release.Rele
 	job := &batchv1.Job{}
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
-		logrus.Errorf("failed to marshal job %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to marshal job %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
 	err = json.Unmarshal(resourceBytes, job)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal job %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to unmarshal job %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
@@ -240,7 +240,7 @@ func buildReleaseResourceJob(resource *unstructured.Unstructured) (*release.Rele
 
 	releaseResource.ReleaseResourceBase, err = buildReleaseResourceBase(resource, job.Spec.Template, nil)
 	if err != nil {
-		logrus.Errorf("failed to build release resource : %s", err.Error())
+		klog.Errorf("failed to build release resource : %s", err.Error())
 		return nil, err
 	}
 	return releaseResource, nil
@@ -250,13 +250,13 @@ func buildReleaseResourcePvc(resource *unstructured.Unstructured) (*release.Rele
 	pvc := &v1.PersistentVolumeClaim{}
 	resourceBytes, err := resource.MarshalJSON()
 	if err != nil {
-		logrus.Errorf("failed to marshal pvc %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to marshal pvc %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
 	err = json.Unmarshal(resourceBytes, pvc)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal pvc %s : %s", resource.GetName(), err.Error())
+		klog.Errorf("failed to unmarshal pvc %s : %s", resource.GetName(), err.Error())
 		return nil, err
 	}
 
@@ -299,7 +299,7 @@ func buildTosDiskStorage(object map[string]interface{}) (tosDiskStorages []*rele
 
 	volumes, found, err := unstructured.NestedSlice(object, "spec", "template", "spec", "volumes")
 	if !found || err != nil {
-		logrus.Warn("failed to find pod volumes")
+		klog.Warning("failed to find pod volumes")
 		return
 	}
 
@@ -308,19 +308,19 @@ func buildTosDiskStorage(object map[string]interface{}) (tosDiskStorages []*rele
 			if tosDisk, ok1 := volumeMap["tosDisk"]; ok1 {
 				tosDiskBytes, err := json.Marshal(tosDisk)
 				if err != nil {
-					logrus.Warnf("failed to marshal tosDisk : %s", err.Error())
+					klog.Warningf("failed to marshal tosDisk : %s", err.Error())
 					continue
 				}
 				tosDiskVolumeSource := &TosDiskVolumeSource{}
 				err = json.Unmarshal(tosDiskBytes, tosDiskVolumeSource)
 				if err != nil {
-					logrus.Warnf("failed to unmarshal tosDisk : %s", err.Error())
+					klog.Warningf("failed to unmarshal tosDisk : %s", err.Error())
 					continue
 				}
 
 				quantity, err := resource.ParseQuantity(string(tosDiskVolumeSource.Capability))
 				if err != nil {
-					logrus.Warnf("failed to parse quantity: %s", err.Error())
+					klog.Warningf("failed to parse quantity: %s", err.Error())
 					continue
 				}
 
@@ -362,12 +362,12 @@ func buildPvcStorage(pvc v1.PersistentVolumeClaim) *release.ReleaseResourceStora
 func (op *Operator) CreateNamespace(namespace *k8sModel.Namespace) error {
 	k8sNamespace, err := converter.ConvertNamespaceToK8s(namespace)
 	if err != nil {
-		logrus.Errorf("failed to convert namespace : %s", err.Error())
+		klog.Errorf("failed to convert namespace : %s", err.Error())
 		return err
 	}
 	_, err = op.client.CoreV1().Namespaces().Create(k8sNamespace)
 	if err != nil {
-		logrus.Errorf("failed to create namespace %s : %s", k8sNamespace.Name, err.Error())
+		klog.Errorf("failed to create namespace %s : %s", k8sNamespace.Name, err.Error())
 		return err
 	}
 	return nil
@@ -376,12 +376,12 @@ func (op *Operator) CreateNamespace(namespace *k8sModel.Namespace) error {
 func (op *Operator) UpdateNamespace(namespace *k8sModel.Namespace) (error) {
 	k8sNamespace, err := converter.ConvertNamespaceToK8s(namespace)
 	if err != nil {
-		logrus.Errorf("failed to convert namespace : %s", err.Error())
+		klog.Errorf("failed to convert namespace : %s", err.Error())
 		return err
 	}
 	_, err = op.client.CoreV1().Namespaces().Update(k8sNamespace)
 	if err != nil {
-		logrus.Errorf("failed to update namespace %s : %s", k8sNamespace.Name, err.Error())
+		klog.Errorf("failed to update namespace %s : %s", k8sNamespace.Name, err.Error())
 		return err
 	}
 	return nil
@@ -391,10 +391,10 @@ func (op *Operator) DeleteNamespace(name string) error {
 	err := op.client.CoreV1().Namespaces().Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
 		if utils.IsK8sResourceNotFoundErr(err) {
-			logrus.Warnf("namespace %s is not found ", name)
+			klog.Warningf("namespace %s is not found ", name)
 			return nil
 		}
-		logrus.Errorf("failed to delete namespace %s : %s", name, err.Error())
+		klog.Errorf("failed to delete namespace %s : %s", name, err.Error())
 		return err
 	}
 	return nil
@@ -403,12 +403,12 @@ func (op *Operator) DeleteNamespace(name string) error {
 func (op *Operator) CreateResourceQuota(resourceQuota *k8sModel.ResourceQuota) error {
 	k8sQuota, err := converter.ConvertResourceQuotaToK8s(resourceQuota)
 	if err != nil {
-		logrus.Errorf("failed to convert resource quota : %s", err.Error())
+		klog.Errorf("failed to convert resource quota : %s", err.Error())
 		return err
 	}
 	_, err = op.client.CoreV1().ResourceQuotas(k8sQuota.Namespace).Create(k8sQuota)
 	if err != nil {
-		logrus.Errorf("failed to create resource quota %s/%s : %s", k8sQuota.Namespace, k8sQuota.Name, err.Error())
+		klog.Errorf("failed to create resource quota %s/%s : %s", k8sQuota.Namespace, k8sQuota.Name, err.Error())
 		return err
 	}
 	return nil
@@ -421,27 +421,27 @@ func (op *Operator) CreateOrUpdateResourceQuota(resourceQuota *k8sModel.Resource
 		if utils.IsK8sResourceNotFoundErr(err) {
 			update = false
 		} else {
-			logrus.Errorf("failed to get resource quota %s/%s : %s", resourceQuota.Namespace, resourceQuota.Name, err.Error())
+			klog.Errorf("failed to get resource quota %s/%s : %s", resourceQuota.Namespace, resourceQuota.Name, err.Error())
 			return err
 		}
 	}
 
 	k8sQuota, err := converter.ConvertResourceQuotaToK8s(resourceQuota)
 	if err != nil {
-		logrus.Errorf("failed to convert resource quota : %s", err.Error())
+		klog.Errorf("failed to convert resource quota : %s", err.Error())
 		return err
 	}
 
 	if update {
 		_, err = op.client.CoreV1().ResourceQuotas(k8sQuota.Namespace).Update(k8sQuota)
 		if err != nil {
-			logrus.Errorf("failed to update resource quota %s/%s : %s", k8sQuota.Namespace, k8sQuota.Name, err.Error())
+			klog.Errorf("failed to update resource quota %s/%s : %s", k8sQuota.Namespace, k8sQuota.Name, err.Error())
 			return err
 		}
 	} else {
 		_, err = op.client.CoreV1().ResourceQuotas(k8sQuota.Namespace).Create(k8sQuota)
 		if err != nil {
-			logrus.Errorf("failed to create resource quota %s/%s : %s", k8sQuota.Namespace, k8sQuota.Name, err.Error())
+			klog.Errorf("failed to create resource quota %s/%s : %s", k8sQuota.Namespace, k8sQuota.Name, err.Error())
 			return err
 		}
 	}
@@ -451,13 +451,13 @@ func (op *Operator) CreateOrUpdateResourceQuota(resourceQuota *k8sModel.Resource
 func (op *Operator) CreateLimitRange(limitRange *k8sModel.LimitRange) error {
 	k8sLimitRange, err := converter.ConvertLimitRangeToK8s(limitRange)
 	if err != nil {
-		logrus.Errorf("failed to convert limit range : %s", err.Error())
+		klog.Errorf("failed to convert limit range : %s", err.Error())
 		return err
 	}
 
 	_, err = op.client.CoreV1().LimitRanges(k8sLimitRange.Namespace).Create(k8sLimitRange)
 	if err != nil {
-		logrus.Errorf("failed to create limit range %s/%s : %s", k8sLimitRange.Namespace, k8sLimitRange.Name, err.Error())
+		klog.Errorf("failed to create limit range %s/%s : %s", k8sLimitRange.Namespace, k8sLimitRange.Name, err.Error())
 		return err
 	}
 	return nil
@@ -487,7 +487,7 @@ func (op *Operator) LabelNode(name string, labelsToAdd map[string]string, labels
 	if !reflect.DeepEqual(oldLabels, newLabels) {
 		_, err = op.client.CoreV1().Nodes().Update(node)
 		if err != nil {
-			logrus.Errorf("failed to update node %s : %s", name, err.Error())
+			klog.Errorf("failed to update node %s : %s", name, err.Error())
 			return
 		}
 	}
@@ -519,7 +519,7 @@ func (op *Operator) AnnotateNode(name string, annotationsToAdd map[string]string
 	if !reflect.DeepEqual(oldAnnos, newAnnos) {
 		_, err = op.client.CoreV1().Nodes().Update(node)
 		if err != nil {
-			logrus.Errorf("failed to update node %s : %s", name, err.Error())
+			klog.Errorf("failed to update node %s : %s", name, err.Error())
 			return
 		}
 	}
@@ -531,10 +531,10 @@ func (op *Operator) DeletePvc(namespace string, name string) error {
 	resource, err := op.k8sCache.GetResource(k8sModel.PersistentVolumeClaimKind, namespace, name)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
-			logrus.Warnf("pvc %s/%s is not found", namespace, name)
+			klog.Warningf("pvc %s/%s is not found", namespace, name)
 			return nil
 		}
-		logrus.Errorf("failed to get pvc %s/%s : %s", namespace, name, err.Error())
+		klog.Errorf("failed to get pvc %s/%s : %s", namespace, name, err.Error())
 		return err
 	}
 
@@ -549,13 +549,13 @@ func (op *Operator) doDeletePvc(pvc *k8sModel.PersistentVolumeClaim) error {
 
 		selectorStr, err := utils.ConvertLabelSelectorToStr(selector)
 		if err != nil {
-			logrus.Errorf("failed to convert label selector: %s", err.Error())
+			klog.Errorf("failed to convert label selector: %s", err.Error())
 			return err
 		}
 
 		statefulSets, err := op.k8sCache.ListStatefulSets(pvc.Namespace, selectorStr)
 		if err != nil {
-			logrus.Errorf("failed to list stateful set : %s", err.Error())
+			klog.Errorf("failed to list stateful set : %s", err.Error())
 			return err
 		}
 		if len(statefulSets) > 0 {
@@ -570,20 +570,20 @@ func (op *Operator) doDeletePvc(pvc *k8sModel.PersistentVolumeClaim) error {
 	err := op.client.CoreV1().PersistentVolumeClaims(pvc.Namespace).Delete(pvc.Name, &metav1.DeleteOptions{})
 	if err != nil {
 		if utils.IsK8sResourceNotFoundErr(err) {
-			logrus.Warnf("pvc %s/%s is not found ", pvc.Namespace, pvc.Name)
+			klog.Warningf("pvc %s/%s is not found ", pvc.Namespace, pvc.Name)
 			return nil
 		}
-		logrus.Errorf("failed to delete pvc %s/%s : %s", pvc.Namespace, pvc.Name, err.Error())
+		klog.Errorf("failed to delete pvc %s/%s : %s", pvc.Namespace, pvc.Name, err.Error())
 		return err
 	}
-	logrus.Infof("succeed to delete pvc %s/%s", pvc.Namespace, pvc.Name)
+	klog.Infof("succeed to delete pvc %s/%s", pvc.Namespace, pvc.Name)
 	return nil
 }
 
 func (op *Operator) DeletePvcs(namespace string, labelSeletorStr string) error {
 	pvcs, err := op.k8sCache.ListPersistentVolumeClaims(namespace, labelSeletorStr)
 	if err != nil {
-		logrus.Errorf("failed to list pvcs : %s", err.Error())
+		klog.Errorf("failed to list pvcs : %s", err.Error())
 		return err
 	}
 	for _, pvc := range pvcs {
@@ -602,7 +602,7 @@ func (op *Operator) CreateSecret(namespace string, secretRequestBody *k8sModel.C
 	}
 	_, err = op.client.CoreV1().Secrets(namespace).Create(secret)
 	if err != nil {
-		logrus.Errorf("failed to create secret %s/%s : %s", namespace, secretRequestBody.Name, err.Error())
+		klog.Errorf("failed to create secret %s/%s : %s", namespace, secretRequestBody.Name, err.Error())
 		return err
 	}
 	return nil
@@ -615,10 +615,10 @@ func (op *Operator) UpdateSecret(namespace string, walmSecret *k8sModel.CreateSe
 	}
 	_, err = op.client.CoreV1().Secrets(namespace).Update(newSecret)
 	if err != nil {
-		logrus.Errorf("failed to update secret : %s", err.Error())
+		klog.Errorf("failed to update secret : %s", err.Error())
 		return
 	}
-	logrus.Infof("succeed to update secret %s/%s", namespace, walmSecret.Name)
+	klog.Infof("succeed to update secret %s/%s", namespace, walmSecret.Name)
 	return
 }
 
@@ -626,13 +626,13 @@ func (op *Operator) DeleteSecret(namespace, name string) (err error) {
 	err = op.client.CoreV1().Secrets(namespace).Delete(name, &metav1.DeleteOptions{})
 	if err != nil {
 		if utils.IsK8sResourceNotFoundErr(err) {
-			logrus.Warnf("secret %s/%s is not found ", namespace, name)
+			klog.Warningf("secret %s/%s is not found ", namespace, name)
 			return nil
 		}
-		logrus.Errorf("failed to delete secret : %s", err.Error())
+		klog.Errorf("failed to delete secret : %s", err.Error())
 		return
 	}
-	logrus.Infof("succeed to delete secret %s/%s", namespace, name)
+	klog.Infof("succeed to delete secret %s/%s", namespace, name)
 	return
 }
 
@@ -641,11 +641,11 @@ func buildSecret(namespace string, walmSecret *k8sModel.CreateSecretRequestBody)
 	for k, v := range walmSecret.Data {
 		DataByte[k], err = base64.StdEncoding.DecodeString(v)
 		if err != nil {
-			logrus.Errorf("failed to decode secret : %+v %s", walmSecret.Data, err.Error())
+			klog.Errorf("failed to decode secret : %+v %s", walmSecret.Data, err.Error())
 			return
 		}
 	}
-	logrus.Infof("secret data: %+v", walmSecret.Data)
+	klog.Infof("secret data: %+v", walmSecret.Data)
 	secret = &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace,

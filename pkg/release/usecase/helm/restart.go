@@ -1,17 +1,17 @@
 package helm
 
 import (
-	"github.com/sirupsen/logrus"
-	"fmt"
-	"sync"
 	"WarpCloud/walm/pkg/models/k8s"
+	"fmt"
+	"k8s.io/klog"
+	"sync"
 )
 
 func (helm *Helm) RestartRelease(namespace, releaseName string) error {
-	logrus.Debugf("Enter RestartRelease %s %s\n", namespace, releaseName)
+	klog.V(2).Infof("Enter RestartRelease %s %s\n", namespace, releaseName)
 	releaseInfo, err := helm.GetRelease(namespace, releaseName)
 	if err != nil {
-		logrus.Errorf("failed to get release info : %s", err.Error())
+		klog.Errorf("failed to get release info : %s", err.Error())
 		return err
 	}
 
@@ -25,7 +25,7 @@ func (helm *Helm) RestartRelease(namespace, releaseName string) error {
 			defer wg.Done()
 			err1 := helm.k8sOperator.DeletePod(podToRestart.Namespace, podToRestart.Name)
 			if err1 != nil {
-				logrus.Errorf("failed to restart pod %s/%s : %s", podToRestart.Namespace, podToRestart.Name, err1.Error())
+				klog.Errorf("failed to restart pod %s/%s : %s", podToRestart.Namespace, podToRestart.Name, err1.Error())
 				mux.Lock()
 				podsRestartFailed = append(podsRestartFailed, podToRestart.Namespace+"/"+podToRestart.Name)
 				mux.Unlock()
@@ -37,10 +37,10 @@ func (helm *Helm) RestartRelease(namespace, releaseName string) error {
 	wg.Wait()
 	if len(podsRestartFailed) > 0 {
 		err = fmt.Errorf("failed to restart pods : %v", podsRestartFailed)
-		logrus.Errorf("failed to restart release : %s", err.Error())
+		klog.Errorf("failed to restart release : %s", err.Error())
 		return err
 	}
 
-	logrus.Infof("succeed to restart release %s", releaseName)
+	klog.Infof("succeed to restart release %s", releaseName)
 	return nil
 }

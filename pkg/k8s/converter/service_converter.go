@@ -1,29 +1,29 @@
 package converter
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	"WarpCloud/walm/pkg/models/k8s"
-	"github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/klog"
 	"net"
 	"strconv"
-	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-func ConvertServiceFromK8s(oriService *corev1.Service, endpoints *corev1.Endpoints) (walmService *k8s.Service,err error) {
+func ConvertServiceFromK8s(oriService *corev1.Service, endpoints *corev1.Endpoints) (walmService *k8s.Service, err error) {
 	if oriService == nil {
 		return
 	}
 	service := oriService.DeepCopy()
 
 	walmService = &k8s.Service{
-		Meta:    k8s.NewMeta(k8s.ServiceKind, service.Namespace, service.Name, k8s.NewState("Ready", "", "")),
+		Meta:        k8s.NewMeta(k8s.ServiceKind, service.Namespace, service.Name, k8s.NewState("Ready", "", "")),
 		ClusterIp:   service.Spec.ClusterIP,
 		ServiceType: string(service.Spec.Type),
 	}
 
 	walmService.Ports, err = buildWalmServicePorts(service, endpoints)
 	if err != nil {
-		logrus.Errorf("failed to build walm service ports: %s", err.Error())
+		klog.Errorf("failed to build walm service ports: %s", err.Error())
 		return
 	}
 

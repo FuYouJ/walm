@@ -1,33 +1,33 @@
 package informer
 
 import (
-	"github.com/sirupsen/logrus"
-	"WarpCloud/walm/pkg/k8s/utils"
 	"WarpCloud/walm/pkg/k8s/converter"
+	"WarpCloud/walm/pkg/k8s/utils"
+	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/tenant"
-	errorModel "WarpCloud/walm/pkg/models/error"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/klog"
 )
 
 func (informer *Informer) ListTenants(labelSelectorStr string) (*tenant.TenantInfoList, error) {
 	tenantInfoList := &tenant.TenantInfoList{}
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
-		logrus.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
 	namespaces, err := informer.namespaceLister.List(selector)
 	if err != nil {
-		logrus.Errorf("failed to list namespaces : %s", err.Error())
+		klog.Errorf("failed to list namespaces : %s", err.Error())
 		return nil, err
 	}
 
 	for _, namespace := range namespaces {
 		tenantInfo, err := informer.buildTenantInfo(namespace)
 		if err != nil {
-			logrus.Errorf("failed to build tenant info %s : %s", namespace.Name, err)
+			klog.Errorf("failed to build tenant info %s : %s", namespace.Name, err)
 			return nil, err
 		}
 		tenantInfoList.Items = append(tenantInfoList.Items, tenantInfo)
@@ -40,10 +40,10 @@ func (informer *Informer) GetTenant(tenantName string) (*tenant.TenantInfo, erro
 	namespace, err := informer.namespaceLister.Get(tenantName)
 	if err != nil {
 		if utils.IsK8sResourceNotFoundErr(err) {
-			logrus.Warnf("namespace %s is not found", tenantName)
+			klog.Warningf("namespace %s is not found", tenantName)
 			return nil, errorModel.NotFoundError{}
 		} else {
-			logrus.Errorf("failed to get namespace %s : %s", tenantName, err.Error())
+			klog.Errorf("failed to get namespace %s : %s", tenantName, err.Error())
 			return nil, err
 		}
 	}
@@ -51,12 +51,12 @@ func (informer *Informer) GetTenant(tenantName string) (*tenant.TenantInfo, erro
 	return informer.buildTenantInfo(namespace)
 }
 
-func (informer *Informer)buildTenantInfo(namespace *corev1.Namespace)(*tenant.TenantInfo, error) {
+func (informer *Informer) buildTenantInfo(namespace *corev1.Namespace) (*tenant.TenantInfo, error) {
 	tenantInfo := buildBasicTenantInfo(namespace)
 
 	resourceQuotas, err := informer.resourceQuotaLister.ResourceQuotas(namespace.Name).List(labels.NewSelector())
 	if err != nil {
-		logrus.Errorf("failed to get resource quotas : %s", err.Error())
+		klog.Errorf("failed to get resource quotas : %s", err.Error())
 		return nil, err
 	}
 
@@ -99,7 +99,7 @@ func buildTenantQuotas(resourceQuotas []*corev1.ResourceQuota) ([]*tenant.Tenant
 	for _, resourceQuota := range resourceQuotas {
 		walmResourceQuota, err := converter.ConvertResourceQuotaFromK8s(resourceQuota)
 		if err != nil {
-			logrus.Errorf("failed to convert resource quota %s: %s", resourceQuota.Name, err.Error())
+			klog.Errorf("failed to convert resource quota %s: %s", resourceQuota.Name, err.Error())
 			return nil, nil, err
 		}
 		hard := &tenant.TenantQuotaInfo{

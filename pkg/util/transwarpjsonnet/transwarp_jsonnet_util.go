@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"github.com/google/go-jsonnet"
 	jsonnetAst "github.com/google/go-jsonnet/ast"
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/klog"
 	"os"
 	"path"
 	"path/filepath"
@@ -184,7 +184,7 @@ func RegisterNativeFuncs(vm *jsonnet.VM) {
 func renderMainJsonnetFile(templateFiles map[string]string, configValues map[string]interface{}) (jsonStr string, err error) {
 	tmpdir, err := ioutil.TempDir("", "jsonnet")
 	if err != nil {
-		logrus.Errorf("create tempdir error %v", err)
+		klog.Errorf("create tempdir error %v", err)
 		return "", err
 	}
 	defer os.RemoveAll(tmpdir)
@@ -193,25 +193,25 @@ func renderMainJsonnetFile(templateFiles map[string]string, configValues map[str
 		tmpfn := filepath.Join(tmpdir, filename)
 		os.MkdirAll(filepath.Dir(tmpfn), 0755)
 		if err := ioutil.WriteFile(tmpfn, []byte(content[:]), 0666); err != nil {
-			logrus.Errorf("write to tempdir error %v", err)
+			klog.Errorf("write to tempdir error %v", err)
 		}
 	}
 
 	mainJsonFileName, err := getMainJsonnetFile(templateFiles)
 	if err != nil {
-		logrus.Errorf("failed to get main jsonnet file : %s", err.Error())
+		klog.Errorf("failed to get main jsonnet file : %s", err.Error())
 		return "", err
 	}
 
 	tlaValue, err := json.Marshal(configValues)
 	if err != nil {
-		logrus.Errorf("failed to marshal config values : %s", err.Error())
+		klog.Errorf("failed to marshal config values : %s", err.Error())
 		return "", err
 	}
 
 	jsonStr, err = parseTemplateWithTLAString(filepath.ToSlash(filepath.Join(tmpdir, mainJsonFileName)), "config", string(tlaValue))
 	if err != nil {
-		logrus.Errorf("failed to parse main jsonnet template file : %s", err.Error())
+		klog.Errorf("failed to parse main jsonnet template file : %s", err.Error())
 		return "", err
 	}
 	return
@@ -227,7 +227,7 @@ func buildKubeResourcesByJsonStr(jsonStr string) (resources map[string][]byte, e
 	resourcesMap := make(map[string]map[string]interface{})
 	err = json.Unmarshal([]byte(jsonStr), &resourcesMap)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal json string : %s", err.Error())
+		klog.Errorf("failed to unmarshal json string : %s", err.Error())
 		return nil, err
 	}
 
@@ -235,7 +235,7 @@ func buildKubeResourcesByJsonStr(jsonStr string) (resources map[string][]byte, e
 	for fileName, resource := range resourcesMap {
 		resourceBytes, err := yaml.Marshal(resource)
 		if err != nil {
-			logrus.Errorf("failed to marshal resource to yaml bytes : %s", err.Error())
+			klog.Errorf("failed to marshal resource to yaml bytes : %s", err.Error())
 			return nil, err
 		}
 		resources[fileName] = resourceBytes
@@ -268,7 +268,7 @@ func parseTemplateWithTLAString(templatePath string, tlaVar string, tlaValue str
 
 	output, err := vm.EvaluateSnippet(templatePath, string(jsonnetBytes))
 	if err != nil {
-		logrus.Errorf("failed to parse template %s, %s=%s, error: %+v", templatePath, tlaVar, tlaValue, err)
+		klog.Errorf("failed to parse template %s, %s=%s, error: %+v", templatePath, tlaVar, tlaValue, err)
 		return "", err
 	}
 	return string(output), nil

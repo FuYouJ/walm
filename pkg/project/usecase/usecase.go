@@ -1,19 +1,19 @@
 package usecase
 
 import (
+	"WarpCloud/walm/pkg/helm"
+	errorModel "WarpCloud/walm/pkg/models/error"
 	projectModel "WarpCloud/walm/pkg/models/project"
 	releaseModel "WarpCloud/walm/pkg/models/release"
-	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/project"
-	"WarpCloud/walm/pkg/task"
 	"WarpCloud/walm/pkg/release"
-	errorModel "WarpCloud/walm/pkg/models/error"
-	"fmt"
-	"sync"
-	"errors"
-	"encoding/json"
+	"WarpCloud/walm/pkg/task"
 	"WarpCloud/walm/pkg/util/dag"
-	"WarpCloud/walm/pkg/helm"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"k8s.io/klog"
+	"sync"
 )
 
 const (
@@ -33,7 +33,7 @@ type Project struct {
 func (projectImpl *Project) ListProjects(namespace string) (*projectModel.ProjectInfoList, error) {
 	projectTasks, err := projectImpl.cache.GetProjectTasks(namespace)
 	if err != nil {
-		logrus.Errorf("failed to get project tasks in namespace %s : %s", namespace, err.Error())
+		klog.Errorf("failed to get project tasks in namespace %s : %s", namespace, err.Error())
 		return nil, err
 	}
 
@@ -49,7 +49,7 @@ func (projectImpl *Project) ListProjects(namespace string) (*projectModel.Projec
 			defer wg.Done()
 			projectInfo, err1 := projectImpl.buildProjectInfo(projectTask)
 			if err1 != nil {
-				logrus.Errorf("failed to build project info from project cache of %s/%s : %s", projectTask.Namespace, projectTask.Name, err1.Error())
+				klog.Errorf("failed to build project info from project cache of %s/%s : %s", projectTask.Namespace, projectTask.Name, err1.Error())
 				err = errors.New(err1.Error())
 				return
 			}
@@ -61,7 +61,7 @@ func (projectImpl *Project) ListProjects(namespace string) (*projectModel.Projec
 
 	wg.Wait()
 	if err != nil {
-		logrus.Errorf("failed to build project infos : %s", err.Error())
+		klog.Errorf("failed to build project infos : %s", err.Error())
 		return nil, err
 	}
 
@@ -72,7 +72,7 @@ func (projectImpl *Project) ListProjects(namespace string) (*projectModel.Projec
 func (projectImpl *Project) GetProjectInfo(namespace, projectName string) (*projectModel.ProjectInfo, error) {
 	projectTask, err := projectImpl.cache.GetProjectTask(namespace, projectName)
 	if err != nil {
-		logrus.Errorf("failed to get project task of %s/%s : %s", namespace, projectName, err.Error())
+		klog.Errorf("failed to get project task of %s/%s : %s", namespace, projectName, err.Error())
 		return nil, err
 	}
 
@@ -90,7 +90,7 @@ func (projectImpl *Project) CreateProject(namespace string, project string, proj
 
 	oldProjectTask, err := projectImpl.validateProjectTask(namespace, project, true)
 	if err != nil {
-		logrus.Errorf("failed to validate project task : %s", err.Error())
+		klog.Errorf("failed to validate project task : %s", err.Error())
 		return err
 	}
 
@@ -101,10 +101,10 @@ func (projectImpl *Project) CreateProject(namespace string, project string, proj
 	}
 	err = projectImpl.sendProjectTask(namespace, project, createProjectTaskName, createProjectTaskArgs, oldProjectTask, timeoutSec, async)
 	if err != nil {
-		logrus.Errorf("failed to send project task %s of %s/%s : %s", createProjectTaskName, namespace, project, err.Error())
+		klog.Errorf("failed to send project task %s of %s/%s : %s", createProjectTaskName, namespace, project, err.Error())
 		return err
 	}
-	logrus.Infof("succeed to create project %s/%s", namespace, project)
+	klog.Infof("succeed to create project %s/%s", namespace, project)
 	return nil
 }
 
@@ -112,7 +112,7 @@ func (projectImpl *Project) validateProjectTask(namespace, name string, allowPro
 	projectTask, err = projectImpl.cache.GetProjectTask(namespace, name)
 	if err != nil {
 		if !errorModel.IsNotFoundError(err) {
-			logrus.Errorf("failed to get project task : %s", err.Error())
+			klog.Errorf("failed to get project task : %s", err.Error())
 			return
 		} else if !allowProjectNotExist {
 			return
@@ -126,14 +126,14 @@ func (projectImpl *Project) validateProjectTask(namespace, name string, allowPro
 				err = nil
 				return projectTask, err
 			} else {
-				logrus.Errorf("failed to get the last project task state : %s", err.Error())
+				klog.Errorf("failed to get the last project task state : %s", err.Error())
 				return projectTask, err
 			}
 		}
 
 		if !(taskState.IsFinished() || taskState.IsTimeout()) {
 			err = fmt.Errorf("please wait for the last project task %s-%s finished or timeout", projectTask.LatestTaskSignature.Name, projectTask.LatestTaskSignature.UUID)
-			logrus.Warn(err.Error())
+			klog.Warning(err.Error())
 			return projectTask, err
 		}
 	}
@@ -144,10 +144,10 @@ func (projectImpl *Project) DeleteProject(namespace string, project string, asyn
 	oldProjectTask, err := projectImpl.validateProjectTask(namespace, project, false)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
-			logrus.Warnf("project %s/%s is not found", namespace, project)
+			klog.Warningf("project %s/%s is not found", namespace, project)
 			return nil
 		}
-		logrus.Errorf("failed to validate project job : %s", err.Error())
+		klog.Errorf("failed to validate project job : %s", err.Error())
 		return err
 	}
 
@@ -163,10 +163,10 @@ func (projectImpl *Project) DeleteProject(namespace string, project string, asyn
 
 	err = projectImpl.sendProjectTask(namespace, project, deleteProjectTaskName, deleteProjectTaskArgs, oldProjectTask, timeoutSec, async)
 	if err != nil {
-		logrus.Errorf("failed to send project task %s of %s/%s : %s", deleteProjectTaskName, namespace, project, err.Error())
+		klog.Errorf("failed to send project task %s of %s/%s : %s", deleteProjectTaskName, namespace, project, err.Error())
 		return err
 	}
-	logrus.Infof("succeed to delete project %s/%s", namespace, project)
+	klog.Infof("succeed to delete project %s/%s", namespace, project)
 
 	return nil
 }
@@ -179,7 +179,7 @@ func (projectImpl *Project) AddReleasesInProject(namespace string, projectName s
 
 	oldProjectTask, err := projectImpl.validateProjectTask(namespace, projectName, true)
 	if err != nil {
-		logrus.Errorf("failed to validate project job : %s", err.Error())
+		klog.Errorf("failed to validate project job : %s", err.Error())
 		return err
 	}
 
@@ -195,10 +195,10 @@ func (projectImpl *Project) AddReleasesInProject(namespace string, projectName s
 
 	err = projectImpl.sendProjectTask(namespace, projectName, addReleaseTaskName, taskArgs, oldProjectTask, timeoutSec, async)
 	if err != nil {
-		logrus.Errorf("failed to send project task %s of %s/%s : %s", addReleaseTaskName, namespace, projectName, err.Error())
+		klog.Errorf("failed to send project task %s of %s/%s : %s", addReleaseTaskName, namespace, projectName, err.Error())
 		return err
 	}
-	logrus.Infof("succeed to add releases in project %s/%s", namespace, projectName)
+	klog.Infof("succeed to add releases in project %s/%s", namespace, projectName)
 
 	return nil
 }
@@ -208,16 +208,16 @@ func (projectImpl *Project) UpgradeReleaseInProject(namespace string, projectNam
 	oldProjectTask, err := projectImpl.validateProjectTask(namespace, projectName, false)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
-			logrus.Warnf("project %s/%s is not found", namespace, projectName)
+			klog.Warningf("project %s/%s is not found", namespace, projectName)
 			return nil
 		}
-		logrus.Errorf("failed to validate project job : %s", err.Error())
+		klog.Errorf("failed to validate project job : %s", err.Error())
 		return err
 	}
 
 	projectInfo, err := projectImpl.buildProjectInfo(oldProjectTask)
 	if err != nil {
-		logrus.Errorf("failed to build project info : %s", err.Error())
+		klog.Errorf("failed to build project info : %s", err.Error())
 		return err
 	}
 
@@ -231,7 +231,7 @@ func (projectImpl *Project) UpgradeReleaseInProject(namespace string, projectNam
 
 	if !releaseExistsInProject {
 		err = fmt.Errorf("release %s is not found in project %s", releaseParams.Name, projectName)
-		logrus.Error(err.Error())
+		klog.Error(err.Error())
 		return err
 	}
 
@@ -247,29 +247,29 @@ func (projectImpl *Project) UpgradeReleaseInProject(namespace string, projectNam
 
 	err = projectImpl.sendProjectTask(namespace, projectName, upgradeReleaseTaskName, taskArgs, oldProjectTask, timeoutSec, async)
 	if err != nil {
-		logrus.Errorf("failed to send project task %s of %s/%s : %s", upgradeReleaseTaskName, namespace, projectName, err.Error())
+		klog.Errorf("failed to send project task %s of %s/%s : %s", upgradeReleaseTaskName, namespace, projectName, err.Error())
 		return err
 	}
-	logrus.Infof("succeed to upgrade release %s in project %s/%s", releaseParams.Name, namespace, projectName)
+	klog.Infof("succeed to upgrade release %s in project %s/%s", releaseParams.Name, namespace, projectName)
 
 	return nil
 }
 
 func (projectImpl *Project) RemoveReleaseInProject(namespace, projectName,
-releaseName string, async bool, timeoutSec int64, deletePvcs bool) error {
+	releaseName string, async bool, timeoutSec int64, deletePvcs bool) error {
 	oldProjectTask, err := projectImpl.validateProjectTask(namespace, projectName, false)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
-			logrus.Warnf("project %s/%s is not found", namespace, projectName)
+			klog.Warningf("project %s/%s is not found", namespace, projectName)
 			return nil
 		}
-		logrus.Errorf("failed to validate project job : %s", err.Error())
+		klog.Errorf("failed to validate project job : %s", err.Error())
 		return err
 	}
 
 	projectInfo, err := projectImpl.buildProjectInfo(oldProjectTask)
 	if err != nil {
-		logrus.Errorf("failed to build project info : %s", err.Error())
+		klog.Errorf("failed to build project info : %s", err.Error())
 		return err
 	}
 
@@ -282,7 +282,7 @@ releaseName string, async bool, timeoutSec int64, deletePvcs bool) error {
 	}
 
 	if !releaseExistsInProject {
-		logrus.Warnf("release %s is not found in project %s", releaseName, projectName)
+		klog.Warningf("release %s is not found in project %s", releaseName, projectName)
 		return nil
 	}
 
@@ -299,10 +299,10 @@ releaseName string, async bool, timeoutSec int64, deletePvcs bool) error {
 
 	err = projectImpl.sendProjectTask(namespace, projectName, removeReleaseTaskName, taskArgs, oldProjectTask, timeoutSec, async)
 	if err != nil {
-		logrus.Errorf("failed to send project task %s of %s/%s : %s", removeReleaseTaskName, namespace, projectName, err.Error())
+		klog.Errorf("failed to send project task %s of %s/%s : %s", removeReleaseTaskName, namespace, projectName, err.Error())
 		return err
 	}
-	logrus.Infof("succeed to remove release %s in project %s/%s", releaseName, namespace, projectName)
+	klog.Infof("succeed to remove release %s in project %s/%s", releaseName, namespace, projectName)
 
 	return nil
 }
@@ -326,7 +326,7 @@ func (projectImpl *Project) buildProjectInfo(task *projectModel.ProjectTask) (pr
 			projectInfo.Ready, projectInfo.Message = isProjectReadyByReleases(projectInfo.Releases)
 			return
 		}
-		logrus.Errorf("failed to get task state : %s", err.Error())
+		klog.Errorf("failed to get task state : %s", err.Error())
 		return nil, err
 	}
 
@@ -364,13 +364,13 @@ func (projectImpl *Project) sendProjectTask(namespace, projectName, taskName str
 
 	taskArgsStr, err := json.Marshal(taskArgs)
 	if err != nil {
-		logrus.Errorf("failed to marshal task args : %s", err.Error())
+		klog.Errorf("failed to marshal task args : %s", err.Error())
 		return err
 	}
 
 	taskSig, err := projectImpl.task.SendTask(taskName, string(taskArgsStr), timeoutSec)
 	if err != nil {
-		logrus.Errorf("failed to send %s : %s", taskName, err.Error())
+		klog.Errorf("failed to send %s : %s", taskName, err.Error())
 		return err
 	}
 
@@ -382,7 +382,7 @@ func (projectImpl *Project) sendProjectTask(namespace, projectName, taskName str
 
 	err = projectImpl.cache.CreateOrUpdateProjectTask(projectTask)
 	if err != nil {
-		logrus.Errorf("failed to set project task of %s/%s to redis: %s", namespace, projectName, err.Error())
+		klog.Errorf("failed to set project task of %s/%s to redis: %s", namespace, projectName, err.Error())
 		return err
 	}
 
@@ -393,7 +393,7 @@ func (projectImpl *Project) sendProjectTask(namespace, projectName, taskName str
 	if !async {
 		err = projectImpl.task.TouchTask(taskSig, defaultSleepTimeSecond)
 		if err != nil {
-			logrus.Errorf("project task %s of %s/%s is failed or timeout: %s", taskName, namespace, projectName, err.Error())
+			klog.Errorf("project task %s of %s/%s is failed or timeout: %s", taskName, namespace, projectName, err.Error())
 			return err
 		}
 	}
@@ -503,7 +503,7 @@ func (projectImpl *Project) autoUpdateReleaseDependencies(projectInfo *projectMo
 				}
 			}
 		}
-		logrus.Infof("add %s Modify UpperStream Release %+v deps %s\n", releaseParams.Name, g.UpEdges(releaseParams.Name).List(), releaseParams.Name)
+		klog.Infof("add %s Modify UpperStream Release %+v deps %s\n", releaseParams.Name, g.UpEdges(releaseParams.Name).List(), releaseParams.Name)
 		for _, upperReleaseName := range g.UpEdges(releaseParams.Name).List() {
 			upperRelease := buildReleaseRequest(projectInfo, upperReleaseName.(string))
 			if upperRelease == nil {
@@ -518,7 +518,7 @@ func (projectImpl *Project) autoUpdateReleaseDependencies(projectInfo *projectMo
 			}
 			affectReleases = append(affectReleases, upperRelease)
 		}
-		logrus.Infof("add %s release add more %+v deps. current %+v\n",
+		klog.Infof("add %s release add more %+v deps. current %+v\n",
 			releaseParams.Name, g.DownEdges(releaseParams.Name).List(), releaseParams.Dependencies)
 		for _, downReleaseName := range g.DownEdges(releaseParams.Name).List() {
 			downRelease := buildReleaseRequest(projectInfo, downReleaseName.(string))
@@ -531,11 +531,11 @@ func (projectImpl *Project) autoUpdateReleaseDependencies(projectInfo *projectMo
 					releaseParams.Dependencies = make(map[string]string)
 				}
 				releaseParams.Dependencies[downRelease.ChartName] = downRelease.Name
-				logrus.Infof("RuntimeDepParse release %s Dependencies %+v\n", releaseParams.Name, releaseParams.Dependencies)
+				klog.Infof("RuntimeDepParse release %s Dependencies %+v\n", releaseParams.Name, releaseParams.Dependencies)
 			}
 		}
 	} else {
-		logrus.Infof("%+v are depending on %s", g.UpEdges(releaseParams.Name).List(), releaseParams.Name)
+		klog.Infof("%+v are depending on %s", g.UpEdges(releaseParams.Name).List(), releaseParams.Name)
 		for _, upperReleaseName := range g.UpEdges(releaseParams.Name).List() {
 			upperRelease := buildReleaseRequest(projectInfo, upperReleaseName.(string))
 			if upperRelease == nil {
