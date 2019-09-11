@@ -2,18 +2,18 @@ package sync
 
 import (
 	"WarpCloud/walm/pkg/helm"
-	"github.com/sirupsen/logrus"
-	"time"
-	"k8s.io/apimachinery/pkg/util/wait"
-	walmRedis "WarpCloud/walm/pkg/redis"
-	releaseModel "WarpCloud/walm/pkg/models/release"
-	"github.com/go-redis/redis"
 	"WarpCloud/walm/pkg/k8s"
+	errorModel "WarpCloud/walm/pkg/models/error"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/project"
-	"encoding/json"
+	releaseModel "WarpCloud/walm/pkg/models/release"
+	walmRedis "WarpCloud/walm/pkg/redis"
 	"WarpCloud/walm/pkg/task"
-	errorModel "WarpCloud/walm/pkg/models/error"
+	"encoding/json"
+	"github.com/go-redis/redis"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
+	"time"
 )
 
 const (
@@ -32,7 +32,7 @@ type Sync struct {
 }
 
 func (sync *Sync) Start(stopCh <-chan struct{}) {
-	logrus.Infof("start to resync release cache every %v", resyncInterval)
+	klog.Infof("start to resync release cache every %v", resyncInterval)
 	// first time should be sync
 	sync.Resync()
 	firstTime := true
@@ -52,36 +52,36 @@ func (sync *Sync) Resync() {
 
 			releaseCachesFromHelm, err := sync.helm.ListAllReleases()
 			if err != nil {
-				logrus.Errorf("failed to get release caches from helm : %s", err.Error())
+				klog.Errorf("failed to get release caches from helm : %s", err.Error())
 				return err
 			}
 
 			releaseCachesFromHelmMap, err := buildReleaseCachesFromHelmMap(releaseCachesFromHelm)
 			if err != nil {
-				logrus.Errorf("failed to build release cache map : %s", err.Error())
+				klog.Errorf("failed to build release cache map : %s", err.Error())
 				return err
 			}
 
 			releaseCacheKeysFromRedis, err := tx.HKeys(sync.releaseCacheKey).Result()
 			if err != nil {
-				logrus.Errorf("failed to get release cache keys from redis: %s", err.Error())
+				klog.Errorf("failed to get release cache keys from redis: %s", err.Error())
 				return err
 			}
 			releaseCacheKeysToDel := buildReleaseCacheKeysToDel(releaseCacheKeysFromRedis, releaseCachesFromHelmMap)
 
 			releaseConfigs, err := sync.k8sCache.ListReleaseConfigs("", "")
 			if err != nil {
-				logrus.Errorf("failed to list release configs : %s", err.Error())
+				klog.Errorf("failed to list release configs : %s", err.Error())
 				return err
 			}
 			projectTasksFromReleaseConfigs, err := buildProjectTasksFromReleaseConfigs(releaseConfigs)
 			if err != nil {
-				logrus.Errorf("failed to build project tasks by release configs : %s", err.Error())
+				klog.Errorf("failed to build project tasks by release configs : %s", err.Error())
 				return err
 			}
 			projectTasksInRedis, err := tx.HGetAll(sync.projectTaskKey).Result()
 			if err != nil {
-				logrus.Errorf("failed to get project tasks from redis: %s", err.Error())
+				klog.Errorf("failed to get project tasks from redis: %s", err.Error())
 				return err
 			}
 			projectTasksToDel, err := sync.buildProjectTasksToDel(projectTasksFromReleaseConfigs, projectTasksInRedis)
@@ -96,7 +96,7 @@ func (sync *Sync) Resync() {
 			}
 			releaseTaskInRedis, err := tx.HGetAll(sync.releaseTaskKey).Result()
 			if err != nil {
-				logrus.Errorf("failed to get release tasks from redis: %s", err.Error())
+				klog.Errorf("failed to get release tasks from redis: %s", err.Error())
 				return err
 			}
 
@@ -131,13 +131,13 @@ func (sync *Sync) Resync() {
 		}, sync.releaseCacheKey, sync.projectTaskKey, sync.releaseTaskKey)
 
 		if err == redis.TxFailedErr {
-			logrus.Warn("resync release cache transaction failed, will retry after 5 seconds")
+			klog.Warning("resync release cache transaction failed, will retry after 5 seconds")
 			time.Sleep(5 * time.Second)
 		} else {
 			if err != nil {
-				logrus.Errorf("failed to resync release caches: %s", err.Error())
+				klog.Errorf("failed to resync release caches: %s", err.Error())
 			} else {
-				logrus.Info("succeed to resync release caches")
+				klog.Info("succeed to resync release caches")
 			}
 			return
 		}
@@ -152,7 +152,7 @@ func (sync *Sync) buildReleaseTasksToDel(releaseTasksFromHelm, releaseTaskInRedi
 			releaseTask := &releaseModel.ReleaseTask{}
 			err := json.Unmarshal([]byte(releaseTaskStr), releaseTask)
 			if err != nil {
-				logrus.Errorf("failed to unmarshal release task string %s : %s", releaseTaskStr, err.Error())
+				klog.Errorf("failed to unmarshal release task string %s : %s", releaseTaskStr, err.Error())
 				return nil, err
 			}
 
@@ -161,7 +161,7 @@ func (sync *Sync) buildReleaseTasksToDel(releaseTasksFromHelm, releaseTaskInRedi
 				if errorModel.IsNotFoundError(err) {
 					releaseTasksToDel = append(releaseTasksToDel, releaseTaskKey)
 				} else {
-					logrus.Errorf("failed to get task state : %s", err.Error())
+					klog.Errorf("failed to get task state : %s", err.Error())
 					return nil, err
 				}
 			} else if taskState.IsFinished() || taskState.IsTimeout() {
@@ -180,7 +180,7 @@ func (sync *Sync) buildProjectTasksToDel(projectTasksFromReleaseConfigs map[stri
 			projectTask := &project.ProjectTask{}
 			err := json.Unmarshal([]byte(projectTaskStr), projectTask)
 			if err != nil {
-				logrus.Errorf("failed to unmarshal projectTaskStr %s : %s", projectTaskStr, err.Error())
+				klog.Errorf("failed to unmarshal projectTaskStr %s : %s", projectTaskStr, err.Error())
 				return nil, err
 			}
 
@@ -191,7 +191,7 @@ func (sync *Sync) buildProjectTasksToDel(projectTasksFromReleaseConfigs map[stri
 				if errorModel.IsNotFoundError(err) {
 					projectTasksToDel = append(projectTasksToDel, projectTaskKey)
 				} else {
-					logrus.Errorf("failed to get task state : %s", err.Error())
+					klog.Errorf("failed to get task state : %s", err.Error())
 					return nil, err
 				}
 			} else if taskState.IsFinished() || taskState.IsTimeout() {
@@ -224,7 +224,7 @@ func convertReleaseCachesMapToStrMap(releaseCaches map[string]*releaseModel.Rele
 		for key, value := range releaseCaches {
 			valueBytes, err := json.Marshal(value)
 			if err != nil {
-				logrus.Errorf("failed to marshal value : %s", err.Error())
+				klog.Errorf("failed to marshal value : %s", err.Error())
 				return nil, err
 			}
 			convertedResult[key] = valueBytes
@@ -259,7 +259,7 @@ func buildReleaseTasksFromHelm(releaseCachesFromHelm map[string]interface{}) (ma
 		releaseCache := &releaseModel.ReleaseCache{}
 		err := json.Unmarshal(releaseCacheStr.([]byte), releaseCache)
 		if err != nil {
-			logrus.Errorf("failed to unmarshal release cache of %s: %s", releaseCacheKey, err.Error())
+			klog.Errorf("failed to unmarshal release cache of %s: %s", releaseCacheKey, err.Error())
 			return nil, err
 		}
 
@@ -268,7 +268,7 @@ func buildReleaseTasksFromHelm(releaseCachesFromHelm map[string]interface{}) (ma
 			Name:      releaseCache.Name,
 		})
 		if err != nil {
-			logrus.Errorf("failed to marshal release task of %s/%s: %s", releaseCache.Namespace, releaseCache.Name, err.Error())
+			klog.Errorf("failed to marshal release task of %s/%s: %s", releaseCache.Namespace, releaseCache.Name, err.Error())
 			return nil, err
 		}
 		releaseTasksFromHelm[walmRedis.BuildFieldName(releaseCache.Namespace, releaseCache.Name)] = string(releaseTaskStr)
@@ -287,7 +287,7 @@ func buildProjectTasksFromReleaseConfigs(releaseConfigs []*k8sModel.ReleaseConfi
 					Name:      projectName,
 				})
 				if err != nil {
-					logrus.Errorf("failed to marshal project task of %s/%s: %s", releaseConfig.Namespace, projectName, err.Error())
+					klog.Errorf("failed to marshal project task of %s/%s: %s", releaseConfig.Namespace, projectName, err.Error())
 					return nil, err
 				}
 				projectTasksFromReleaseConfigs[walmRedis.BuildFieldName(releaseConfig.Namespace, projectName)] = string(projectTaskStr)

@@ -1,18 +1,18 @@
 package plugins
 
 import (
-	"k8s.io/api/extensions/v1beta1"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"github.com/sirupsen/logrus"
+	"k8s.io/klog"
 )
 
 const (
 	PauseReleasePluginName = "PauseRelease"
-	UsePodOfflineKey = "Transwarp_Walm_Use_Pod_Offline"
-	UsePodOfflineValue = "true"
-	PodOfflineKey = "offline-pod.transwarp.io/all-ordinals"
+	UsePodOfflineKey       = "Transwarp_Walm_Use_Pod_Offline"
+	UsePodOfflineValue     = "true"
+	PodOfflineKey          = "offline-pod.transwarp.io/all-ordinals"
 )
 
 func init() {
@@ -29,12 +29,12 @@ func PauseRelease(context *PluginContext, args string) (err error) {
 		case "Deployment":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
-				logrus.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Infof("failed to convert unstructured : %s", err.Error())
 				return err
 			}
 			deployment, err := buildDeployment(converted)
 			if err != nil {
-				logrus.Infof("failed to build deployment : %s", err.Error())
+				klog.Infof("failed to build deployment : %s", err.Error())
 				return err
 			}
 			pasueDeployment(deployment)
@@ -42,12 +42,12 @@ func PauseRelease(context *PluginContext, args string) (err error) {
 		case "StatefulSet":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
-				logrus.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Infof("failed to convert unstructured : %s", err.Error())
 				return err
 			}
 			statefulSet, err := buildStatefulSet(converted)
 			if err != nil {
-				logrus.Infof("failed to build statefulSet : %s", err.Error())
+				klog.Infof("failed to build statefulSet : %s", err.Error())
 				return err
 			}
 			pauseStatefulSet(statefulSet)
@@ -73,5 +73,3 @@ func pasueDeployment(deployment *v1beta1.Deployment) {
 	replicas := int32(0)
 	deployment.Spec.Replicas = &replicas
 }
-
-

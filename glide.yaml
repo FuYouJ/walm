@@ -14,8 +14,8 @@ import:
   version: ^1.0.0
 - package: gopkg.in/igm/sockjs-go.v2/sockjs
   version: ^2.0.0
-- package: github.com/sirupsen/logrus
-  version: ^1.0.5
+- package: github.com/kubernetes/klog
+  version: ^0.4.0
 - package: github.com/spf13/cobra
   version: ^0.0.3
 - package: github.com/spf13/pflag
@@ -75,8 +75,6 @@ import:
 - package: github.com/tidwall/pretty
 - package: github.com/containerd/containerd
   version: 1.2.1
-- package: github.com/x-cray/logrus-prefixed-formatter
-  version: v0.5.2
 - package: github.com/mgutz/ansi
 - package: github.com/mattn/go-colorable
   version: v0.1.1

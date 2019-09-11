@@ -1,30 +1,30 @@
 package informer
 
 import (
+	"WarpCloud/walm/pkg/k8s/converter"
+	"WarpCloud/walm/pkg/k8s/utils"
+	errorModel "WarpCloud/walm/pkg/models/error"
+	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/release"
+	"errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"time"
-	listv1beta1 "k8s.io/client-go/listers/extensions/v1beta1"
-	"k8s.io/client-go/listers/core/v1"
-	batchv1 "k8s.io/client-go/listers/batch/v1"
 	"k8s.io/client-go/listers/apps/v1beta1"
+	batchv1 "k8s.io/client-go/listers/batch/v1"
+	"k8s.io/client-go/listers/core/v1"
+	listv1beta1 "k8s.io/client-go/listers/extensions/v1beta1"
 	storagev1 "k8s.io/client-go/listers/storage/v1"
+	"k8s.io/client-go/tools/cache"
+	"k8s.io/klog"
+	"sort"
+	"sync"
+	"time"
+	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	releaseconfigexternalversions "transwarp/release-config/pkg/client/informers/externalversions"
 	releaseconfigv1beta1 "transwarp/release-config/pkg/client/listers/transwarp/v1beta1"
-	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
-	"WarpCloud/walm/pkg/models/k8s"
-	"github.com/sirupsen/logrus"
-	"WarpCloud/walm/pkg/k8s/converter"
-	errorModel "WarpCloud/walm/pkg/models/error"
-	"WarpCloud/walm/pkg/models/release"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
-	"sort"
-	"WarpCloud/walm/pkg/k8s/utils"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sync"
-	"errors"
 )
 
 type Informer struct {
@@ -51,16 +51,16 @@ type Informer struct {
 	releaseConfigLister  releaseconfigv1beta1.ReleaseConfigLister
 }
 
-func (informer *Informer)ListStorageClasses(namespace string, labelSelectorStr string) ([]*k8s.StorageClass, error) {
+func (informer *Informer) ListStorageClasses(namespace string, labelSelectorStr string) ([]*k8s.StorageClass, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
-		logrus.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
 
 	resources, err := informer.storageClassLister.List(selector)
 	if err != nil {
-		logrus.Errorf("failed to list storage classes in namespace %s : %s", namespace, err.Error())
+		klog.Errorf("failed to list storage classes in namespace %s : %s", namespace, err.Error())
 		return nil, err
 	}
 
@@ -68,7 +68,7 @@ func (informer *Informer)ListStorageClasses(namespace string, labelSelectorStr s
 	for _, resource := range resources {
 		storageClass, err := converter.ConvertStorageClassFromK8s(resource)
 		if err != nil {
-			logrus.Errorf("failed to convert storageClass %s/%s: %s", resource.Namespace, resource.Name, err.Error())
+			klog.Errorf("failed to convert storageClass %s/%s: %s", resource.Namespace, resource.Name, err.Error())
 			return nil, err
 		}
 		storageClasses = append(storageClasses, storageClass)
@@ -86,7 +86,7 @@ func (informer *Informer) GetPodLogs(namespace string, podName string, container
 	}
 	logs, err := informer.client.CoreV1().Pods(namespace).GetLogs(podName, podLogOptions).Do().Raw()
 	if err != nil {
-		logrus.Errorf("failed to get pod logs : %s", err.Error())
+		klog.Errorf("failed to get pod logs : %s", err.Error())
 		return "", err
 	}
 	return string(logs), nil
@@ -95,7 +95,7 @@ func (informer *Informer) GetPodLogs(namespace string, podName string, container
 func (informer *Informer) GetPodEventList(namespace string, name string) (*k8s.EventList, error) {
 	pod, err := informer.podLister.Pods(namespace).Get(name)
 	if err != nil {
-		logrus.Errorf("failed to get pod : %s", err.Error())
+		klog.Errorf("failed to get pod : %s", err.Error())
 		return nil, err
 	}
 
@@ -110,7 +110,7 @@ func (informer *Informer) GetPodEventList(namespace string, name string) (*k8s.E
 
 	podEvents, err := informer.searchEvents(pod.Namespace, ref)
 	if err != nil {
-		logrus.Errorf("failed to get Events : %s", err.Error())
+		klog.Errorf("failed to get Events : %s", err.Error())
 		return nil, err
 	}
 	sort.Sort(utils.SortableEvents(podEvents.Items))
@@ -134,13 +134,13 @@ func (informer *Informer) GetPodEventList(namespace string, name string) (*k8s.E
 func (informer *Informer) ListSecrets(namespace string, labelSelectorStr string) (*k8s.SecretList, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
-		logrus.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
 
 	resources, err := informer.secretLister.Secrets(namespace).List(selector)
 	if err != nil {
-		logrus.Errorf("failed to list secrets in namespace %s : %s", namespace, err.Error())
+		klog.Errorf("failed to list secrets in namespace %s : %s", namespace, err.Error())
 		return nil, err
 	}
 
@@ -148,7 +148,7 @@ func (informer *Informer) ListSecrets(namespace string, labelSelectorStr string)
 	for _, resource := range resources {
 		secret, err := converter.ConvertSecretFromK8s(resource)
 		if err != nil {
-			logrus.Errorf("failed to convert secret %s/%s: %s", resource.Namespace, resource.Name, err.Error())
+			klog.Errorf("failed to convert secret %s/%s: %s", resource.Namespace, resource.Name, err.Error())
 			return nil, err
 		}
 		secrets = append(secrets, secret)
@@ -162,12 +162,12 @@ func (informer *Informer) ListSecrets(namespace string, labelSelectorStr string)
 func (informer *Informer) ListStatefulSets(namespace string, labelSelectorStr string) ([]*k8s.StatefulSet, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
-		logrus.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
 	resources, err := informer.statefulSetLister.StatefulSets(namespace).List(selector)
 	if err != nil {
-		logrus.Errorf("failed to list stateful sets in namespace %s : %s", namespace, err.Error())
+		klog.Errorf("failed to list stateful sets in namespace %s : %s", namespace, err.Error())
 		return nil, err
 	}
 
@@ -179,7 +179,7 @@ func (informer *Informer) ListStatefulSets(namespace string, labelSelectorStr st
 		}
 		statefulSet, err := converter.ConvertStatefulSetFromK8s(resource, pods)
 		if err != nil {
-			logrus.Errorf("failed to convert stateful set %s/%s: %s", resource.Namespace, resource.Name, err.Error())
+			klog.Errorf("failed to convert stateful set %s/%s: %s", resource.Namespace, resource.Name, err.Error())
 			return nil, err
 		}
 		statefulSets = append(statefulSets, statefulSet)
@@ -190,7 +190,7 @@ func (informer *Informer) ListStatefulSets(namespace string, labelSelectorStr st
 func (informer *Informer) GetNodes(labelSelectorStr string) ([]*k8s.Node, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
-		logrus.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
 	nodeList, err := informer.nodeLister.List(selector)
@@ -208,13 +208,13 @@ func (informer *Informer) GetNodes(labelSelectorStr string) ([]*k8s.Node, error)
 				defer wg.Done()
 				podsOnNode, err1 := informer.getNonTermiatedPodsOnNode(node.Name, nil)
 				if err1 != nil {
-					logrus.Errorf("failed to get pods on node: %s", err1.Error())
+					klog.Errorf("failed to get pods on node: %s", err1.Error())
 					err = errors.New(err1.Error())
 					return
 				}
 				walmNode, err1 := converter.ConvertNodeFromK8s(node, podsOnNode)
 				if err1 != nil {
-					logrus.Errorf("failed to build walm node : %s", err1.Error())
+					klog.Errorf("failed to build walm node : %s", err1.Error())
 					err = errors.New(err1.Error())
 					return
 				}
@@ -226,7 +226,7 @@ func (informer *Informer) GetNodes(labelSelectorStr string) ([]*k8s.Node, error)
 		}
 		wg.Wait()
 		if err != nil {
-			logrus.Errorf("failed to build nodes : %s", err.Error())
+			klog.Errorf("failed to build nodes : %s", err.Error())
 			return nil, err
 		}
 	}
@@ -246,12 +246,12 @@ func (informer *Informer) AddReleaseConfigHandler(OnAdd func(obj interface{}), O
 func (informer *Informer) ListPersistentVolumeClaims(namespace string, labelSelectorStr string) ([]*k8s.PersistentVolumeClaim, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
-		logrus.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
 	resources, err := informer.persistentVolumeClaimLister.PersistentVolumeClaims(namespace).List(selector)
 	if err != nil {
-		logrus.Errorf("failed to list pvcs in namespace %s : %s", namespace, err.Error())
+		klog.Errorf("failed to list pvcs in namespace %s : %s", namespace, err.Error())
 		return nil, err
 	}
 
@@ -259,7 +259,7 @@ func (informer *Informer) ListPersistentVolumeClaims(namespace string, labelSele
 	for _, resource := range resources {
 		pvc, err := converter.ConvertPvcFromK8s(resource)
 		if err != nil {
-			logrus.Errorf("failed to convert release config %s/%s: %s", resource.Namespace, resource.Name, err.Error())
+			klog.Errorf("failed to convert release config %s/%s: %s", resource.Namespace, resource.Name, err.Error())
 			return nil, err
 		}
 		pvcs = append(pvcs, pvc)
@@ -270,12 +270,12 @@ func (informer *Informer) ListPersistentVolumeClaims(namespace string, labelSele
 func (informer *Informer) ListReleaseConfigs(namespace, labelSelectorStr string) ([]*k8s.ReleaseConfig, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
-		logrus.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
 	resources, err := informer.releaseConfigLister.ReleaseConfigs(namespace).List(selector)
 	if err != nil {
-		logrus.Errorf("failed to list release configs in namespace %s : %s", namespace, err.Error())
+		klog.Errorf("failed to list release configs in namespace %s : %s", namespace, err.Error())
 		return nil, err
 	}
 
@@ -283,7 +283,7 @@ func (informer *Informer) ListReleaseConfigs(namespace, labelSelectorStr string)
 	for _, resource := range resources {
 		releaseConfig, err := converter.ConvertReleaseConfigFromK8s(resource)
 		if err != nil {
-			logrus.Errorf("failed to convert release config %s/%s: %s", resource.Namespace, resource.Name, err.Error())
+			klog.Errorf("failed to convert release config %s/%s: %s", resource.Namespace, resource.Name, err.Error())
 			return nil, err
 		}
 		releaseConfigs = append(releaseConfigs, releaseConfig)
@@ -375,6 +375,6 @@ func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfi
 
 	informer.start(stopCh)
 	informer.waitForCacheSync(stopCh)
-	logrus.Info("k8s cache sync finished")
+	klog.Info("k8s cache sync finished")
 	return informer
 }

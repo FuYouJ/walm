@@ -2,12 +2,12 @@ package plugins
 
 import (
 	"encoding/json"
-	"k8s.io/api/extensions/v1beta1"
+	"github.com/tidwall/sjson"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"github.com/tidwall/sjson"
-	"github.com/sirupsen/logrus"
+	"k8s.io/klog"
 )
 
 const (
@@ -22,21 +22,21 @@ func init() {
 }
 
 type LabelPodArgs struct {
-	LabelsToAdd      map[string]string   `json:"labelsToAdd" description:"labels to add"`
-	AnnotationsToAdd map[string]string   `json:"annotationsToAdd" description:"annotations to add"`
+	LabelsToAdd      map[string]string `json:"labelsToAdd" description:"labels to add"`
+	AnnotationsToAdd map[string]string `json:"annotationsToAdd" description:"annotations to add"`
 }
 
 func LabelPod(context *PluginContext, args string) (err error) {
 	if args == "" {
-		logrus.Infof("ignore labeling pod, because plugin args is empty")
+		klog.Infof("ignore labeling pod, because plugin args is empty")
 		return nil
 	} else {
-		logrus.Infof("label pod args : %s", args)
+		klog.Infof("label pod args : %s", args)
 	}
 	labelPodArgs := &LabelPodArgs{}
 	err = json.Unmarshal([]byte(args), labelPodArgs)
 	if err != nil {
-		logrus.Infof("failed to unmarshal plugin args : %s", err.Error())
+		klog.Infof("failed to unmarshal plugin args : %s", err.Error())
 		return err
 	}
 
@@ -46,12 +46,12 @@ func LabelPod(context *PluginContext, args string) (err error) {
 		case "Deployment":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
-				logrus.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Infof("failed to convert unstructured : %s", err.Error())
 				return err
 			}
 			deployment, err := buildDeployment(converted)
 			if err != nil {
-				logrus.Infof("failed to build deployment : %s", err.Error())
+				klog.Infof("failed to build deployment : %s", err.Error())
 				return err
 			}
 			labelDeploymentPod(deployment, labelPodArgs)
@@ -59,12 +59,12 @@ func LabelPod(context *PluginContext, args string) (err error) {
 		case "DaemonSet":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
-				logrus.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Infof("failed to convert unstructured : %s", err.Error())
 				return err
 			}
 			daemonSet, err := buildDaemonSet(converted)
 			if err != nil {
-				logrus.Infof("failed to build daemonSet : %s", err.Error())
+				klog.Infof("failed to build daemonSet : %s", err.Error())
 				return err
 			}
 			labelDaemonSetPod(daemonSet, labelPodArgs)
@@ -72,12 +72,12 @@ func LabelPod(context *PluginContext, args string) (err error) {
 		case "StatefulSet":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
-				logrus.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Infof("failed to convert unstructured : %s", err.Error())
 				return err
 			}
 			statefulSet, err := buildStatefulSet(converted)
 			if err != nil {
-				logrus.Infof("failed to build statefulSet : %s", err.Error())
+				klog.Infof("failed to build statefulSet : %s", err.Error())
 				return err
 			}
 			labelStatefulSetPod(statefulSet, labelPodArgs)
@@ -206,4 +206,3 @@ func labelDeploymentPod(deployment *v1beta1.Deployment, labelPodArgs *LabelPodAr
 		}
 	}
 }
-

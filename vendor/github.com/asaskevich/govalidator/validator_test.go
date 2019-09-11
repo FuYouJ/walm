@@ -4,17 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 )
-
-func init() {
-	CustomTypeTagMap.Set("customFalseValidator", CustomTypeValidator(func(i interface{}, o interface{}) bool {
-		return false
-	}))
-	CustomTypeTagMap.Set("customTrueValidator", CustomTypeValidator(func(i interface{}, o interface{}) bool {
-		return true
-	}))
-}
 
 func TestIsAlpha(t *testing.T) {
 	t.Parallel()
@@ -284,10 +274,10 @@ func TestIsNumeric(t *testing.T) {
 		{"\u0030", true},  //UTF-8(ASCII): 0
 		{"123", true},
 		{"0123", true},
-		{"-00123", false},
-		{"+00123", false},
+		{"-00123", true},
+		{"+00123", true},
 		{"0", true},
-		{"-0", false},
+		{"-0", true},
 		{"123.123", false},
 		{" ", false},
 		{".", false},
@@ -306,7 +296,7 @@ func TestIsNumeric(t *testing.T) {
 		{"1+1", false},
 		{"+", false},
 		{"++", false},
-		{"+1", false},
+		{"+1", true},
 	}
 	for _, test := range tests {
 		actual := IsNumeric(test.param)
@@ -499,74 +489,6 @@ func TestIsUpperCase(t *testing.T) {
 	}
 }
 
-func TestHasLowerCase(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		expected bool
-	}{
-		{"", true},
-		{"abc123", true},
-		{"abc", true},
-		{"a b c", true},
-		{"abcß", true},
-		{"abcẞ", true},
-		{"ABCẞ", false},
-		{"tr竪s 端ber", true},
-		{"fooBar", true},
-		{"123ABC", false},
-		{"ABC123", false},
-		{"ABC", false},
-		{"S T R", false},
-		{"fooBar", true},
-		{"abacaba123", true},
-		{"FÒÔBÀŘ", false},
-		{"fòôbàř", true},
-		{"fÒÔBÀŘ", true},
-	}
-	for _, test := range tests {
-		actual := HasLowerCase(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected HasLowerCase(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
-func TestHasUpperCase(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		expected bool
-	}{
-		{"", true},
-		{"abc123", false},
-		{"abc", false},
-		{"a b c", false},
-		{"abcß", false},
-		{"abcẞ", false},
-		{"ABCẞ", true},
-		{"tr竪s 端ber", false},
-		{"fooBar", true},
-		{"123ABC", true},
-		{"ABC123", true},
-		{"ABC", true},
-		{"S T R", true},
-		{"fooBar", true},
-		{"abacaba123", false},
-		{"FÒÔBÀŘ", true},
-		{"fòôbàř", false},
-		{"Fòôbàř", true},
-	}
-	for _, test := range tests {
-		actual := HasUpperCase(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected HasUpperCase(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
 func TestIsInt(t *testing.T) {
 	t.Parallel()
 
@@ -604,63 +526,6 @@ func TestIsInt(t *testing.T) {
 	}
 }
 
-func TestIsHash(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		algo     string
-		expected bool
-	}{
-		{"3ca25ae354e192b26879f651a51d92aa8a34d8d3", "sha1", true},
-		{"3ca25ae354e192b26879f651a51d34d8d3", "sha1", false},
-		{"3ca25ae354e192b26879f651a51d92aa8a34d8d3", "Tiger160", true},
-		{"3ca25ae354e192b26879f651a51d34d8d3", "ripemd160", false},
-		{"579282cfb65ca1f109b78536effaf621b853c9f7079664a3fbe2b519f435898c", "sha256", true},
-		{"579282cfb65ca1f109b78536effaf621b853c9f7079664a3fbe2b519f435898casfdsafsadfsdf", "sha256", false},
-		{"bf547c3fc5841a377eb1519c2890344dbab15c40ae4150b4b34443d2212e5b04aa9d58865bf03d8ae27840fef430b891", "sha384", true},
-		{"579282cfb65ca1f109b78536effaf621b853c9f7079664a3fbe2b519f435898casfdsafsadfsdf", "sha384", false},
-		{"45bc5fa8cb45ee408c04b6269e9f1e1c17090c5ce26ffeeda2af097735b29953ce547e40ff3ad0d120e5361cc5f9cee35ea91ecd4077f3f589b4d439168f91b9", "sha512", true},
-		{"579282cfb65ca1f109b78536effaf621b853c9f7079664a3fbe2b519f435898casfdsafsadfsdf", "sha512", false},
-		{"46fc0125a148788a3ac1d649566fc04eb84a746f1a6e4fa7", "tiger192", true},
-		{"46fc0125a148788a3ac1d649566fc04eb84a746f1a6$$%@^", "TIGER192", false},
-		{"46fc0125a148788a3ac1d649566fc04eb84a746f1a6$$%@^", "SOMEHASH", false},
-	}
-	for _, test := range tests {
-		actual := IsHash(test.param, test.algo)
-		if actual != test.expected {
-			t.Errorf("Expected IsHash(%q, %q) to be %v, got %v", test.param, test.algo, test.expected, actual)
-		}
-	}
-}
-
-func TestIsExistingEmail(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		expected bool
-	}{
-		{"", false},
-		{"foo@bar.com", true},
-		{"foo@bar.com.au", true},
-		{"foo+bar@bar.com", true},
-		{"foo@bar.coffee", true},
-		{"foo@bar.coffee..coffee", false},
-		{"invalidemail@", false},
-		{"invalid.com", false},
-		{"@invalid.com", false},
-		{"NathAn.daVIeS@DomaIn.cOM", true},
-		{"NATHAN.DAVIES@DOMAIN.CO.UK", true},
-	}
-	for _, test := range tests {
-		actual := IsExistingEmail(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected IsExistingEmail(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
 func TestIsEmail(t *testing.T) {
 	t.Parallel()
 
@@ -674,8 +539,6 @@ func TestIsEmail(t *testing.T) {
 		{"foo@bar.com.au", true},
 		{"foo+bar@bar.com", true},
 		{"foo@bar.coffee", true},
-		{"foo@bar.coffee..coffee", false},
-		{"foo@bar.bar.coffee", true},
 		{"foo@bar.中文网", true},
 		{"invalidemail@", false},
 		{"invalid.com", false},
@@ -724,21 +587,18 @@ func TestIsURL(t *testing.T) {
 		{"http://foobar.com/a-", true},
 		{"http://foobar.پاکستان/", true},
 		{"http://foobar.c_o_m", false},
-		{"http://_foobar.com", false},
-		{"http://foo_bar.com", true},
-		{"http://user:pass@foo_bar_bar.bar_foo.com", true},
 		{"", false},
 		{"xyz://foobar.com", false},
-		// {"invalid.", false}, is it false like "localhost."?
+		{"invalid.", false},
 		{".com", false},
 		{"rtmp://foobar.com", false},
+		{"http://www.foo_bar.com/", false},
 		{"http://localhost:3000/", true},
 		{"http://foobar.com#baz=qux", true},
 		{"http://foobar.com/t$-_.+!*\\'(),", true},
 		{"http://www.foobar.com/~foobar", true},
 		{"http://www.-foobar.com/", false},
 		{"http://www.foo---bar.com/", false},
-		{"http://r6---snnvoxuioq6.googlevideo.com", true},
 		{"mailto:someone@example.com", true},
 		{"irc://irc.server.org/channel", false},
 		{"irc://#channel@network", true},
@@ -755,12 +615,10 @@ func TestIsURL(t *testing.T) {
 		{"http://.foo.com", false},
 		{"http://,foo.com", false},
 		{",foo.com", false},
-		{"http://myservice.:9093/", true},
 		// according to issues #62 #66
 		{"https://pbs.twimg.com/profile_images/560826135676588032/j8fWrmYY_normal.jpeg", true},
 		// according to #125
 		{"http://prometheus-alertmanager.service.q:9093", true},
-		{"aio1_alertmanager_container-63376c45:9093", true},
 		{"https://www.logn-123-123.url.with.sigle.letter.d:12345/url/path/foo?bar=zzz#user", true},
 		{"http://me.example.com", true},
 		{"http://www.me.example.com", true},
@@ -772,27 +630,6 @@ func TestIsURL(t *testing.T) {
 		{"http://cant-end-with-hyphen-.example.com", false},
 		{"http://-cant-start-with-hyphen.example.com", false},
 		{"http://www.domain-can-have-dashes.com", true},
-		{"http://m.abcd.com/test.html", true},
-		{"http://m.abcd.com/a/b/c/d/test.html?args=a&b=c", true},
-		{"http://[::1]:9093", true},
-		{"http://[::1]:909388", false},
-		{"1200::AB00:1234::2552:7777:1313", false},
-		{"http://[2001:db8:a0b:12f0::1]/index.html", true},
-		{"http://[1200:0000:AB00:1234:0000:2552:7777:1313]", true},
-		{"http://user:pass@[::1]:9093/a/b/c/?a=v#abc", true},
-		{"https://127.0.0.1/a/b/c?a=v&c=11d", true},
-		{"https://foo_bar.example.com", true},
-		{"http://foo_bar.example.com", true},
-		{"http://foo_bar_fizz_buzz.example.com", true},
-		{"http://_cant_start_with_underescore", false},
-		{"http://cant_end_with_underescore_", false},
-		{"foo_bar.example.com", true},
-		{"foo_bar_fizz_buzz.example.com", true},
-		{"http://hello_world.example.com", true},
-		// According to #212
-		{"foo_bar-fizz-buzz:1313", true},
-		{"foo_bar-fizz-buzz:13:13", false},
-		{"foo_bar-fizz-buzz://1313", false},
 	}
 	for _, test := range tests {
 		actual := IsURL(test.param)
@@ -840,6 +677,7 @@ func TestIsRequestURL(t *testing.T) {
 		{"http://www.foo---bar.com/", true},
 		{"mailto:someone@example.com", true},
 		{"irc://irc.server.org/channel", true},
+		{"irc://#channel@network", true},
 		{"/abs/test/dir", false},
 		{"./rel/test/dir", false},
 	}
@@ -888,6 +726,7 @@ func TestIsRequestURI(t *testing.T) {
 		{"http://www.foo---bar.com/", true},
 		{"mailto:someone@example.com", true},
 		{"irc://irc.server.org/channel", true},
+		{"irc://#channel@network", true},
 		{"/abs/test/dir", true},
 		{"./rel/test/dir", false},
 	}
@@ -1019,56 +858,6 @@ func TestIsNull(t *testing.T) {
 	}
 }
 
-func TestHasWhitespaceOnly(t *testing.T) {
-    t.Parallel()
-
-    var tests = []struct {
-        param    string
-        expected bool
-    }{
-        {"abacaba", false},
-        {"", false},
-        {"    ", true},
-        {"  \r\n  ", true},
-        {"\014\012\011\013\015", true},
-        {"\014\012\011\013 abc  \015", false},
-        {"\f\n\t\v\r\f", true},
-        {"x\n\t\t\t\t", false},
-        {"\f\n\t  \n\n\n   \v\r\f", true},
-    }
-    for _, test := range tests {
-        actual := HasWhitespaceOnly(test.param)
-        if actual != test.expected {
-            t.Errorf("Expected HasWhitespaceOnly(%q) to be %v, got %v", test.param, test.expected, actual)
-        }
-    }
-}
-
-func TestHasWhitespace(t *testing.T) {
-    t.Parallel()
-
-    var tests = []struct {
-        param    string
-        expected bool
-    }{
-        {"abacaba", false},
-        {"", false},
-        {"    ", true},
-        {"  \r\n  ", true},
-        {"\014\012\011\013\015", true},
-        {"\014\012\011\013 abc  \015", true},
-        {"\f\n\t\v\r\f", true},
-        {"x\n\t\t\t\t", true},
-        {"\f\n\t  \n\n\n   \v\r\f", true},
-    }
-    for _, test := range tests {
-        actual := HasWhitespace(test.param)
-        if actual != test.expected {
-            t.Errorf("Expected HasWhitespace(%q) to be %v, got %v", test.param, test.expected, actual)
-        }
-    }
-}
-
 func TestIsDivisibleBy(t *testing.T) {
 	t.Parallel()
 
@@ -1160,7 +949,6 @@ func TestIsMultibyte(t *testing.T) {
 		{"test＠example.com", true},
 		{"1234abcDEｘｙｚ", true},
 		{"ｶﾀｶﾅ", true},
-		{"", true},
 	}
 	for _, test := range tests {
 		actual := IsMultibyte(test.param)
@@ -1592,64 +1380,6 @@ func TestIsISO3166Alpha3(t *testing.T) {
 	}
 }
 
-func TestIsISO693Alpha2(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		expected bool
-	}{
-		{"", false},
-		{"abcd", false},
-		{"a", false},
-		{"ac", false},
-		{"ap", false},
-		{"de", true},
-		{"DE", false},
-		{"mk", true},
-		{"mac", false},
-		{"sw", true},
-		{"SW", false},
-		{"ger", false},
-		{"deu", false},
-	}
-	for _, test := range tests {
-		actual := IsISO693Alpha2(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected IsISO693Alpha2(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
-func TestIsISO693Alpha3b(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		expected bool
-	}{
-		{"", false},
-		{"abcd", false},
-		{"a", false},
-		{"ac", false},
-		{"ap", false},
-		{"de", false},
-		{"DE", false},
-		{"mkd", false},
-		{"mac", true},
-		{"sw", false},
-		{"SW", false},
-		{"ger", true},
-		{"deu", false},
-	}
-	for _, test := range tests {
-		actual := IsISO693Alpha3b(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected IsISO693Alpha3b(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
 func TestIsIP(t *testing.T) {
 	t.Parallel()
 
@@ -1747,27 +1477,19 @@ func TestIsDNSName(t *testing.T) {
 		expected bool
 	}{
 		{"localhost", true},
-		{"a.bc", true},
-		{"a.b.", true},
-		{"a.b..", false},
 		{"localhost.local", true},
 		{"localhost.localdomain.intern", true},
-		{"l.local.intern", true},
-		{"ru.link.n.svpncloud.com", true},
 		{"-localhost", false},
 		{"localhost.-localdomain", false},
 		{"localhost.localdomain.-int", false},
-		{"_localhost", true},
-		{"localhost._localdomain", true},
-		{"localhost.localdomain._int", true},
+		{"_localhost", false},
+		{"localhost._localdomain", false},
+		{"localhost.localdomain._int", false},
 		{"lÖcalhost", false},
 		{"localhost.lÖcaldomain", false},
 		{"localhost.localdomain.üntern", false},
-		{"__", true},
-		{"localhost/", false},
 		{"127.0.0.1", false},
 		{"[::1]", false},
-		{"50.50.50.50", false},
 		{"localhost.localdomain.intern:65535", false},
 		{"漢字汉字", false},
 		{"www.jubfvq1v3p38i51622y0dvmdk1mymowjyeu26gbtw9andgynj1gg8z3msb1kl5z6906k846pj3sulm4kiyk82ln5teqj9nsht59opr0cs5ssltx78lfyvml19lfq1wp4usbl0o36cmiykch1vywbttcus1p9yu0669h8fj4ll7a6bmop505908s1m83q2ec2qr9nbvql2589adma3xsq2o38os2z3dmfh2tth4is4ixyfasasasefqwe4t2ub2fz1rme.de", false},
@@ -1876,13 +1598,6 @@ func TestFilePath(t *testing.T) {
 		{"/path/file:SAMPLE/", true, Unix},
 		{"/path/file:/.txt", true, Unix},
 		{"/path", true, Unix},
-		{"/path/__bc/file.txt", true, Unix},
-		{"/path/a--ac/file.txt", true, Unix},
-		{"/_path/file.txt", true, Unix},
-		{"/path/__bc/file.txt", true, Unix},
-		{"/path/a--ac/file.txt", true, Unix},
-		{"/__path/--file.txt", true, Unix},
-		{"/path/a bc", true, Unix},
 	}
 	for _, test := range tests {
 		actual, osType := IsFilePath(test.param)
@@ -2014,86 +1729,6 @@ func TestIsSemver(t *testing.T) {
 	}
 }
 
-func TestIsTime(t *testing.T) {
-	t.Parallel()
-	var tests = []struct {
-		param    string
-		format   string
-		expected bool
-	}{
-		{"2016-12-31 11:00", time.RFC3339, false},
-		{"2016-12-31 11:00:00", time.RFC3339, false},
-		{"2016-12-31T11:00", time.RFC3339, false},
-		{"2016-12-31T11:00:00", time.RFC3339, false},
-		{"2016-12-31T11:00:00Z", time.RFC3339, true},
-		{"2016-12-31T11:00:00+01:00", time.RFC3339, true},
-		{"2016-12-31T11:00:00-01:00", time.RFC3339, true},
-		{"2016-12-31T11:00:00.05Z", time.RFC3339, true},
-		{"2016-12-31T11:00:00.05-01:00", time.RFC3339, true},
-		{"2016-12-31T11:00:00.05+01:00", time.RFC3339, true},
-		{"2016-12-31T11:00:00", RF3339WithoutZone, true},
-		{"2016-12-31T11:00:00Z", RF3339WithoutZone, false},
-		{"2016-12-31T11:00:00+01:00", RF3339WithoutZone, false},
-		{"2016-12-31T11:00:00-01:00", RF3339WithoutZone, false},
-		{"2016-12-31T11:00:00.05Z", RF3339WithoutZone, false},
-		{"2016-12-31T11:00:00.05-01:00", RF3339WithoutZone, false},
-		{"2016-12-31T11:00:00.05+01:00", RF3339WithoutZone, false},
-	}
-	for _, test := range tests {
-		actual := IsTime(test.param, test.format)
-		if actual != test.expected {
-			t.Errorf("Expected IsTime(%q, time.RFC3339) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
-func TestIsRFC3339(t *testing.T) {
-	t.Parallel()
-	var tests = []struct {
-		param    string
-		expected bool
-	}{
-		{"2016-12-31 11:00", false},
-		{"2016-12-31 11:00:00", false},
-		{"2016-12-31T11:00", false},
-		{"2016-12-31T11:00:00", false},
-		{"2016-12-31T11:00:00Z", true},
-		{"2016-12-31T11:00:00+01:00", true},
-		{"2016-12-31T11:00:00-01:00", true},
-		{"2016-12-31T11:00:00.05Z", true},
-		{"2016-12-31T11:00:00.05-01:00", true},
-		{"2016-12-31T11:00:00.05+01:00", true},
-	}
-	for _, test := range tests {
-		actual := IsRFC3339(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected IsRFC3339(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
-func TestIsISO4217(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		expected bool
-	}{
-		{"", false},
-		{"ABCD", false},
-		{"A", false},
-		{"ZZZ", false},
-		{"usd", false},
-		{"USD", true},
-	}
-	for _, test := range tests {
-		actual := IsISO4217(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected IsISO4217(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
 func TestByteLength(t *testing.T) {
 	t.Parallel()
 
@@ -2107,35 +1742,11 @@ func TestByteLength(t *testing.T) {
 		{"1239999", "0", "0", false},
 		{"1239asdfasf99", "100", "200", false},
 		{"1239999asdff29", "10", "30", true},
-		{"你", "0", "1", false},
 	}
 	for _, test := range tests {
 		actual := ByteLength(test.value, test.min, test.max)
 		if actual != test.expected {
 			t.Errorf("Expected ByteLength(%s, %s, %s) to be %v, got %v", test.value, test.min, test.max, test.expected, actual)
-		}
-	}
-}
-
-func TestRuneLength(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		value    string
-		min      string
-		max      string
-		expected bool
-	}{
-		{"123456", "0", "100", true},
-		{"1239999", "0", "0", false},
-		{"1239asdfasf99", "100", "200", false},
-		{"1239999asdff29", "10", "30", true},
-		{"你", "0", "1", true},
-	}
-	for _, test := range tests {
-		actual := RuneLength(test.value, test.min, test.max)
-		if actual != test.expected {
-			t.Errorf("Expected RuneLength(%s, %s, %s) to be %v, got %v", test.value, test.min, test.max, test.expected, actual)
 		}
 	}
 }
@@ -2166,30 +1777,6 @@ func TestStringLength(t *testing.T) {
 	}
 }
 
-func TestIsIn(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		value    string
-		params   []string
-		expected bool
-	}{
-		{"PRESENT", []string{"PRESENT"}, true},
-		{"PRESENT", []string{"PRESENT", "PRÉSENTE", "NOTABSENT"}, true},
-		{"PRÉSENTE", []string{"PRESENT", "PRÉSENTE", "NOTABSENT"}, true},
-		{"PRESENT", []string{}, false},
-		{"PRESENT", nil, false},
-		{"ABSENT", []string{"PRESENT", "PRÉSENTE", "NOTABSENT"}, false},
-		{"", []string{"PRESENT", "PRÉSENTE", "NOTABSENT"}, false},
-	}
-	for _, test := range tests {
-		actual := IsIn(test.value, test.params...)
-		if actual != test.expected {
-			t.Errorf("Expected IsIn(%s, %v) to be %v, got %v", test.value, test.params, test.expected, actual)
-		}
-	}
-}
-
 type Address struct {
 	Street string `valid:"-"`
 	Zip    string `json:"zip" valid:"numeric,required"`
@@ -2210,7 +1797,7 @@ type UserValid struct {
 	Password string `valid:"required"`
 	Age      int    `valid:"required"`
 	Home     *Address
-	Work     []Address `valid:"required"`
+	Work     []Address
 }
 
 type PrivateStruct struct {
@@ -2240,33 +1827,15 @@ type StringMatchesStruct struct {
 	StringMatches string `valid:"matches(^[0-9]{3}$)"`
 }
 
-// TODO: this testcase should be fixed
-// type StringMatchesComplexStruct struct {
-// 	StringMatches string `valid:"matches(^\\$\\([\"']\\w+[\"']\\)$)"`
-// }
-
-type IsInStruct struct {
-	IsIn string `valid:"in(PRESENT|PRÉSENTE|NOTABSENT)"`
-}
-
 type Post struct {
 	Title    string `valid:"alpha,required"`
 	Message  string `valid:"ascii"`
 	AuthorIP string `valid:"ipv4"`
 }
 
-type MissingValidationDeclarationStruct struct {
+type MissingValidationDeclationStruct struct {
 	Name  string ``
 	Email string `valid:"required,email"`
-}
-
-type FieldRequiredByDefault struct {
-	Email string `valid:"email"`
-}
-
-type MultipleFieldsRequiredByDefault struct {
-	Url   string `valid:"url"`
-	Email string `valid:"email"`
 }
 
 type FieldsRequiredByDefaultButExemptStruct struct {
@@ -2284,53 +1853,13 @@ type MessageWithSeveralFieldsStruct struct {
 	Body  string `valid:"length(1|10)"`
 }
 
-func TestValidateMissingValidationDeclarationStruct(t *testing.T) {
+func TestValidateMissingValidationDeclationStruct(t *testing.T) {
 	var tests = []struct {
-		param    MissingValidationDeclarationStruct
+		param    MissingValidationDeclationStruct
 		expected bool
 	}{
-		{MissingValidationDeclarationStruct{}, false},
-		{MissingValidationDeclarationStruct{Name: "TEST", Email: "test@example.com"}, false},
-	}
-	SetFieldsRequiredByDefault(true)
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-	SetFieldsRequiredByDefault(false)
-}
-
-func TestFieldRequiredByDefault(t *testing.T) {
-	var tests = []struct {
-		param    FieldRequiredByDefault
-		expected bool
-	}{
-		{FieldRequiredByDefault{}, false},
-	}
-	SetFieldsRequiredByDefault(true)
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-	SetFieldsRequiredByDefault(false)
-}
-
-func TestMultipleFieldsRequiredByDefault(t *testing.T) {
-	var tests = []struct {
-		param    MultipleFieldsRequiredByDefault
-		expected bool
-	}{
-		{MultipleFieldsRequiredByDefault{}, false},
+		{MissingValidationDeclationStruct{}, false},
+		{MissingValidationDeclationStruct{Name: "TEST", Email: "test@example.com"}, false},
 	}
 	SetFieldsRequiredByDefault(true)
 	for _, test := range tests {
@@ -2390,51 +1919,6 @@ func TestFieldsRequiredByDefaultButExemptOrOptionalStruct(t *testing.T) {
 		}
 	}
 	SetFieldsRequiredByDefault(false)
-}
-
-func TestInvalidValidator(t *testing.T) {
-	type InvalidStruct struct {
-		Field int `valid:"someInvalidValidator"`
-	}
-
-	invalidStruct := InvalidStruct{1}
-	if valid, err := ValidateStruct(&invalidStruct); valid || err == nil ||
-		err.Error() != `Field: The following validator is invalid or can't be applied to the field: "someInvalidValidator"` {
-		t.Errorf("Got an unexpected result for struct with invalid validator: %t %s", valid, err)
-	}
-}
-
-func TestCustomValidator(t *testing.T) {
-	type ValidStruct struct {
-		Field int `valid:"customTrueValidator"`
-	}
-
-	type InvalidStruct struct {
-		Field int `valid:"customFalseValidator~Value: %s Custom validator error: %s"`
-	}
-
-	type StructWithCustomAndBuiltinValidator struct {
-		Field int `valid:"customTrueValidator,required"`
-	}
-
-	if valid, err := ValidateStruct(&ValidStruct{Field: 1}); !valid || err != nil {
-		t.Errorf("Got an unexpected result for struct with custom always true validator: %t %s", valid, err)
-	}
-
-	if valid, err := ValidateStruct(&InvalidStruct{Field: 1}); valid || err == nil || err.Error() != "Value: 1 Custom validator error: customFalseValidator" {
-		fmt.Println(err)
-		t.Errorf("Got an unexpected result for struct with custom always false validator: %t %s", valid, err)
-	}
-
-	mixedStruct := StructWithCustomAndBuiltinValidator{}
-	if valid, err := ValidateStruct(&mixedStruct); valid || err == nil || err.Error() != "Field: non zero value required" {
-		t.Errorf("Got an unexpected result for invalid struct with custom and built-in validators: %t %s", valid, err)
-	}
-
-	mixedStruct.Field = 1
-	if valid, err := ValidateStruct(&mixedStruct); !valid || err != nil {
-		t.Errorf("Got an unexpected result for valid struct with custom and built-in validators: %t %s", valid, err)
-	}
 }
 
 type CustomByteArray [6]byte
@@ -2593,263 +2077,18 @@ func TestStringMatchesStruct(t *testing.T) {
 	}
 }
 
-func TestIsInStruct(t *testing.T) {
-	var tests = []struct {
-		param    interface{}
-		expected bool
-	}{
-		{IsInStruct{"PRESENT"}, true},
-		{IsInStruct{""}, true},
-		{IsInStruct{" "}, false},
-		{IsInStruct{"ABSENT"}, false},
-	}
-
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-}
-
-func TestRequiredIsInStruct(t *testing.T) {
-	type RequiredIsInStruct struct {
-		IsIn string `valid:"in(PRESENT|PRÉSENTE|NOTABSENT),required"`
-	}
-
-	var tests = []struct {
-		param    interface{}
-		expected bool
-	}{
-		{RequiredIsInStruct{"PRESENT"}, true},
-		{RequiredIsInStruct{""}, false},
-		{RequiredIsInStruct{" "}, false},
-		{RequiredIsInStruct{"ABSENT"}, false},
-	}
-
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-}
-
-func TestEmptyRequiredIsInStruct(t *testing.T) {
-	type EmptyRequiredIsInStruct struct {
-		IsIn string `valid:"in(),required"`
-	}
-
-	var tests = []struct {
-		param    interface{}
-		expected bool
-	}{
-		{EmptyRequiredIsInStruct{"PRESENT"}, false},
-		{EmptyRequiredIsInStruct{""}, false},
-		{EmptyRequiredIsInStruct{" "}, false},
-		{EmptyRequiredIsInStruct{"ABSENT"}, false},
-	}
-
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-}
-
-func TestEmptyStringPtr(t *testing.T) {
-	type EmptyIsInStruct struct {
-		IsIn *string `valid:"length(3|5),required"`
-	}
-
-	var empty = ""
-	var valid = "123"
-	var invalid = "123456"
-
-	var tests = []struct {
-		param       interface{}
-		expected    bool
-		expectedErr string
-	}{
-		{EmptyIsInStruct{&empty}, false, "IsIn: non zero value required"},
-		{EmptyIsInStruct{nil}, true, ""},
-		{EmptyIsInStruct{&valid}, true, ""},
-		{EmptyIsInStruct{&invalid}, false, "IsIn: 123456 does not validate as length(3|5)"},
-	}
-
-	SetNilPtrAllowedByRequired(true)
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-		if err != nil {
-			if err.Error() != test.expectedErr {
-				t.Errorf("Got Error on ValidateStruct(%q). Expected: %s Actual: %s", test.param, test.expectedErr, err)
-			}
-		} else if test.expectedErr != "" {
-			t.Errorf("Expected error on ValidateStruct(%q).", test.param)
-		}
-	}
-	SetNilPtrAllowedByRequired(false)
-}
-
-func TestNestedStruct(t *testing.T) {
-	type EvenMoreNestedStruct struct {
-		Bar string `valid:"length(3|5)"`
-	}
-	type NestedStruct struct {
-		Foo                 string `valid:"length(3|5),required"`
-		EvenMoreNested      EvenMoreNestedStruct
-		SliceEvenMoreNested []EvenMoreNestedStruct
-		MapEvenMoreNested   map[string]EvenMoreNestedStruct
-	}
-	type OuterStruct struct {
-		Nested NestedStruct
-	}
-
-	var tests = []struct {
-		param       interface{}
-		expected    bool
-		expectedErr string
-	}{
-		{OuterStruct{
-			Nested: NestedStruct{
-				Foo: "",
-			},
-		}, false, "Nested.Foo: non zero value required"},
-		{OuterStruct{
-			Nested: NestedStruct{
-				Foo: "123",
-			},
-		}, true, ""},
-		{OuterStruct{
-			Nested: NestedStruct{
-				Foo: "123456",
-			},
-		}, false, "Nested.Foo: 123456 does not validate as length(3|5)"},
-		{OuterStruct{
-			Nested: NestedStruct{
-				Foo: "123",
-				EvenMoreNested: EvenMoreNestedStruct{
-					Bar: "123456",
-				},
-			},
-		}, false, "Nested.EvenMoreNested.Bar: 123456 does not validate as length(3|5)"},
-		{OuterStruct{
-			Nested: NestedStruct{
-				Foo: "123",
-				SliceEvenMoreNested: []EvenMoreNestedStruct{
-					EvenMoreNestedStruct{
-						Bar: "123456",
-					},
-				},
-			},
-		}, false, "Nested.SliceEvenMoreNested.0.Bar: 123456 does not validate as length(3|5)"},
-		{OuterStruct{
-			Nested: NestedStruct{
-				Foo: "123",
-				MapEvenMoreNested: map[string]EvenMoreNestedStruct{
-					"Foo": EvenMoreNestedStruct{
-						Bar: "123456",
-					},
-				},
-			},
-		}, false, "Nested.MapEvenMoreNested.Foo.Bar: 123456 does not validate as length(3|5)"},
-	}
-
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-		if err != nil {
-			if err.Error() != test.expectedErr {
-				t.Errorf("Got Error on ValidateStruct(%q). Expected: %s Actual: %s", test.param, test.expectedErr, err)
-			}
-		} else if test.expectedErr != "" {
-			t.Errorf("Expected error on ValidateStruct(%q).", test.param)
-		}
-	}
-}
-
-func TestFunkyIsInStruct(t *testing.T) {
-	type FunkyIsInStruct struct {
-		IsIn string `valid:"in(PRESENT|| |PRÉSENTE|NOTABSENT)"`
-	}
-
-	var tests = []struct {
-		param    interface{}
-		expected bool
-	}{
-		{FunkyIsInStruct{"PRESENT"}, true},
-		{FunkyIsInStruct{""}, true},
-		{FunkyIsInStruct{" "}, true},
-		{FunkyIsInStruct{"ABSENT"}, false},
-	}
-
-	for _, test := range tests {
-		actual, err := ValidateStruct(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-			if err != nil {
-				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-			}
-		}
-	}
-}
-
-// TODO: test case broken
-// func TestStringMatchesComplexStruct(t *testing.T) {
-// 	var tests = []struct {
-// 		param    interface{}
-// 		expected bool
-// 	}{
-// 		{StringMatchesComplexStruct{"$()"}, false},
-// 		{StringMatchesComplexStruct{"$('AZERTY')"}, true},
-// 		{StringMatchesComplexStruct{`$("AZERTY")`}, true},
-// 		{StringMatchesComplexStruct{`$("")`}, false},
-// 		{StringMatchesComplexStruct{"AZERTY"}, false},
-// 		{StringMatchesComplexStruct{"$AZERTY"}, false},
-// 	}
-
-// 	for _, test := range tests {
-// 		actual, err := ValidateStruct(test.param)
-// 		if actual != test.expected {
-// 			t.Errorf("Expected ValidateStruct(%q) to be %v, got %v", test.param, test.expected, actual)
-// 			if err != nil {
-// 				t.Errorf("Got Error on ValidateStruct(%q): %s", test.param, err)
-// 			}
-// 		}
-// 	}
-// }
-
 func TestValidateStruct(t *testing.T) {
 
 	var tests = []struct {
 		param    interface{}
 		expected bool
 	}{
-		{User{"John", "john@yahoo.com", "123G#678", 20, &Address{"Street", "ABC456D89"},    []Address{{"Street", "123456"}, {"Street", "123456"}}}, false},
-		{User{"John", "john!yahoo.com", "12345678", 20, &Address{"Street", "ABC456D89"}, []Address{{"Street", "ABC456D89"}, {"Street", "123456"}}}, false},
-		{User{"John", "", "12345", 0, &Address{"Street", "123456789"}, []Address{{"Street", "ABC456D89"}, {"Street", "123456"}}}, false},
-		{UserValid{"John", "john@yahoo.com", "123G#678", 20, &Address{"Street", "123456"}, []Address{{"Street", "123456"}, {"Street", "123456"}}}, true},
-		{UserValid{"John", "john!yahoo.com", "12345678", 20, &Address{"Street", "ABC456D89"}, []Address{}}, false},
-		{UserValid{"John", "john@yahoo.com", "12345678", 20, &Address{"Street", "123456xxx"}, []Address{{"Street", "123456"}, {"Street", "123456"}}}, false},
-		{UserValid{"John", "john!yahoo.com", "12345678", 20, &Address{"Street", "ABC456D89"}, []Address{{"Street", "ABC456D89"}, {"Street", "123456"}}}, false},
-		{UserValid{"John", "", "12345", 0, &Address{"Street", "123456789"}, []Address{{"Street", "ABC456D89"}, {"Street", "123456"}}}, false},
+		{User{"John", "john@yahoo.com", "123G#678", 20, &Address{"Street", "123456"}, []Address{Address{"Street", "123456"}, Address{"Street", "123456"}}}, false},
+		{User{"John", "john!yahoo.com", "12345678", 20, &Address{"Street", "ABC456D89"}, []Address{Address{"Street", "ABC456D89"}, Address{"Street", "123456"}}}, false},
+		{User{"John", "", "12345", 0, &Address{"Street", "123456789"}, []Address{Address{"Street", "ABC456D89"}, Address{"Street", "123456"}}}, false},
+		{UserValid{"John", "john@yahoo.com", "123G#678", 20, &Address{"Street", "123456"}, []Address{Address{"Street", "123456"}, Address{"Street", "123456"}}}, true},
+		{UserValid{"John", "john!yahoo.com", "12345678", 20, &Address{"Street", "ABC456D89"}, []Address{Address{"Street", "ABC456D89"}, Address{"Street", "123456"}}}, false},
+		{UserValid{"John", "", "12345", 0, &Address{"Street", "123456789"}, []Address{Address{"Street", "ABC456D89"}, Address{"Street", "123456"}}}, false},
 		{nil, true},
 		{User{"John", "john@yahoo.com", "123G#678", 0, &Address{"Street", "123456"}, []Address{}}, false},
 		{"im not a struct", false},
@@ -2867,9 +2106,9 @@ func TestValidateStruct(t *testing.T) {
 	TagMap["d_k"] = Validator(func(str string) bool {
 		return str == "d_k"
 	})
-	result, err := ValidateStruct(PrivateStruct{"d_k", 0, []int{1, 2}, []string{"hi", "super"}, [2]Address{{"Street", "123456"},
-		{"Street", "123456"}}, Address{"Street", "123456"}, map[string]Address{"address": {"Street", "123456"}}})
-	if !result {
+	result, err := ValidateStruct(PrivateStruct{"d_k", 0, []int{1, 2}, []string{"hi", "super"}, [2]Address{Address{"Street", "123456"},
+		Address{"Street", "123456"}}, Address{"Street", "123456"}, map[string]Address{"address": Address{"Street", "123456"}}})
+	if result != true {
 		t.Log("Case ", 6, ": expected ", true, " when result is ", result)
 		t.Error(err)
 		t.FailNow()
@@ -2879,13 +2118,10 @@ func TestValidateStruct(t *testing.T) {
 type testByteArray [8]byte
 type testByteMap map[byte]byte
 type testByteSlice []byte
-type testStringStringMap map[string]string
-type testStringIntMap map[string]int
 
 func TestRequired(t *testing.T) {
 
 	testString := "foobar"
-	testEmptyString := ""
 	var tests = []struct {
 		param    interface{}
 		expected bool
@@ -2894,14 +2130,6 @@ func TestRequired(t *testing.T) {
 			struct {
 				Pointer *string `valid:"required"`
 			}{},
-			false,
-		},
-		{
-			struct {
-				Pointer *string `valid:"required"`
-			}{
-				Pointer: &testEmptyString,
-			},
 			false,
 		},
 		{
@@ -2973,22 +2201,6 @@ func TestRequired(t *testing.T) {
 				TestByteSlice testByteSlice `valid:"required"`
 			}{},
 			false,
-		},
-		{
-			struct {
-				TestStringStringMap testStringStringMap `valid:"required"`
-			}{
-				testStringStringMap{"test": "test"},
-			},
-			true,
-		},
-		{
-			struct {
-				TestIntMap testStringIntMap `valid:"required"`
-			}{
-				testStringIntMap{"test": 42},
-			},
-			true,
 		},
 	}
 	for _, test := range tests {
@@ -3074,43 +2286,14 @@ func TestErrorsByField(t *testing.T) {
 		param    string
 		expected string
 	}{
-		{"CustomField", "An error occurred"},
+		{"CustomField", "An error occured"},
 	}
 
-	err = Error{"CustomField", fmt.Errorf("An error occurred"), false, "hello", []string{}}
+	err = Error{"CustomField", fmt.Errorf("An error occured"), false}
 	errs = ErrorsByField(err)
 
 	if len(errs) != 1 {
 		t.Errorf("There should only be 1 errors but got %v", len(errs))
-	}
-
-	for _, test := range tests {
-		if actual, ok := errs[test.param]; !ok || actual != test.expected {
-			t.Errorf("Expected ErrorsByField(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-
-	type StructWithCustomValidation struct {
-		Email string `valid:"email"`
-		ID    string `valid:"falseValidation"`
-	}
-
-	CustomTypeTagMap.Set("falseValidation", CustomTypeValidator(func(i interface{}, o interface{}) bool {
-		return false
-	}))
-
-	tests = []struct {
-		param    string
-		expected string
-	}{
-		{"Email", "My123 does not validate as email"},
-		{"ID", "duck13126 does not validate as falseValidation"},
-	}
-	s := &StructWithCustomValidation{Email: "My123", ID: "duck13126"}
-	_, err = ValidateStruct(s)
-	errs = ErrorsByField(err)
-	if len(errs) != 2 {
-		t.Errorf("There should only be 2 errors but got %v", len(errs))
 	}
 
 	for _, test := range tests {
@@ -3172,319 +2355,4 @@ func ExampleValidateStruct() {
 		println("error: " + err.Error())
 	}
 	println(result)
-}
-
-func TestValidateStructParamValidatorInt(t *testing.T) {
-	type Test1 struct {
-		Int   int   `valid:"range(1|10)"`
-		Int8  int8  `valid:"range(1|10)"`
-		Int16 int16 `valid:"range(1|10)"`
-		Int32 int32 `valid:"range(1|10)"`
-		Int64 int64 `valid:"range(1|10)"`
-
-		Uint   uint   `valid:"range(1|10)"`
-		Uint8  uint8  `valid:"range(1|10)"`
-		Uint16 uint16 `valid:"range(1|10)"`
-		Uint32 uint32 `valid:"range(1|10)"`
-		Uint64 uint64 `valid:"range(1|10)"`
-
-		Float32 float32 `valid:"range(1|10)"`
-		Float64 float64 `valid:"range(1|10)"`
-	}
-	test1Ok := &Test1{5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5}
-	test1NotOk := &Test1{11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11}
-
-	_, err := ValidateStruct(test1Ok)
-	if err != nil {
-		t.Errorf("Test failed: %s", err)
-	}
-
-	_, err = ValidateStruct(test1NotOk)
-	if err == nil {
-		t.Errorf("Test failed: nil")
-	}
-
-	type Test2 struct {
-		Int   int   `valid:"in(1|10)"`
-		Int8  int8  `valid:"in(1|10)"`
-		Int16 int16 `valid:"in(1|10)"`
-		Int32 int32 `valid:"in(1|10)"`
-		Int64 int64 `valid:"in(1|10)"`
-
-		Uint   uint   `valid:"in(1|10)"`
-		Uint8  uint8  `valid:"in(1|10)"`
-		Uint16 uint16 `valid:"in(1|10)"`
-		Uint32 uint32 `valid:"in(1|10)"`
-		Uint64 uint64 `valid:"in(1|10)"`
-
-		Float32 float32 `valid:"in(1|10)"`
-		Float64 float64 `valid:"in(1|10)"`
-	}
-
-	test2Ok1 := &Test2{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-	test2Ok2 := &Test2{10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
-	test2NotOk := &Test2{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
-
-	_, err = ValidateStruct(test2Ok1)
-	if err != nil {
-		t.Errorf("Test failed: %s", err)
-	}
-
-	_, err = ValidateStruct(test2Ok2)
-	if err != nil {
-		t.Errorf("Test failed: %s", err)
-	}
-
-	_, err = ValidateStruct(test2NotOk)
-	if err == nil {
-		t.Errorf("Test failed: nil")
-	}
-	
-	type Test3 struct {
-        Int   int   `valid:"in(1|10),int"`
-        Int8  int8  `valid:"in(1|10),int8"`
-        Int16 int16 `valid:"in(1|10),int16"`
-        Int32 int32 `valid:"in(1|10),int32"`
-        Int64 int64 `valid:"in(1|10),int64"`
-
-        Uint   uint   `valid:"in(1|10),uint"`
-        Uint8  uint8  `valid:"in(1|10),uint8"`
-        Uint16 uint16 `valid:"in(1|10),uint16"`
-        Uint32 uint32 `valid:"in(1|10),uint32"`
-        Uint64 uint64 `valid:"in(1|10),uint64"`
-
-        Float32 float32 `valid:"in(1|10),float32"`
-        Float64 float64 `valid:"in(1|10),float64"`
-    }
-
-    test3Ok1 := &Test2{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-    test3Ok2 := &Test2{10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
-    test3NotOk := &Test2{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2}
-
-    _, err = ValidateStruct(test3Ok1)
-    if err != nil {
-        t.Errorf("Test failed: %s", err)
-    }
-
-    _, err = ValidateStruct(test3Ok2)
-    if err != nil {
-        t.Errorf("Test failed: %s", err)
-    }
-
-    _, err = ValidateStruct(test3NotOk)
-    if err == nil {
-        t.Errorf("Test failed: nil")
-    }
-}
-
-func TestValidateStructUpperAndLowerCaseWithNumTypeCheck(t *testing.T) {
-
-    type StructCapital struct {
-        Total float32 `valid:"float,required"`
-    }
-    
-    structCapital := &StructCapital{53.3535}
-    _, err := ValidateStruct(structCapital)
-    if err != nil {
-        t.Errorf("Test failed: nil")
-        fmt.Println(err)
-    }
-    
-    type StructLower struct {
-        total float32 `valid:"float,required"`
-    }
-    
-    structLower := &StructLower{53.3535}
-    _, err = ValidateStruct(structLower)
-    if err != nil {
-        t.Errorf("Test failed: nil")
-        fmt.Println(err)
-    }
-}
-
-func TestIsCIDR(t *testing.T) {
-	t.Parallel()
-
-	var tests = []struct {
-		param    string
-		expected bool
-	}{
-		{"193.168.3.20/7", true},
-		{"2001:db8::/32", true},
-		{"2001:0db8:85a3:0000:0000:8a2e:0370:7334/64", true},
-		{"193.138.3.20/60", false},
-		{"500.323.2.23/43", false},
-		{"", false},
-	}
-	for _, test := range tests {
-		actual := IsCIDR(test.param)
-		if actual != test.expected {
-			t.Errorf("Expected IsCIDR(%q) to be %v, got %v", test.param, test.expected, actual)
-		}
-	}
-}
-
-func TestOptionalCustomValidators(t *testing.T) {
-
-	CustomTypeTagMap.Set("f2", CustomTypeValidator(func(i interface{}, o interface{}) bool {
-		return false
-	}))
-
-	var val struct {
-		WithCustomError    string `valid:"f2~boom,optional"`
-		WithoutCustomError string `valid:"f2,optional"`
-		OptionalFirst      string `valid:"optional,f2"`
-	}
-
-	ok, err := ValidateStruct(val)
-
-	if err != nil {
-		t.Errorf("Expected nil err with optional validation, got %v", err)
-	}
-
-	if !ok {
-		t.Error("Expected validation to return true, got false")
-	}
-}
-
-func TestJSONValidator(t *testing.T) {
-
-	var val struct {
-		WithJSONName      string `json:"with_json_name" valid:"-,required"`
-		WithoutJSONName   string `valid:"-,required"`
-		WithJSONOmit      string `json:"with_other_json_name,omitempty" valid:"-,required"`
-		WithJSONOption    string `json:",omitempty" valid:"-,required"`
-		WithEmptyJSONName string `json:"-" valid:"-,required"`
-	}
-
-	_, err := ValidateStruct(val)
-
-	if err == nil {
-		t.Error("Expected error but got no error")
-	}
-
-	if Contains(err.Error(), "WithJSONName") {
-		t.Errorf("Expected error message to contain with_json_name but actual error is: %s", err.Error())
-	}
-
-	if !Contains(err.Error(), "WithoutJSONName") {
-		t.Errorf("Expected error message to contain WithoutJSONName but actual error is: %s", err.Error())
-	}
-
-	if Contains(err.Error(), "omitempty") {
-		t.Errorf("Expected error message to not contain ',omitempty' but actual error is: %s", err.Error())
-	}
-
-	if !Contains(err.Error(), "WithEmptyJSONName") {
-		t.Errorf("Expected error message to contain WithEmptyJSONName but actual error is: %s", err.Error())
-	}
-}
-
-func TestValidatorIncludedInError(t *testing.T) {
-	post := Post{
-		Title:    "",
-		Message:  "👍",
-		AuthorIP: "xyz",
-	}
-
-	validatorMap := map[string]string{
-		"Title":    "required",
-		"Message":  "ascii",
-		"AuthorIP": "ipv4",
-	}
-
-	ok, errors := ValidateStruct(post)
-	if ok {
-		t.Errorf("expected validation to fail %v", ok)
-	}
-
-	for _, e := range errors.(Errors) {
-		casted := e.(Error)
-		if validatorMap[casted.Name] != casted.Validator {
-			t.Errorf("expected validator for %s to be %s, but was %s", casted.Name, validatorMap[casted.Name], casted.Validator)
-		}
-	}
-
-	// check to make sure that validators with arguments (like length(1|10)) don't include the arguments
-	// in the validator name
-	message := MessageWithSeveralFieldsStruct{
-		Title: "",
-		Body:  "asdfasdfasdfasdfasdf",
-	}
-
-	validatorMap = map[string]string{
-		"Title": "length",
-		"Body":  "length",
-	}
-
-	ok, errors = ValidateStruct(message)
-	if ok {
-		t.Errorf("expected validation to fail, %v", ok)
-	}
-
-	for _, e := range errors.(Errors) {
-		casted := e.(Error)
-		if validatorMap[casted.Name] != casted.Validator {
-			t.Errorf("expected validator for %s to be %s, but was %s", casted.Name, validatorMap[casted.Name], casted.Validator)
-		}
-	}
-
-	// make sure validators with custom messages don't show up in the validator string
-	type CustomMessage struct {
-		Text string `valid:"length(1|10)~Custom message"`
-	}
-	cs := CustomMessage{Text: "asdfasdfasdfasdf"}
-
-	ok, errors = ValidateStruct(&cs)
-	if ok {
-		t.Errorf("expected validation to fail, %v", ok)
-	}
-
-	validator := errors.(Errors)[0].(Error).Validator
-	if validator != "length" {
-		t.Errorf("expected validator for Text to be length, but was %s", validator)
-	}
-
-}
-
-func TestIsRsaPublicKey(t *testing.T) {
-	var tests = []struct {
-		rsastr   string
-		keylen   int
-		expected bool
-	}{
-		{`fubar`, 2048, false},
-		{`MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvncDCeibmEkabJLmFec7x9y86RP6dIvkVxxbQoOJo06E+p7tH6vCmiGHKnuu
-XwKYLq0DKUE3t/HHsNdowfD9+NH8caLzmXqGBx45/Dzxnwqz0qYq7idK+Qff34qrk/YFoU7498U1Ee7PkKb7/VE9BmMEcI3uoKbeXCbJRI
-HoTp8bUXOpNTSUfwUNwJzbm2nsHo2xu6virKtAZLTsJFzTUmRd11MrWCvj59lWzt1/eIMN+ekjH8aXeLOOl54CL+kWp48C+V9BchyKCShZ
-B7ucimFvjHTtuxziXZQRO7HlcsBOa0WwvDJnRnskdyoD31s4F4jpKEYBJNWTo63v6lUvbQIDAQAB`, 2048, true},
-		{`MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvncDCeibmEkabJLmFec7x9y86RP6dIvkVxxbQoOJo06E+p7tH6vCmiGHKnuu
-XwKYLq0DKUE3t/HHsNdowfD9+NH8caLzmXqGBx45/Dzxnwqz0qYq7idK+Qff34qrk/YFoU7498U1Ee7PkKb7/VE9BmMEcI3uoKbeXCbJRI
-HoTp8bUXOpNTSUfwUNwJzbm2nsHo2xu6virKtAZLTsJFzTUmRd11MrWCvj59lWzt1/eIMN+ekjH8aXeLOOl54CL+kWp48C+V9BchyKCShZ
-B7ucimFvjHTtuxziXZQRO7HlcsBOa0WwvDJnRnskdyoD31s4F4jpKEYBJNWTo63v6lUvbQIDAQAB`, 1024, false},
-		{`-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvncDCeibmEkabJLmFec7
-x9y86RP6dIvkVxxbQoOJo06E+p7tH6vCmiGHKnuuXwKYLq0DKUE3t/HHsNdowfD9
-+NH8caLzmXqGBx45/Dzxnwqz0qYq7idK+Qff34qrk/YFoU7498U1Ee7PkKb7/VE9
-BmMEcI3uoKbeXCbJRIHoTp8bUXOpNTSUfwUNwJzbm2nsHo2xu6virKtAZLTsJFzT
-UmRd11MrWCvj59lWzt1/eIMN+ekjH8aXeLOOl54CL+kWp48C+V9BchyKCShZB7uc
-imFvjHTtuxziXZQRO7HlcsBOa0WwvDJnRnskdyoD31s4F4jpKEYBJNWTo63v6lUv
-bQIDAQAB
------END PUBLIC KEY-----`, 2048, true},
-		{`-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvncDCeibmEkabJLmFec7
-x9y86RP6dIvkVxxbQoOJo06E+p7tH6vCmiGHKnuuXwKYLq0DKUE3t/HHsNdowfD9
-+NH8caLzmXqGBx45/Dzxnwqz0qYq7idK+Qff34qrk/YFoU7498U1Ee7PkKb7/VE9
-BmMEcI3uoKbeXCbJRIHoTp8bUXOpNTSUfwUNwJzbm2nsHo2xu6virKtAZLTsJFzT
-UmRd11MrWCvj59lWzt1/eIMN+ekjH8aXeLOOl54CL+kWp48C+V9BchyKCShZB7uc
-imFvjHTtuxziXZQRO7HlcsBOa0WwvDJnRnskdyoD31s4F4jpKEYBJNWTo63v6lUv
-bQIDAQAB
------END PUBLIC KEY-----`, 4096, false},
-	}
-	for i, test := range tests {
-		actual := IsRsaPublicKey(test.rsastr, test.keylen)
-		if actual != test.expected {
-			t.Errorf("Expected TestIsRsaPublicKey(%d, %d) to be %v, got %v", i, test.keylen, test.expected, actual)
-		}
-	}
 }

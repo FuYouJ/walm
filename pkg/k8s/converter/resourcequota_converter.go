@@ -3,23 +3,23 @@ package converter
 import (
 	"WarpCloud/walm/pkg/models/k8s"
 	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"github.com/sirupsen/logrus"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog"
 )
 
 func ConvertResourceQuotaToK8s(quota *k8s.ResourceQuota) (*v1.ResourceQuota, error) {
 	k8sQuota := &v1.ResourceQuota{
-		ObjectMeta : metav1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Namespace: quota.Namespace,
-			Name: quota.Name,
+			Name:      quota.Name,
 		},
 	}
 	k8sQuota.Spec.Hard = v1.ResourceList{}
 	for key, value := range quota.ResourceLimits {
 		limit, err := resource.ParseQuantity(value)
 		if err != nil {
-			logrus.Errorf("failed to parse quantity : %s", err.Error())
+			klog.Errorf("failed to parse quantity : %s", err.Error())
 			return nil, err
 		}
 		k8sQuota.Spec.Hard[v1.ResourceName(key)] = limit
@@ -33,7 +33,7 @@ func ConvertResourceQuotaFromK8s(oriQuota *v1.ResourceQuota) (*k8s.ResourceQuota
 	}
 	quota := oriQuota.DeepCopy()
 	return &k8s.ResourceQuota{
-		Meta:       k8s.NewMeta(k8s.ResourceQuotaKind, quota.Namespace, quota.Name, k8s.NewState("Ready", "", "")),
+		Meta:           k8s.NewMeta(k8s.ResourceQuotaKind, quota.Namespace, quota.Name, k8s.NewState("Ready", "", "")),
 		ResourceLimits: buildResourceLimits(quota),
 		ResourceUsed:   buildResourceUsed(quota),
 	}, nil

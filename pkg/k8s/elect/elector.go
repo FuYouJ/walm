@@ -1,17 +1,17 @@
 package elect
 
 import (
-	"k8s.io/client-go/kubernetes"
-	"time"
-	"os"
-	"k8s.io/client-go/tools/leaderelection"
-	"github.com/sirupsen/logrus"
-	"k8s.io/client-go/tools/record"
-	"k8s.io/client-go/kubernetes/scheme"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"context"
+	"k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"k8s.io/client-go/tools/record"
+	"k8s.io/klog"
+	"os"
+	"time"
 )
 
 type Elector struct {
@@ -19,13 +19,13 @@ type Elector struct {
 }
 
 type ElectorConfig struct {
-	Client *kubernetes.Clientset
-	ElectionId string
-	LockNamespace string
-	LockIdentity string
+	Client               *kubernetes.Clientset
+	ElectionId           string
+	LockNamespace        string
+	LockIdentity         string
 	OnStartedLeadingFunc func(context context.Context)
 	OnStoppedLeadingFunc func()
-	OnNewLeaderFunc func(identity string)
+	OnNewLeaderFunc      func(identity string)
 }
 
 func (elector *Elector) Run(context context.Context) {
@@ -44,7 +44,7 @@ func NewElector(config *ElectorConfig) (*Elector, error) {
 	callbacks := leaderelection.LeaderCallbacks{
 		OnStartedLeading: config.OnStartedLeadingFunc,
 		OnStoppedLeading: config.OnStoppedLeadingFunc,
-		OnNewLeader: config.OnNewLeaderFunc,
+		OnNewLeader:      config.OnNewLeaderFunc,
 	}
 
 	broadcaster := record.NewBroadcaster()
@@ -73,7 +73,7 @@ func NewElector(config *ElectorConfig) (*Elector, error) {
 		Callbacks:     callbacks,
 	})
 	if err != nil {
-		logrus.Error("failed to new leader elector")
+		klog.Error("failed to new leader elector")
 		return nil, err
 	}
 	return &Elector{le}, nil

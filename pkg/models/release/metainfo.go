@@ -3,8 +3,8 @@ package release
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"github.com/tidwall/gjson"
+	"k8s.io/klog"
 	"reflect"
 	"strconv"
 	"strings"
@@ -387,7 +387,7 @@ func (chartMetaInfo *ChartMetaInfo) BuildMetaInfoParams(configValues map[string]
 	if len(configValues) > 0 {
 		jsonBytes, err := json.Marshal(configValues)
 		if err != nil {
-			logrus.Errorf("failed to marshal computed values : %s", err.Error())
+			klog.Errorf("failed to marshal computed values : %s", err.Error())
 			return nil, err
 		}
 		jsonStr := string(jsonBytes)

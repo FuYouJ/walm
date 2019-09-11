@@ -1,9 +1,9 @@
 package setting
 
 import (
-	"io/ioutil"
-	"github.com/sirupsen/logrus"
 	"github.com/ghodss/yaml"
+	"io/ioutil"
+	"k8s.io/klog"
 )
 
 var Config WalmConfig
@@ -79,10 +79,10 @@ type JsonnetConfig struct {
 func InitConfig(configPath string) {
 	yamlFile, err := ioutil.ReadFile(configPath)
 	if err != nil {
-		logrus.Fatalf("Read config file faild! %s\n", err.Error())
+		klog.Fatalf("Read config file faild! %s\n", err.Error())
 	}
 	err = yaml.Unmarshal(yamlFile, &Config)
 	if err != nil {
-		logrus.Fatalf("Unmarshal config file faild! %s\n", err.Error())
+		klog.Fatalf("Unmarshal config file faild! %s\n", err.Error())
 	}
 }

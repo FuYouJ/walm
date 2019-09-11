@@ -1,9 +1,9 @@
 package usecase
 
 import (
-	"github.com/sirupsen/logrus"
 	"encoding/json"
 	"fmt"
+	"k8s.io/klog"
 )
 
 const (
@@ -17,7 +17,7 @@ type RemoveReleaseTaskArgs struct {
 	DeletePvcs  bool
 }
 
-func (projectImpl *Project) registerRemoveReleaseTask() error{
+func (projectImpl *Project) registerRemoveReleaseTask() error {
 	return projectImpl.task.RegisterTask(removeReleaseTaskName, projectImpl.RemoveReleaseTask)
 }
 
@@ -25,7 +25,7 @@ func (projectImpl *Project) RemoveReleaseTask(removeReleaseTaskArgsStr string) e
 	removeReleaseTaskArgs := &RemoveReleaseTaskArgs{}
 	err := json.Unmarshal([]byte(removeReleaseTaskArgsStr), removeReleaseTaskArgs)
 	if err != nil {
-		logrus.Errorf("remove release task arg is not valid : %s", err.Error())
+		klog.Errorf("remove release task arg is not valid : %s", err.Error())
 		return err
 	}
 	return projectImpl.doRemoveRelease(removeReleaseTaskArgs.Namespace, removeReleaseTaskArgs.Name, removeReleaseTaskArgs.ReleaseName, removeReleaseTaskArgs.DeletePvcs)
@@ -34,7 +34,7 @@ func (projectImpl *Project) RemoveReleaseTask(removeReleaseTaskArgsStr string) e
 func (projectImpl *Project) doRemoveRelease(namespace, name, releaseName string, deletePvcs bool) error {
 	projectInfo, err := projectImpl.GetProjectInfo(namespace, name)
 	if err != nil {
-		logrus.Errorf("failed to get project info : %s", err.Error())
+		klog.Errorf("failed to get project info : %s", err.Error())
 		return err
 	}
 
@@ -45,22 +45,22 @@ func (projectImpl *Project) doRemoveRelease(namespace, name, releaseName string,
 	if projectInfo != nil {
 		affectReleaseRequest, err2 := projectImpl.autoUpdateReleaseDependencies(projectInfo, releaseParams, true)
 		if err2 != nil {
-			logrus.Errorf("RuntimeDepParse install release %s error %v\n", releaseParams.Name, err)
+			klog.Errorf("RuntimeDepParse install release %s error %v\n", releaseParams.Name, err)
 			return err2
 		}
 		for _, affectReleaseParams := range affectReleaseRequest {
-			logrus.Infof("Update BecauseOf Dependency Modified: %v", *affectReleaseParams)
-			err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, affectReleaseParams,  nil, false, 0, nil)
+			klog.Infof("Update BecauseOf Dependency Modified: %v", *affectReleaseParams)
+			err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, affectReleaseParams, nil, false, 0, nil)
 			if err != nil {
-				logrus.Errorf("RemoveReleaseInProject Other Affected Release install release %s error %v\n", releaseParams.Name, err)
+				klog.Errorf("RemoveReleaseInProject Other Affected Release install release %s error %v\n", releaseParams.Name, err)
 				return err
 			}
 		}
 	}
 
-	err = projectImpl.releaseUseCase.DeleteReleaseWithRetry(namespace, releaseName,  deletePvcs, false, 0)
+	err = projectImpl.releaseUseCase.DeleteReleaseWithRetry(namespace, releaseName, deletePvcs, false, 0)
 	if err != nil {
-		logrus.Errorf("failed to remove release %s/%s in project : %s", releaseName, name, err.Error())
+		klog.Errorf("failed to remove release %s/%s in project : %s", releaseName, name, err.Error())
 		return err
 	}
 	return nil

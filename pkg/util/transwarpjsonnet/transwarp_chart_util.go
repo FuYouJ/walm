@@ -3,20 +3,20 @@ package transwarpjsonnet
 import (
 	"encoding/json"
 	"io/ioutil"
+	"k8s.io/klog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/ghodss/yaml"
-	"github.com/sirupsen/logrus"
 	"helm.sh/helm/pkg/chart"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 	"WarpCloud/walm/pkg/setting"
 	"WarpCloud/walm/pkg/util"
-	"WarpCloud/walm/pkg/helm/impl/plugins"
 )
 
 const (
@@ -46,7 +46,7 @@ func loadFilesFromDisk(baseDir string) (map[string]string, error) {
 		if !info.IsDir() {
 			b, err := ioutil.ReadFile(path)
 			if err != nil {
-				logrus.Errorf("Read file \"%s\", err: %v", path, err)
+				klog.Errorf("Read file \"%s\", err: %v", path, err)
 				return err
 			}
 			cacheFiles[strings.TrimPrefix(filepath.ToSlash(path), baseDir)] = string(b)
@@ -69,7 +69,7 @@ func loadCommonJsonnetLib(templates map[string]string) (err error) {
 		}
 		commonTemplateFiles, err = loadFilesFromDisk(commonTemplateFilesPath)
 		if err != nil {
-			logrus.Errorf("failed to load common template files : %s", err.Error())
+			klog.Errorf("failed to load common template files : %s", err.Error())
 			return
 		}
 	}
@@ -141,7 +141,7 @@ func ProcessJsonnetChart(
 		dependencyConfigs, userConfigs, chartImage,
 	)
 	if err != nil {
-		logrus.Errorf("failed to auto gen release config : %s", err.Error())
+		klog.Errorf("failed to auto gen release config : %s", err.Error())
 		return err
 	}
 	rawChart.Templates = append(rawChart.Templates, &chart.File{
@@ -152,7 +152,7 @@ func ProcessJsonnetChart(
 
 	if len(jsonnetTemplateFiles) == 0 {
 		// native chart
-		logrus.Infof("chart %s is native chart", rawChart.Metadata.Name)
+		klog.Infof("chart %s is native chart", rawChart.Metadata.Name)
 		return nil
 	}
 
@@ -164,18 +164,18 @@ func ProcessJsonnetChart(
 
 	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs)
 	if err != nil {
-		logrus.Errorf("failed to build config values to render jsonnet template files : %s", err.Error())
+		klog.Errorf("failed to build config values to render jsonnet template files : %s", err.Error())
 		return err
 	}
 	jsonStr, err := renderMainJsonnetFile(jsonnetTemplateFiles, configValues)
 	if err != nil {
-		logrus.Errorf("failed to render jsonnet files : %s", err.Error())
+		klog.Errorf("failed to render jsonnet files : %s", err.Error())
 		return err
 	}
 
 	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr)
 	if err != nil {
-		logrus.Errorf("failed to build native chart templates : %s", err.Error())
+		klog.Errorf("failed to build native chart templates : %s", err.Error())
 		return err
 	}
 
@@ -220,7 +220,7 @@ func buildAutoGenReleaseConfig(releaseNamespace, releaseName, repo, chartName, c
 
 	releaseConfigBytes, err := yaml.Marshal(releaseConfig)
 	if err != nil {
-		logrus.Errorf("failed to marshal release config : %s", err.Error())
+		klog.Errorf("failed to marshal release config : %s", err.Error())
 		return nil, err
 	}
 	return releaseConfigBytes, nil

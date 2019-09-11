@@ -1,11 +1,11 @@
 package redis
 
 import (
-	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/k8s"
-	"github.com/sirupsen/logrus"
-	"encoding/json"
+	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/redis"
+	"encoding/json"
+	"k8s.io/klog"
 )
 
 type Cache struct {
@@ -21,7 +21,7 @@ func (cache *Cache) GetReleaseCache(namespace, name string) (releaseCache *relea
 	releaseCache = &release.ReleaseCache{}
 	err = json.Unmarshal([]byte(releaseCacheStr), releaseCache)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal release cache of %s: %s", name, err.Error())
+		klog.Errorf("failed to unmarshal release cache of %s: %s", name, err.Error())
 		return
 	}
 	return
@@ -39,7 +39,7 @@ func (cache *Cache) GetReleaseCaches(namespace string) (releaseCaches []*release
 
 		err = json.Unmarshal([]byte(releaseCacheStr), releaseCache)
 		if err != nil {
-			logrus.Errorf("failed to unmarshal release cache of %s: %s", releaseCacheStr, err.Error())
+			klog.Errorf("failed to unmarshal release cache of %s: %s", releaseCacheStr, err.Error())
 			return
 		}
 		releaseCaches = append(releaseCaches, releaseCache)
@@ -66,14 +66,14 @@ func (cache *Cache) GetReleaseCachesByReleaseConfigs(releaseConfigs []*k8s.Relea
 
 	for index, releaseCacheStr := range releaseCacheStrs {
 		if releaseCacheStr == "" {
-			logrus.Warnf("release cache %s is not found", releaseCacheFieldNames[index])
+			klog.Warningf("release cache %s is not found", releaseCacheFieldNames[index])
 			continue
 		}
 
 		releaseCache := &release.ReleaseCache{}
 		err = json.Unmarshal([]byte(releaseCacheStr), releaseCache)
 		if err != nil {
-			logrus.Errorf("failed to unmarshal release cache of %s: %s", releaseCacheStr, err.Error())
+			klog.Errorf("failed to unmarshal release cache of %s: %s", releaseCacheStr, err.Error())
 			return nil, err
 		}
 		releaseCaches = append(releaseCaches, releaseCache)
@@ -84,7 +84,7 @@ func (cache *Cache) GetReleaseCachesByReleaseConfigs(releaseConfigs []*k8s.Relea
 
 func (cache *Cache) CreateOrUpdateReleaseCache(releaseCache *release.ReleaseCache) error {
 	if releaseCache == nil {
-		logrus.Warn("failed to create or update cache as release cache is nil")
+		klog.Warningf("failed to create or update cache as release cache is nil")
 		return nil
 	}
 
@@ -92,7 +92,7 @@ func (cache *Cache) CreateOrUpdateReleaseCache(releaseCache *release.ReleaseCach
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("succeed to set release cache of %s/%s to redis", releaseCache.Namespace, releaseCache.Name)
+	klog.V(2).Infof("succeed to set release cache of %s/%s to redis", releaseCache.Namespace, releaseCache.Name)
 	return nil
 }
 
@@ -101,7 +101,7 @@ func (cache *Cache) DeleteReleaseCache(namespace string, name string) error {
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("succeed to delete release cache of %s from redis", name)
+	klog.V(2).Infof("succeed to delete release cache of %s from redis", name)
 	return nil
 }
 
@@ -114,7 +114,7 @@ func (cache *Cache) GetReleaseTask(namespace, name string) (releaseTask *release
 	releaseTask = &release.ReleaseTask{}
 	err = json.Unmarshal([]byte(releaseTaskStr), releaseTask)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal releaseTaskStr %s : %s", releaseTaskStr, err.Error())
+		klog.Errorf("failed to unmarshal releaseTaskStr %s : %s", releaseTaskStr, err.Error())
 		return nil, err
 	}
 	return
@@ -132,7 +132,7 @@ func (cache *Cache) GetReleaseTasks(namespace string) (releaseTasks []*release.R
 
 		err = json.Unmarshal([]byte(releaseTaskStr), releaseTask)
 		if err != nil {
-			logrus.Errorf("failed to unmarshal release task of %s: %s", releaseTaskStr, err.Error())
+			klog.Errorf("failed to unmarshal release task of %s: %s", releaseTaskStr, err.Error())
 			return nil, err
 		}
 		releaseTasks = append(releaseTasks, releaseTask)
@@ -159,7 +159,7 @@ func (cache *Cache) GetReleaseTasksByReleaseConfigs(releaseConfigs []*k8s.Releas
 
 	for index, releaseTaskStr := range releaseTaskStrs {
 		if releaseTaskStr == "" {
-			logrus.Warnf("release task %s is not found", releaseTaskFieldNames[index])
+			klog.Warningf("release task %s is not found", releaseTaskFieldNames[index])
 			continue
 		}
 
@@ -167,7 +167,7 @@ func (cache *Cache) GetReleaseTasksByReleaseConfigs(releaseConfigs []*k8s.Releas
 
 		err = json.Unmarshal([]byte(releaseTaskStr), releaseTask)
 		if err != nil {
-			logrus.Errorf("failed to unmarshal release task of %s: %s", releaseTaskStr, err.Error())
+			klog.Errorf("failed to unmarshal release task of %s: %s", releaseTaskStr, err.Error())
 			return nil, err
 		}
 		releaseTasks = append(releaseTasks, releaseTask)
@@ -178,7 +178,7 @@ func (cache *Cache) GetReleaseTasksByReleaseConfigs(releaseConfigs []*k8s.Releas
 
 func (cache *Cache) CreateOrUpdateReleaseTask(releaseTask *release.ReleaseTask) error {
 	if releaseTask == nil {
-		logrus.Warn("failed to create or update release task as it is nil")
+		klog.Warning("failed to create or update release task as it is nil")
 		return nil
 	}
 
@@ -186,7 +186,7 @@ func (cache *Cache) CreateOrUpdateReleaseTask(releaseTask *release.ReleaseTask) 
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("succeed to set release task of %s/%s to redis", releaseTask.Namespace, releaseTask.Name)
+	klog.V(2).Infof("succeed to set release task of %s/%s to redis", releaseTask.Namespace, releaseTask.Name)
 	return nil
 }
 
@@ -195,7 +195,7 @@ func (cache *Cache) DeleteReleaseTask(namespace string, name string) error {
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("succeed to delete release task of %s from redis", name)
+	klog.V(2).Infof("succeed to delete release task of %s from redis", name)
 	return nil
 }
 

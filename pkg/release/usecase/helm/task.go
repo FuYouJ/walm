@@ -1,25 +1,25 @@
 package helm
 
 import (
-	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/models/release"
 	"encoding/json"
+	"k8s.io/klog"
 )
 
 const (
 	defaultSleepTimeSecond int64 = 1
 )
 
-func (helm *Helm) sendReleaseTask(namespace, releaseName , taskName string, taskArgs interface{}, oldReleaseTask *release.ReleaseTask, timeoutSec int64, async bool) (error) {
+func (helm *Helm) sendReleaseTask(namespace, releaseName, taskName string, taskArgs interface{}, oldReleaseTask *release.ReleaseTask, timeoutSec int64, async bool) (error) {
 	taskArgsStr, err := json.Marshal(taskArgs)
 	if err != nil {
-		logrus.Errorf("failed to marshal task args : %s", err.Error())
+		klog.Errorf("failed to marshal task args : %s", err.Error())
 		return err
 	}
 
 	taskSig, err := helm.task.SendTask(taskName, string(taskArgsStr), timeoutSec)
 	if err != nil {
-		logrus.Errorf("failed to send %s : %s", taskName, err.Error())
+		klog.Errorf("failed to send %s : %s", taskName, err.Error())
 		return err
 	}
 
@@ -31,7 +31,7 @@ func (helm *Helm) sendReleaseTask(namespace, releaseName , taskName string, task
 
 	err = helm.releaseCache.CreateOrUpdateReleaseTask(releaseTask)
 	if err != nil {
-		logrus.Errorf("failed to set release task of %s/%s to redis: %s", namespace, releaseName, err.Error())
+		klog.Errorf("failed to set release task of %s/%s to redis: %s", namespace, releaseName, err.Error())
 		return err
 	}
 
@@ -42,7 +42,7 @@ func (helm *Helm) sendReleaseTask(namespace, releaseName , taskName string, task
 	if !async {
 		err = helm.task.TouchTask(taskSig, defaultSleepTimeSecond)
 		if err != nil {
-			logrus.Errorf("release task %s of %s/%s is failed or timeout: %s", taskName, namespace, releaseName, err.Error())
+			klog.Errorf("release task %s of %s/%s is failed or timeout: %s", taskName, namespace, releaseName, err.Error())
 			return err
 		}
 	}

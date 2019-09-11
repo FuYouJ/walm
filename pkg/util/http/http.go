@@ -1,8 +1,8 @@
 package http
 
 import (
+	"k8s.io/klog"
 	"strconv"
-	"github.com/sirupsen/logrus"
 	"github.com/emicklei/go-restful"
 	"net/http"
 	httpModel "WarpCloud/walm/pkg/models/http"
@@ -22,7 +22,7 @@ func GetDeletePvcsQueryParam(request *restful.Request) (deletePvcs bool, err err
 	if len(deletePvcsStr) > 0 {
 		deletePvcs, err = strconv.ParseBool(deletePvcsStr)
 		if err != nil {
-			logrus.Errorf("failed to parse query parameter deletePvcs %s : %s", deletePvcsStr, err.Error())
+			klog.Errorf("failed to parse query parameter deletePvcs %s : %s", deletePvcsStr, err.Error())
 			return
 		}
 	}
@@ -34,7 +34,7 @@ func GetAsyncQueryParam(request *restful.Request) (async bool, err error) {
 	if len(asyncStr) > 0 {
 		async, err = strconv.ParseBool(asyncStr)
 		if err != nil {
-			logrus.Errorf("failed to parse query parameter async %s : %s",asyncStr, err.Error())
+			klog.Errorf("failed to parse query parameter async %s : %s",asyncStr, err.Error())
 			return
 		}
 	}
@@ -46,12 +46,12 @@ func GetTimeoutSecQueryParam(request *restful.Request) (timeoutSec int64, err er
 	if len(timeoutStr) > 0 {
 		timeoutSec, err = strconv.ParseInt(timeoutStr, 10, 64)
 		if err != nil {
-			logrus.Errorf("failed to parse query parameter timeoutSec %s : %s", timeoutStr, err.Error())
+			klog.Errorf("failed to parse query parameter timeoutSec %s : %s", timeoutStr, err.Error())
 			return
 		}
 		if timeoutSec <0 {
 			err = fmt.Errorf("query parameter timeoutSec %s should not be less than zero", timeoutStr)
-			logrus.Error(err.Error())
+			klog.Error(err.Error())
 			return
 		}
 	}

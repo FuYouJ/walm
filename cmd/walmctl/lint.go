@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"helm.sh/helm/pkg/action"
@@ -15,6 +14,7 @@ import (
 	"helm.sh/helm/pkg/storage"
 	"helm.sh/helm/pkg/storage/driver"
 	"io/ioutil"
+	"k8s.io/klog"
 	"os"
 	"path"
 	"path/filepath"
@@ -143,46 +143,46 @@ func (lint *lintOptions) run() error {
 	if err != nil {
 		return errors.Errorf("metainfo error: %s", err.Error())
 	}
-	glog.Infof("metainfo.yaml is valid, start check params in values.yaml...")
+	klog.Infof("metainfo.yaml is valid, start check params in values.yaml...")
 
 	/* check params in values */
 	err = chartMetaInfo.CheckParamsInValues(string(valuesByte), configMaps)
 	if err != nil {
-		glog.Warning(err)
+		klog.Warning(err)
 	}
 
-	glog.Info("values.yaml is valid...")
+	klog.Info("values.yaml is valid...")
 
 	chartLoader, err := loader.Loader(lint.chartPath)
 	if err != nil {
-		glog.Errorf("read chart error %v...", err)
+		klog.Errorf("read chart error %v...", err)
 		return err
 	}
 
 	rawChart, err := chartLoader.Load()
 	if err != nil {
-		glog.Errorf("load chart error %v...", err)
+		klog.Errorf("load chart error %v...", err)
 		return err
 	}
 
 	if !isOpenSource {
 		err = lint.loadJsonnetAppLib(rawChart)
 		if err != nil {
-			glog.Errorf("load common lib error %v...", err)
+			klog.Errorf("load common lib error %v...", err)
 			return err
 		}
 	}
 
 	if req := rawChart.Metadata.Dependencies; req != nil {
 		if err := checkDependencies(rawChart, req); err != nil {
-			glog.Errorf("check dependencies error %v...", err)
+			klog.Errorf("check dependencies error %v...", err)
 			return err
 		}
 	}
 
 	testCases, err := lint.loadCICases()
 	if err != nil {
-		glog.Errorf("find ci cases error %v...", err)
+		klog.Errorf("find ci cases error %v...", err)
 		return err
 	}
 	for _, testCase := range testCases {
@@ -200,7 +200,7 @@ func (lint *lintOptions) run() error {
 			testCase.dependencies, testCase.releaseLabels, "",
 		)
 		if err != nil {
-			glog.Errorf("processJsonnetChart error %v", err)
+			klog.Errorf("processJsonnetChart error %v", err)
 			return err
 		}
 
@@ -211,7 +211,7 @@ func (lint *lintOptions) run() error {
 		if err != nil {
 			return err
 		}
-		glog.Infof("dry run release %s %s success", inst.Namespace, inst.ReleaseName)
+		klog.Infof("dry run release %s %s success", inst.Namespace, inst.ReleaseName)
 		expectCasePath := path.Join(lint.ciPath, "_expect-cases", testCase.caseName)
 		fileByte, err := ioutil.ReadFile(expectCasePath)
 		if err != nil {
@@ -235,7 +235,7 @@ func checkGenReleaseConfig(expectChart string, outputChart string) error {
 	if len(diffs) > 2 {
 		return errors.Errorf("rendered template result is not expected. There are %d diff places.\n%s", len(diffs)-1, dmp.DiffPrettyText(diffs[1:]))
 	}
-	glog.Infof("rendered template result is expected.")
+	klog.Infof("rendered template result is expected.")
 	return nil
 }
 
@@ -291,7 +291,7 @@ func (lint *lintOptions) writeAsFiles(rel *release.Release) error {
 	// At one point we parsed out the returned manifest and created multiple files.
 	// I'm not totally sure what the use case was for that.
 	filename := filepath.Join(outputDir, rel.Name)
-	glog.Infof("start write result to %s", filename)
+	klog.Infof("start write result to %s", filename)
 	return ioutil.WriteFile(filename, []byte(rel.Manifest), 0644)
 }
 
@@ -304,7 +304,7 @@ func (lint *lintOptions) loadJsonnetAppLib(ch *chart.Chart) error {
 		if !info.IsDir() {
 			b, err := ioutil.ReadFile(path)
 			if err != nil {
-				glog.Errorf("Read file \"%s\", err: %v", path, err)
+				klog.Errorf("Read file \"%s\", err: %v", path, err)
 				return err
 			}
 

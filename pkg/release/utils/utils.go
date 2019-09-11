@@ -1,9 +1,9 @@
 package utils
 
 import (
-	"reflect"
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"k8s.io/klog"
+	"reflect"
 	"strings"
 )
 
@@ -24,7 +24,7 @@ func ParseDependedRelease(dependingReleaseNamespace, dependedRelease string) (na
 		name = ss[0]
 	} else {
 		err = fmt.Errorf("depended release %s is not valid: only 1 or 0 \"/\" is allowed", dependedRelease)
-		logrus.Warn(err.Error())
+		klog.Warning(err.Error())
 		return
 	}
 	return

@@ -1,12 +1,12 @@
 package converter
 
 import (
-	corev1 "k8s.io/api/core/v1"
-	"WarpCloud/walm/pkg/models/k8s"
-	"github.com/sirupsen/logrus"
-	"k8s.io/apimachinery/pkg/api/resource"
-	"encoding/json"
 	"WarpCloud/walm/pkg/k8s/utils"
+	"WarpCloud/walm/pkg/models/k8s"
+	"encoding/json"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
 )
 
 func ConvertNodeFromK8s(oriNode *corev1.Node, podsOnNode *corev1.PodList) (walmNode *k8s.Node, err error) {
@@ -36,7 +36,7 @@ func ConvertNodeFromK8s(oriNode *corev1.Node, podsOnNode *corev1.PodList) (walmN
 			poolResourceList := []k8s.PoolResource{}
 			err = json.Unmarshal([]byte(poolResourceListStr), &poolResourceList)
 			if err != nil {
-				logrus.Warnf("failed to unmarshal pool resource list str %s : %s", poolResourceListStr, err.Error())
+				klog.Warningf("failed to unmarshal pool resource list str %s : %s", poolResourceListStr, err.Error())
 			} else {
 				for _, poolResource := range poolResourceList {
 					warpDriveStorage := k8s.WarpDriveStorage{

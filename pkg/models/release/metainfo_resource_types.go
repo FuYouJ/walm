@@ -1,12 +1,12 @@
 package release
 
 import (
-	"github.com/tidwall/gjson"
-	"github.com/sirupsen/logrus"
-	"strconv"
-	"fmt"
-	"encoding/json"
 	"WarpCloud/walm/pkg/k8s/utils"
+	"encoding/json"
+	"fmt"
+	"github.com/tidwall/gjson"
+	"k8s.io/klog"
+	"strconv"
 )
 
 type MetaResourceMemoryConfig struct {
@@ -107,7 +107,7 @@ func parseResourceStorageWithStringSize(jsonStr, mapKey string) *MetaResourceSto
 	resourceStorage := &MetaResourceStorageWithStringSize{}
 	err := json.Unmarshal([]byte(rawMsg), resourceStorage)
 	if err != nil {
-		logrus.Warnf("failed to unmarshal %s : %s", rawMsg, err.Error())
+		klog.Warningf("failed to unmarshal %s : %s", rawMsg, err.Error())
 		return nil
 	}
 	return resourceStorage

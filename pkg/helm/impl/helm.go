@@ -1,39 +1,39 @@
 package impl
 
 import (
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 	"WarpCloud/walm/pkg/k8s"
 	k8sHelm "WarpCloud/walm/pkg/k8s/client/helm"
 	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/redis"
 	"WarpCloud/walm/pkg/release/utils"
 	"WarpCloud/walm/pkg/setting"
-	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/util"
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
 	"bytes"
 	"crypto/tls"
 	"fmt"
 	"github.com/containerd/containerd/remotes/docker"
+	"github.com/ghodss/yaml"
 	"github.com/hashicorp/golang-lru"
+	"github.com/pkg/errors"
 	"helm.sh/helm/pkg/action"
 	"helm.sh/helm/pkg/chart"
 	"helm.sh/helm/pkg/chart/loader"
 	"helm.sh/helm/pkg/chartutil"
+	"helm.sh/helm/pkg/kube"
 	"helm.sh/helm/pkg/registry"
 	helmRelease "helm.sh/helm/pkg/release"
 	"helm.sh/helm/pkg/storage"
 	"helm.sh/helm/pkg/storage/driver"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/klog"
 	"net/http"
 	"os"
 	"strings"
-	"k8s.io/apimachinery/pkg/runtime"
-	"WarpCloud/walm/pkg/helm/impl/plugins"
-	"github.com/ghodss/yaml"
-	"helm.sh/helm/pkg/kube"
-	"github.com/pkg/errors"
-	"WarpCloud/walm/pkg/redis"
 )
 
 type ChartRepository struct {
@@ -60,7 +60,7 @@ func (helmImpl *Helm) getActionConfig(namespace string) (*action.Configuration, 
 		kubeConfig, kubeClient := helmImpl.kubeClients.GetKubeClient(namespace)
 		clientset, err := kubeClient.Factory.KubernetesClientSet()
 		if err != nil {
-			logrus.Errorf("failed to get clientset: %s", err.Error())
+			klog.Errorf("failed to get clientset: %s", err.Error())
 			return nil, err
 		}
 
@@ -70,7 +70,7 @@ func (helmImpl *Helm) getActionConfig(namespace string) (*action.Configuration, 
 			KubeClient:       kubeClient,
 			Releases:         store,
 			RESTClientGetter: kubeConfig,
-			Log:              logrus.Infof,
+			Log:              klog.Infof,
 		}
 		helmImpl.actionConfigs.Add(namespace, config)
 		return config, nil
@@ -80,7 +80,7 @@ func (helmImpl *Helm) getActionConfig(namespace string) (*action.Configuration, 
 func (helmImpl *Helm) ListAllReleases() (releaseCaches []*release.ReleaseCache, err error) {
 	helmReleases, err := helmImpl.list.Run()
 	if err != nil {
-		logrus.Errorf("failed to list helm releases: %s\n", err.Error())
+		klog.Errorf("failed to list helm releases: %s\n", err.Error())
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func (helmImpl *Helm) ListAllReleases() (releaseCaches []*release.ReleaseCache, 
 	for _, helmRelease := range filteredHelmReleases {
 		releaseCache, err := helmImpl.convertHelmRelease(helmRelease)
 		if err != nil {
-			logrus.Errorf("failed to convert helm release %s/%s : %s", helmRelease.Namespace, helmRelease.Name, err.Error())
+			klog.Errorf("failed to convert helm release %s/%s : %s", helmRelease.Namespace, helmRelease.Name, err.Error())
 			return nil, err
 		}
 		releaseCaches = append(releaseCaches, releaseCache)
@@ -103,7 +103,7 @@ func filterHelmReleases(releases []*helmRelease.Release) (filteredReleases map[s
 		filedName := redis.BuildFieldName(release.Namespace, release.Name)
 		if existedRelease, ok := filteredReleases[filedName]; ok {
 			if existedRelease.Info != nil && existedRelease.Info.Status == helmRelease.StatusDeployed {
-				if  release.Info != nil && release.Info.Status == helmRelease.StatusDeployed &&
+				if release.Info != nil && release.Info.Status == helmRelease.StatusDeployed &&
 					existedRelease.Version < release.Version {
 					filteredReleases[filedName] = release
 				}
@@ -124,16 +124,16 @@ func filterHelmReleases(releases []*helmRelease.Release) (filteredReleases map[s
 func (helmImpl *Helm) DeleteRelease(namespace string, name string) error {
 	action, err := helmImpl.getDeleteAction(namespace)
 	if err != nil {
-		logrus.Errorf("failed to get current helm client : %s", err.Error())
+		klog.Errorf("failed to get current helm client : %s", err.Error())
 		return err
 	}
 
 	_, err = action.Run(name)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			logrus.Warnf("release %s is not found from helm", name)
+			klog.Warningf("release %s is not found from helm", name)
 		} else {
-			logrus.Errorf("failed to delete release from helm : %s", err.Error())
+			klog.Errorf("failed to delete release from helm : %s", err.Error())
 			return err
 		}
 	}
@@ -153,13 +153,13 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		rawChart, chartErr = helmImpl.getRawChartFromRepo(releaseRequest.RepoName, releaseRequest.ChartName, releaseRequest.ChartVersion)
 	}
 	if chartErr != nil {
-		logrus.Errorf("failed to get raw chart : %s", chartErr.Error())
+		klog.Errorf("failed to get raw chart : %s", chartErr.Error())
 		return nil, chartErr
 	}
 
 	chartInfo, err := buildChartInfo(rawChart)
 	if err != nil {
-		logrus.Errorf("failed to build chart info : %s", err.Error())
+		klog.Errorf("failed to build chart info : %s", err.Error())
 		return nil, err
 	}
 	// support meta pretty parameters
@@ -170,7 +170,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	if releaseRequest.MetaInfoParams != nil {
 		metaInfoConfigs, err := releaseRequest.MetaInfoParams.BuildConfigValues(chartInfo.MetaInfo)
 		if err != nil {
-			logrus.Errorf("failed to get meta info parameters : %s", err.Error())
+			klog.Errorf("failed to get meta info parameters : %s", err.Error())
 			return nil, err
 		}
 		util.MergeValues(configValues, metaInfoConfigs, false)
@@ -183,7 +183,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		// reuse config values, dependencies, release labels, walm plugins
 		configValues, dependencies, releaseLabels, releasePlugins, err = reuseReleaseRequest(oldReleaseInfo, releaseRequest)
 		if err != nil {
-			logrus.Errorf("failed to reuse release request : %s", err.Error())
+			klog.Errorf("failed to reuse release request : %s", err.Error())
 			return nil, err
 		}
 	}
@@ -191,7 +191,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	if chartInfo.MetaInfo != nil {
 		releasePlugins, err = mergeReleasePlugins(releasePlugins, chartInfo.MetaInfo.Plugins)
 		if err != nil {
-			logrus.Errorf("failed to merge chart default plugins : %s", err.Error())
+			klog.Errorf("failed to merge chart default plugins : %s", err.Error())
 			return nil, err
 		}
 	}
@@ -199,7 +199,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	// get all the dependency releases' output configs from ReleaseConfig
 	dependencyConfigs, err := helmImpl.GetDependencyOutputConfigs(namespace, dependencies, chartInfo.MetaInfo)
 	if err != nil {
-		logrus.Errorf("failed to get all the dependency releases' output configs : %s", err.Error())
+		klog.Errorf("failed to get all the dependency releases' output configs : %s", err.Error())
 		return nil, err
 	}
 
@@ -209,7 +209,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		dependencies, releaseLabels, releaseRequest.ChartImage,
 	)
 	if err != nil {
-		logrus.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
+		klog.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
 		return nil, err
 	}
 
@@ -243,7 +243,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	valueOverride[plugins.WalmPluginConfigKey] = releasePlugins
 	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, valueOverride, update, dryRun, releasePlugins)
 	if err != nil {
-		logrus.Errorf("failed to create or update release from chart : %s", err.Error())
+		klog.Errorf("failed to create or update release from chart : %s", err.Error())
 		return nil, err
 	}
 
@@ -283,14 +283,14 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 
 			manifest, err := buildManifest(context.Resources)
 			if err != nil {
-				logrus.Errorf("failed to build manifest : %s", err.Error())
+				klog.Errorf("failed to build manifest : %s", err.Error())
 				releaseErrChan <- err
 				return
 			}
 			release.Manifest = manifest
 			releaseChan <- release
 		case <-expChan:
-			logrus.Warn("failed to execute pre_install plugins with exception")
+			klog.Warning("failed to execute pre_install plugins with exception")
 		}
 
 	}()
@@ -309,7 +309,7 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 		action.ReleaseErrChan = releaseErrChan
 		helmRelease, err = action.Run(releaseRequest.Name, rawChart, valueOverride)
 		if err != nil {
-			logrus.Errorf("failed to upgrade release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
+			klog.Errorf("failed to upgrade release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
 			return nil, err
 		}
 	} else {
@@ -324,15 +324,15 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 		action.ReleaseErrChan = releaseErrChan
 		helmRelease, err = action.Run(rawChart, valueOverride)
 		if err != nil {
-			logrus.Errorf("failed to install release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
+			klog.Errorf("failed to install release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
 			if !dryRun {
 				action1, err1 := helmImpl.getDeleteAction(namespace)
 				if err1 != nil {
-					logrus.Errorf("failed to get helm delete action : %s", err.Error())
+					klog.Errorf("failed to get helm delete action : %s", err.Error())
 				} else {
 					_, err1 = action1.Run(releaseRequest.Name)
 					if err1 != nil {
-						logrus.Errorf("failed to rollback to delete release %s/%s : %s", namespace, releaseRequest.Name, err1.Error())
+						klog.Errorf("failed to rollback to delete release %s/%s : %s", namespace, releaseRequest.Name, err1.Error())
 					}
 				}
 			}
@@ -356,7 +356,7 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 func buildContext(kubeClient *kube.Client, release *helmRelease.Release) (*plugins.PluginContext, error) {
 	resources, err := kubeClient.Build(bytes.NewBufferString(release.Manifest))
 	if err != nil {
-		logrus.Errorf("failed to build k8s resources : %s", err.Error())
+		klog.Errorf("failed to build k8s resources : %s", err.Error())
 		return nil, err
 	}
 	context := &plugins.PluginContext{
@@ -376,13 +376,13 @@ func runPlugins(releasePlugins []*release.ReleasePlugin, context *plugins.Plugin
 		}
 		runner := plugins.GetRunner(plugin)
 		if runner != nil && runner.Type == runnerType {
-			logrus.Infof("start to exec %s plugin %s", runnerType, plugin.Name)
+			klog.Infof("start to exec %s plugin %s", runnerType, plugin.Name)
 			err := runner.Run(context, plugin.Args)
 			if err != nil {
-				logrus.Errorf("failed to exec %s plugin %s : %s", runnerType, plugin.Name, err.Error())
+				klog.Errorf("failed to exec %s plugin %s : %s", runnerType, plugin.Name, err.Error())
 				return err
 			}
-			logrus.Infof("succeed to exec %s plugin %s", runnerType, plugin.Name)
+			klog.Infof("succeed to exec %s plugin %s", runnerType, plugin.Name)
 		}
 	}
 	return nil
@@ -418,7 +418,7 @@ func (helmImpl *Helm) convertHelmRelease(helmRelease *helmRelease.Release) (rele
 
 	releaseCache.ComputedValues, err = chartutil.CoalesceValues(helmRelease.Chart, helmRelease.Config)
 	if err != nil {
-		logrus.Errorf("failed to get computed values : %s", err.Error())
+		klog.Errorf("failed to get computed values : %s", err.Error())
 		return nil, err
 	}
 
@@ -436,7 +436,7 @@ func (helmImpl *Helm) getReleaseResourceMetas(helmRelease *helmRelease.Release) 
 	_, kubeClient := helmImpl.kubeClients.GetKubeClient(helmRelease.Namespace)
 	results, err := kubeClient.Build(bytes.NewBufferString(helmRelease.Manifest))
 	if err != nil {
-		logrus.Errorf("failed to get release resource metas of %s", helmRelease.Name)
+		klog.Errorf("failed to get release resource metas of %s", helmRelease.Name)
 		return resources, err
 	}
 	for _, result := range results {
@@ -548,7 +548,7 @@ func (helmImpl *Helm) GetDependencyOutputConfigs(namespace string, dependencies 
 		dependencyAliasConfigVar, ok := dependencyAliasConfigVars[dependencyKey]
 		if !ok {
 			err = fmt.Errorf("dependency key %s is not valid, you can see valid keys in chart metainfo", dependencyKey)
-			logrus.Errorf(err.Error())
+			klog.Errorf(err.Error())
 			return
 		}
 
@@ -560,10 +560,10 @@ func (helmImpl *Helm) GetDependencyOutputConfigs(namespace string, dependencies 
 		dependencyReleaseConfigResource, err := helmImpl.k8sCache.GetResource(k8sModel.ReleaseConfigKind, dependencyNamespace, dependencyName)
 		if err != nil {
 			if errorModel.IsNotFoundError(err) {
-				logrus.Warnf("release config %s/%s is not found", dependencyNamespace, dependencyName)
+				klog.Warningf("release config %s/%s is not found", dependencyNamespace, dependencyName)
 				continue
 			}
-			logrus.Errorf("failed to get release config %s/%s : %s", dependencyNamespace, dependencyName, err.Error())
+			klog.Errorf("failed to get release config %s/%s : %s", dependencyNamespace, dependencyName, err.Error())
 			return nil, err
 		}
 

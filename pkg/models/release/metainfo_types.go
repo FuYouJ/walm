@@ -1,9 +1,9 @@
 package release
 
 import (
-	"github.com/tidwall/gjson"
-	"github.com/sirupsen/logrus"
 	"encoding/json"
+	"github.com/tidwall/gjson"
+	"k8s.io/klog"
 )
 
 type MetaStringConfig struct {
@@ -62,7 +62,7 @@ func (config *MetaEnvConfig) BuildEnvConfigValue(jsonStr string) []MetaEnv {
 	}
 	err := json.Unmarshal([]byte(rawMsg), &metaEnv)
 	if err != nil {
-		logrus.Warnf("failed to unmarshal %s : %s", rawMsg, err.Error())
+		klog.Warningf("failed to unmarshal %s : %s", rawMsg, err.Error())
 	}
 	return metaEnv
 }

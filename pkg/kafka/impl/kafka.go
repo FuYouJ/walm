@@ -1,12 +1,12 @@
 package impl
 
 import (
-	"github.com/Shopify/sarama"
-	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/setting"
 	"crypto/tls"
-	"io/ioutil"
 	"crypto/x509"
+	"github.com/Shopify/sarama"
+	"io/ioutil"
+	"k8s.io/klog"
 )
 
 type Kafka struct {
@@ -16,7 +16,7 @@ type Kafka struct {
 
 func (kafkaImpl *Kafka) SyncSendMessage(topic, message string) error {
 	if !kafkaImpl.Enable {
-		logrus.Warnf("kafka client is not enabled, failed to send message %s to topic %s", message, topic)
+		klog.Warningf("kafka client is not enabled, failed to send message %s to topic %s", message, topic)
 		return nil
 	}
 	_, _, err := kafkaImpl.syncProducer.SendMessage(&sarama.ProducerMessage{
@@ -25,11 +25,11 @@ func (kafkaImpl *Kafka) SyncSendMessage(topic, message string) error {
 	})
 
 	if err != nil {
-		logrus.Errorf("failed to send msg %s to topic %s : %s", message, topic, err.Error())
+		klog.Errorf("failed to send msg %s to topic %s : %s", message, topic, err.Error())
 		return err
 	}
 
-	logrus.Infof("succeed to send msg %s to topic %s", message, topic)
+	klog.Infof("succeed to send msg %s to topic %s", message, topic)
 	return nil
 }
 
@@ -60,12 +60,12 @@ func NewKafka(kafkaConfig *setting.KafkaConfig) (*Kafka, error) {
 
 		syncProducer, err := sarama.NewSyncProducer(kafkaClient.Brokers, config)
 		if err != nil {
-			logrus.Errorf("Failed to start Sarama producer: %s", err.Error())
+			klog.Errorf("Failed to start Sarama producer: %s", err.Error())
 			return nil, err
 		}
 		kafkaClient.syncProducer = syncProducer
 	} else {
-		logrus.Warn("kafka client is not enabled")
+		klog.Warning("kafka client is not enabled")
 	}
 	return kafkaClient, nil
 }
@@ -74,12 +74,12 @@ func createTlsConfiguration(kafkaConfig *setting.KafkaConfig) (t *tls.Config) {
 	if kafkaConfig.CertFile != "" && kafkaConfig.KeyFile != "" && kafkaConfig.CaFile != "" {
 		cert, err := tls.LoadX509KeyPair(kafkaConfig.CertFile, kafkaConfig.KeyFile)
 		if err != nil {
-			logrus.Fatal(err)
+			klog.Fatal(err)
 		}
 
 		caCert, err := ioutil.ReadFile(kafkaConfig.CaFile)
 		if err != nil {
-			logrus.Fatal(err)
+			klog.Fatal(err)
 		}
 
 		caCertPool := x509.NewCertPool()

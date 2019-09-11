@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"k8s.io/klog"
 	"log"
 	"os"
 	"reflect"
@@ -11,15 +12,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	"github.com/sirupsen/logrus"
-	)
+)
 
 func TestMain(m *testing.M) {
 	flag.Parse()
 	if testing.Verbose() {
 		// if we're verbose, use the logging requested by TF_LOG
-		logrus.SetOutput(os.Stdout)
+		klog.SetOutput(os.Stdout)
 	} else {
 		// otherwise silence all logs
 		log.SetOutput(ioutil.Discard)

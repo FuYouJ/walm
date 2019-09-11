@@ -1,11 +1,11 @@
 package release
 
 import (
-	"github.com/tidwall/sjson"
-	"encoding/json"
-	"WarpCloud/walm/pkg/util"
 	"WarpCloud/walm/pkg/k8s/utils"
-	"github.com/sirupsen/logrus"
+	"WarpCloud/walm/pkg/util"
+	"encoding/json"
+	"github.com/tidwall/sjson"
+	"k8s.io/klog"
 )
 
 type MetaInfoParams struct {
@@ -39,7 +39,7 @@ func convertFlatMapping(flatMapping map[string]interface{}) (configValues map[st
 	for key, value := range flatMapping {
 		jsonStr, err = sjson.Set(jsonStr, key, value)
 		if err != nil {
-			logrus.Errorf("failed to set json : %s", err.Error())
+			klog.Errorf("failed to set json : %s", err.Error())
 			return
 		}
 	}
@@ -47,12 +47,11 @@ func convertFlatMapping(flatMapping map[string]interface{}) (configValues map[st
 	configValues = map[string]interface{}{}
 	err = json.Unmarshal([]byte(jsonStr), &configValues)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal config values : %s", err.Error())
+		klog.Errorf("failed to unmarshal config values : %s", err.Error())
 		return
 	}
 	return
 }
-
 
 func buildCommonConfigArrayValues(commonConfigValues []*MetaCommonConfigValue, commonConfigs []*MetaCommonConfig) (configValues map[string]interface{}, err error) {
 	commonConfigsMap := convertCommonConfigArrayToMap(commonConfigs)
@@ -96,7 +95,7 @@ func convertCommonConfigArrayToMap(configs []*MetaCommonConfig) map[string]*Meta
 	return configMap
 }
 
-func buildRoleConfigArrayValues(roleConfigValues []*MetaRoleConfigValue, roleConfigs []*MetaRoleConfig) (configValues map[string]interface{}, err error){
+func buildRoleConfigArrayValues(roleConfigValues []*MetaRoleConfigValue, roleConfigs []*MetaRoleConfig) (configValues map[string]interface{}, err error) {
 	roleConfigMap := map[string]*MetaRoleConfig{}
 	for _, roleConfig := range roleConfigs {
 		if roleConfig != nil {
@@ -134,7 +133,7 @@ type MetaRoleConfigValue struct {
 	// TODO healthChecks
 }
 
-func (roleConfigValue *MetaRoleConfigValue) BuildConfigValue(roleConfig *MetaRoleConfig) (configValues map[string]interface{}, err error){
+func (roleConfigValue *MetaRoleConfigValue) BuildConfigValue(roleConfig *MetaRoleConfig) (configValues map[string]interface{}, err error) {
 	configValues = map[string]interface{}{}
 	if roleConfig == nil {
 		return
@@ -208,7 +207,7 @@ type MetaResourceConfigValue struct {
 	StorageResources []*MetaResourceStorageConfigValue `json:"storageResources" description:"resource storage request"`
 }
 
-func (resourceConfigValue *MetaResourceConfigValue) BuildConfigValue(resourceConfig *MetaResourceConfig) (configValues map[string]interface{}, err error){
+func (resourceConfigValue *MetaResourceConfigValue) BuildConfigValue(resourceConfig *MetaResourceConfig) (configValues map[string]interface{}, err error) {
 	mapping := map[string]interface{}{}
 	if resourceConfig == nil {
 		return

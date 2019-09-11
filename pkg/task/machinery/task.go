@@ -1,18 +1,17 @@
 package machinery
 
 import (
-	taskModel "WarpCloud/walm/pkg/models/task"
-	"WarpCloud/walm/pkg/task"
 	errorModel "WarpCloud/walm/pkg/models/error"
-	"github.com/RichardKnop/machinery/v1/tasks"
+	taskModel "WarpCloud/walm/pkg/models/task"
+	"WarpCloud/walm/pkg/setting"
+	"WarpCloud/walm/pkg/task"
 	"github.com/RichardKnop/machinery/v1"
 	"github.com/RichardKnop/machinery/v1/backends/result"
-	"github.com/sirupsen/logrus"
-	"time"
 	"github.com/RichardKnop/machinery/v1/config"
-	"WarpCloud/walm/pkg/setting"
-	"github.com/RichardKnop/machinery/v1/log"
+	"github.com/RichardKnop/machinery/v1/tasks"
+	"k8s.io/klog"
 	"os"
+	"time"
 )
 
 type Task struct {
@@ -56,7 +55,7 @@ func convertTaskSig(sig *taskModel.TaskSig) *tasks.Signature {
 func (task *Task) RegisterTask(taskName string, taskRunner func(taskArgs string) error) error{
 	err := task.server.RegisterTask(taskName, taskRunner)
 	if err != nil {
-		logrus.Errorf("failed to register task %s : %s", taskName, err.Error())
+		klog.Errorf("failed to register task %s : %s", taskName, err.Error())
 		return err
 	}
 	return nil
@@ -74,7 +73,7 @@ func (task *Task) SendTask(taskName, taskArgs string, timeoutSec int64) (*taskMo
 	}
 	_, err := task.server.SendTask(taskSig)
 	if err != nil {
-		logrus.Errorf("failed to send %s : %s", taskName, err.Error())
+		klog.Errorf("failed to send %s : %s", taskName, err.Error())
 		return nil, err
 	}
 
@@ -95,7 +94,7 @@ func (task *Task) TouchTask(sig *taskModel.TaskSig, pollingIntervalSec int64) (e
 	asyncResult := result.NewAsyncResult(taskSig, task.server.GetBackend())
 	_, err := asyncResult.GetWithTimeout(time.Duration(sig.TimeoutSec)*time.Second, time.Duration(pollingIntervalSec) * time.Second)
 	if err != nil {
-		logrus.Errorf("touch task %s-%s failed: %s", sig.Name, sig.UUID, err.Error())
+		klog.Errorf("touch task %s-%s failed: %s", sig.Name, sig.UUID, err.Error())
 		return err
 	}
 	return nil
@@ -107,7 +106,7 @@ func (task *Task) PurgeTaskState(sig *taskModel.TaskSig) (error){
 	}
 	err := task.server.GetBackend().PurgeState(sig.UUID)
 	if err != nil {
-		logrus.Errorf("failed to purge task state : %s", err.Error())
+		klog.Errorf("failed to purge task state : %s", err.Error())
 		return err
 	}
 	return nil
@@ -119,10 +118,10 @@ func (task *Task) StartWorker() {
 	task.worker.LaunchAsync(errorsChan)
 	go func(errChan chan error) {
 		if err := <-errChan; err != nil {
-			logrus.Error(err.Error())
+			klog.Error(err.Error())
 		}
 	}(errorsChan)
-	logrus.Info("worker starting to consume tasks")
+	klog.Info("worker starting to consume tasks")
 }
 
 func (task *Task) StopWorker(timeoutSec int64) {
@@ -133,9 +132,9 @@ func (task *Task) StopWorker(timeoutSec int64) {
 	}()
 	select {
 	case <-quitChan:
-		logrus.Info("worker stopped consuming tasks successfully")
+		klog.Info("worker stopped consuming tasks successfully")
 	case <-time.After(time.Second * time.Duration(timeoutSec)):
-		logrus.Warn("worker stopped consuming tasks failed after 30 seconds")
+		klog.Warning("worker stopped consuming tasks failed after 30 seconds")
 	}
 }
 
@@ -157,10 +156,10 @@ func NewTask(c *setting.TaskConfig) (*Task, error) {
 	}
 	server, err := machinery.NewServer(taskConfig)
 	if err != nil {
-		logrus.Errorf("Failed to create task server: %s", err.Error())
+		klog.Errorf("Failed to create task server: %s", err.Error())
 		return nil, err
 	}
-	log.Set(logrus.StandardLogger())
+	//log.Set(logrus.StandardLogger())
 	return &Task{
 		server: server,
 	}, nil

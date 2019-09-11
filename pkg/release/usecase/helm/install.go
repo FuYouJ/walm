@@ -1,13 +1,13 @@
 package helm
 
 import (
-	"WarpCloud/walm/pkg/models/release"
-	"github.com/sirupsen/logrus"
-	"fmt"
-	"time"
-	"strings"
 	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	"WarpCloud/walm/pkg/models/release"
+	"fmt"
+	"k8s.io/klog"
+	"strings"
+	"time"
 
 	releasei "WarpCloud/walm/pkg/release"
 )
@@ -22,8 +22,8 @@ func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseReques
 		err := helm.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, async, timeoutSec, paused)
 		if err != nil {
 			if strings.Contains(err.Error(), releasei.WaitReleaseTaskMsgPrefix) && retryTimes > 0 {
-				logrus.Warnf("retry to install or upgrade release %s/%s after 2 second", namespace, releaseRequest.Name)
-				retryTimes --
+				klog.Warningf("retry to install or upgrade release %s/%s after 2 second", namespace, releaseRequest.Name)
+				retryTimes--
 				time.Sleep(time.Second * 2)
 				continue
 			}
@@ -35,7 +35,7 @@ func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseReques
 func (helm *Helm) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, paused *bool) error {
 	err := validateParams(releaseRequest, chartFiles)
 	if err != nil {
-		logrus.Errorf("failed to validate params : %s", err.Error())
+		klog.Errorf("failed to validate params : %s", err.Error())
 		return err
 	}
 
@@ -57,10 +57,10 @@ func (helm *Helm) InstallUpgradeRelease(namespace string, releaseRequest *releas
 
 	err = helm.sendReleaseTask(namespace, releaseRequest.Name, createReleaseTaskName, releaseTaskArgs, oldReleaseTask, timeoutSec, async)
 	if err != nil {
-		logrus.Errorf("async=%t, failed to send %s of %s/%s: %s", async, createReleaseTaskName, namespace, releaseRequest.Name, err.Error())
+		klog.Errorf("async=%t, failed to send %s of %s/%s: %s", async, createReleaseTaskName, namespace, releaseRequest.Name, err.Error())
 		return err
 	}
-	logrus.Infof("succeed to call create or update release %s/%s api", namespace, releaseRequest.Name)
+	klog.Infof("succeed to call create or update release %s/%s api", namespace, releaseRequest.Name)
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (helm *Helm) doInstallUpgradeRelease(namespace string, releaseRequest *rele
 		if errorModel.IsNotFoundError(err) {
 			update = false
 		} else {
-			logrus.Errorf("failed to get release cache of %s/%s : %s", namespace, releaseRequest.Name, err.Error())
+			klog.Errorf("failed to get release cache of %s/%s : %s", namespace, releaseRequest.Name, err.Error())
 			return nil, err
 		}
 	}
@@ -92,7 +92,7 @@ func (helm *Helm) doInstallUpgradeRelease(namespace string, releaseRequest *rele
 	if oldReleaseCache != nil {
 		oldReleaseInfo, err = helm.buildReleaseInfoV2(oldReleaseCache)
 		if err != nil {
-			logrus.Errorf("failed to build release info of %s/%s: %s", namespace, releaseRequest.Name, err.Error())
+			klog.Errorf("failed to build release info of %s/%s: %s", namespace, releaseRequest.Name, err.Error())
 			return nil, err
 		}
 	}
@@ -101,18 +101,18 @@ func (helm *Helm) doInstallUpgradeRelease(namespace string, releaseRequest *rele
 
 	releaseCache, err := helm.helm.InstallOrCreateRelease(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, paused)
 	if err != nil {
-		logrus.Errorf("failed to install or update release %s/%s : %s", namespace, releaseRequest.Name, err.Error())
+		klog.Errorf("failed to install or update release %s/%s : %s", namespace, releaseRequest.Name, err.Error())
 		return nil, err
 	}
 	if !dryRun {
 		err = helm.releaseCache.CreateOrUpdateReleaseCache(releaseCache)
 		if err != nil {
-			logrus.Errorf("failed to create of update release cache of %s/%s : %s", namespace, releaseRequest.Name, err.Error())
+			klog.Errorf("failed to create of update release cache of %s/%s : %s", namespace, releaseRequest.Name, err.Error())
 			return nil, err
 		}
-		logrus.Infof("succeed to create or update release %s/%s", namespace, releaseRequest.Name)
+		klog.Infof("succeed to create or update release %s/%s", namespace, releaseRequest.Name)
 	} else {
-		logrus.Infof("succeed to dry run create or update release %s/%s", namespace, releaseRequest.Name)
+		klog.Infof("succeed to dry run create or update release %s/%s", namespace, releaseRequest.Name)
 	}
 
 	return releaseCache, nil

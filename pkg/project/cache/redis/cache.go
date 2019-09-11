@@ -1,10 +1,10 @@
 package redis
 
 import (
-	"WarpCloud/walm/pkg/redis"
-	"github.com/sirupsen/logrus"
 	"WarpCloud/walm/pkg/models/project"
+	"WarpCloud/walm/pkg/redis"
 	"encoding/json"
+	"k8s.io/klog"
 )
 
 type Cache struct {
@@ -20,7 +20,7 @@ func (cache *Cache) GetProjectTask(namespace, name string) (projectTask *project
 	projectTask = &project.ProjectTask{}
 	err = json.Unmarshal([]byte(projectTaskStr), projectTask)
 	if err != nil {
-		logrus.Errorf("failed to unmarshal projectTaskStr %s : %s", projectTaskStr, err.Error())
+		klog.Errorf("failed to unmarshal projectTaskStr %s : %s", projectTaskStr, err.Error())
 		return nil, err
 	}
 	projectTask.CompatiblePreviousProjectTask()
@@ -39,7 +39,7 @@ func (cache *Cache) GetProjectTasks(namespace string) (projectTasks []*project.P
 
 		err = json.Unmarshal([]byte(projectTaskStr), projectTask)
 		if err != nil {
-			logrus.Errorf("failed to unmarshal project task of %s: %s", projectTaskStr, err.Error())
+			klog.Errorf("failed to unmarshal project task of %s: %s", projectTaskStr, err.Error())
 			return nil, err
 		}
 		projectTask.CompatiblePreviousProjectTask()
@@ -51,7 +51,7 @@ func (cache *Cache) GetProjectTasks(namespace string) (projectTasks []*project.P
 
 func (cache *Cache) CreateOrUpdateProjectTask(projectTask *project.ProjectTask) error {
 	if projectTask == nil {
-		logrus.Warn("failed to create or update project task as it is nil")
+		klog.Warning("failed to create or update project task as it is nil")
 		return nil
 	}
 
@@ -59,7 +59,7 @@ func (cache *Cache) CreateOrUpdateProjectTask(projectTask *project.ProjectTask) 
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("succeed to set project task of %s/%s to redis", projectTask.Namespace, projectTask.Name)
+	klog.V(2).Infof("succeed to set project task of %s/%s to redis", projectTask.Namespace, projectTask.Name)
 	return nil
 }
 

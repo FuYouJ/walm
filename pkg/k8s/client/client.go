@@ -1,12 +1,12 @@
 package client
 
 import (
-	"time"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/wait"
 	discovery "k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
+	"time"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 )
 
@@ -18,7 +18,6 @@ const (
 	// client code is overriding it.
 	defaultBurst = 1e6
 )
-
 
 // createApiserverClient creates new Kubernetes Apiserver client. When kubeconfig or apiserverHost param is empty
 // the function assumes that it is running inside a Kubernetes cluster and attempts to
@@ -36,7 +35,7 @@ func NewClient(apiserverHost string, kubeConfig string) (*kubernetes.Clientset, 
 	cfg.Burst = defaultBurst
 	cfg.ContentType = "application/vnd.kubernetes.protobuf"
 
-	logrus.Infof("Creating API client for %s", cfg.Host)
+	klog.Infof("Creating API client for %s", cfg.Host)
 
 	client, err := kubernetes.NewForConfig(cfg)
 	if err != nil {
@@ -56,7 +55,7 @@ func NewClient(apiserverHost string, kubeConfig string) (*kubernetes.Clientset, 
 
 	var lastErr error
 	retries := 0
-	logrus.Info("trying to discover Kubernetes version")
+	klog.Info("trying to discover Kubernetes version")
 	err = wait.ExponentialBackoff(defaultRetry, func() (bool, error) {
 		v, err = client.Discovery().ServerVersion()
 
@@ -65,7 +64,7 @@ func NewClient(apiserverHost string, kubeConfig string) (*kubernetes.Clientset, 
 		}
 
 		lastErr = err
-		logrus.Infof("unexpected error discovering Kubernetes version (attempt %v): %v", err, retries)
+		klog.Infof("unexpected error discovering Kubernetes version (attempt %v): %v", err, retries)
 		retries++
 		return false, nil
 	})
@@ -77,10 +76,10 @@ func NewClient(apiserverHost string, kubeConfig string) (*kubernetes.Clientset, 
 
 	// this should not happen, warn the user
 	if retries > 0 {
-		logrus.Warnf("it was required to retry %v times before reaching the API server", retries)
+		klog.Warningf("it was required to retry %v times before reaching the API server", retries)
 	}
 
-	logrus.Infof("Running in Kubernetes Cluster version v%v.%v (%v) - git (%v) commit %v - platform %v",
+	klog.Infof("Running in Kubernetes Cluster version v%v.%v (%v) - git (%v) commit %v - platform %v",
 		v.Major, v.Minor, v.GitVersion, v.GitTreeState, v.GitCommit, v.Platform)
 
 	return client, nil
@@ -96,7 +95,7 @@ func NewReleaseConfigClient(apiserverHost string, kubeConfig string) (*releaseco
 	cfg.QPS = defaultQPS
 	cfg.Burst = defaultBurst
 
-	logrus.Infof("Creating API release config client for %s", cfg.Host)
+	klog.Infof("Creating API release config client for %s", cfg.Host)
 
 	client, err := releaseconfigclientset.NewForConfig(cfg)
 	if err != nil {
