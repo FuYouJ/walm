@@ -120,13 +120,13 @@ func (resource *Deployment) AddToResourceSet(resourceSet *ResourceSet) {
 
 type Pod struct {
 	Meta
-	Labels      map[string]string `json:"labels" description:"pod labels"`
-	Annotations map[string]string `json:"annotations" description:"pod annotations"`
-	HostIp      string            `json:"hostIp" description:"host ip where pod is on"`
-	PodIp       string            `json:"podIp" description:"pod ip"`
-	Containers  []Container       `json:"containers" description:"pod containers"`
-	Age         string            `json:"age" description:"pod age"`
-	InitContainers []Container    `json:"initContainers" description:"pod init containers"`
+	Labels         map[string]string `json:"labels" description:"pod labels"`
+	Annotations    map[string]string `json:"annotations" description:"pod annotations"`
+	HostIp         string            `json:"hostIp" description:"host ip where pod is on"`
+	PodIp          string            `json:"podIp" description:"pod ip"`
+	Containers     []Container       `json:"containers" description:"pod containers"`
+	Age            string            `json:"age" description:"pod age"`
+	InitContainers []Container       `json:"initContainers" description:"pod init containers"`
 }
 
 type Container struct {
@@ -216,10 +216,11 @@ func (resource *ConfigMap) AddToResourceSet(resourceSet *ResourceSet) {
 
 type Ingress struct {
 	Meta
-	Host        string `json:"host" description:"ingress host"`
-	Path        string `json:"path" description:"ingress path"`
-	ServiceName string `json:"serviceName" description:"ingress backend service name"`
-	ServicePort string `json:"servicePort" description:"ingress backend service port"`
+	Annotations map[string]string `json:"annotations" description:"ingress annotations"`
+	Host        string            `json:"host" description:"ingress host"`
+	Path        string            `json:"path" description:"ingress path"`
+	ServiceName string            `json:"serviceName" description:"ingress backend service name"`
+	ServicePort string            `json:"servicePort" description:"ingress backend service port"`
 }
 
 func (resource *Ingress) AddToResourceSet(resourceSet *ResourceSet) {

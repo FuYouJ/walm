@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -37,6 +36,7 @@ If the linter encounters things that will cause the chart to fail installation,
 it will emit [ERROR] messages. If it encounters issues that break with convention
 or recommendation, it will emit [WARNING] messages.
 `
+
 // Todo: marshall metainfo.yaml to defined structure and add validate method in class
 
 type lintOptions struct {
@@ -74,10 +74,6 @@ func newLintCmd() *cobra.Command {
 }
 
 func (lint *lintOptions) run() error {
-	flag.Set("logtostderr", "true")
-	flag.Set("v", "2")
-	flag.Parse()
-
 	isOpenSource := false
 	/* whether chart is openSource */
 	var metaData map[string]interface{}
@@ -229,7 +225,6 @@ func (lint *lintOptions) run() error {
 	return nil
 }
 func checkGenReleaseConfig(expectChart string, outputChart string) error {
-
 	dmp := diffmatchpatch.New()
 	diffs := dmp.DiffMain(expectChart, outputChart, true)
 	if len(diffs) > 2 {
@@ -240,7 +235,6 @@ func checkGenReleaseConfig(expectChart string, outputChart string) error {
 }
 
 func (lint *lintOptions) loadCICases() ([]lintTestCase, error) {
-
 	testCases := make([]lintTestCase, 0)
 	cifiles, err := ioutil.ReadDir(lint.ciPath)
 	if err != nil {
@@ -248,9 +242,7 @@ func (lint *lintOptions) loadCICases() ([]lintTestCase, error) {
 	}
 
 	for _, cifile := range cifiles {
-
 		if !cifile.IsDir() {
-
 			userConfigByte, err := ioutil.ReadFile(path.Join(lint.ciPath, cifile.Name()))
 			if err != nil {
 				return nil, err

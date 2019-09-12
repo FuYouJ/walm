@@ -50,6 +50,14 @@ type MetaEnvConfig struct {
 	Required     bool      `json:"required" description:"required"`
 }
 
+type MetaEnvMapConfig struct {
+	MapKey       string            `json:"mapKey" description:"config map values.yaml key"`
+	DefaultValue map[string]string `json:"defaultValue" description:"default value of mapKey"`
+	Description  string            `json:"description" description:"config description"`
+	Type         string            `json:"type" description:"config type"`
+	Required     bool              `json:"required" description:"required"`
+}
+
 func (config *MetaEnvConfig) BuildDefaultValue(jsonStr string) {
 	config.DefaultValue = config.BuildEnvConfigValue(jsonStr)
 }

@@ -21,8 +21,11 @@ type ChartMetaInfo struct {
 	CustomChartParams     map[string]string          `json:"customParams"`
 }
 
-func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate(valuesStr string) ([]*MetaConfigTestSet, error) {
+func (chartMetaInfo *ChartMetaInfo) checkDependencies() error {
+	return nil
+}
 
+func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate(valuesStr string) ([]*MetaConfigTestSet, error) {
 	var err error
 	// friendlyName
 	if !(len(chartMetaInfo.FriendlyName) > 0) {
@@ -154,7 +157,6 @@ func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate(valuesStr string) ([]*
 			}
 			resourceConfig := chartRole.RoleResourceConfig
 			if resourceConfig != nil {
-
 				if resourceConfig.LimitsCpu != nil {
 					if resourceConfig.LimitsCpu.MapKey == "" {
 						err = errors.Errorf("mapKey required in field roles[%d].resources.limitsCpu", index)
@@ -167,7 +169,6 @@ func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate(valuesStr string) ([]*
 					}
 					configSets = append(configSets, configSet)
 				}
-
 				if resourceConfig.LimitsMemory != nil {
 					if resourceConfig.LimitsMemory.MapKey == "" {
 						err = errors.Errorf("mapKey required in field roles[%d].resources.LimitsMemory", index)
@@ -229,7 +230,6 @@ func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate(valuesStr string) ([]*
 					}
 					configSets = append(configSets, configSet)
 				}
-
 				if len(resourceConfig.StorageResources) > 0 {
 					for storageIndex, storageResource := range resourceConfig.StorageResources {
 						if storageResource.Name == "" {
@@ -466,6 +466,7 @@ type MetaRoleBaseConfig struct {
 	Priority       *MetaIntConfig      `json:"priority" description:"role priority"`
 	Replicas       *MetaIntConfig      `json:"replicas" description:"role replicas"`
 	Env            *MetaEnvConfig      `json:"env" description:"role env list"`
+	EnvMap         *MetaEnvMapConfig   `json:"envMap" description:"role env map"`
 	UseHostNetwork *MetaBoolConfig     `json:"useHostNetwork" description:"whether role use host network"`
 	Others         []*MetaCommonConfig `json:"others" description:"role other configs"`
 }

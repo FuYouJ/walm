@@ -31,6 +31,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -40,6 +41,9 @@ import (
 	watchtools "k8s.io/client-go/tools/watch"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 )
+
+const resourceUpgradePolicyAnno = "helm.sh/upgrade-policy"
+const upgradePolicy = "keep"
 
 // ErrNoObjectsVisited indicates that during a visit operation, no matching objects were found.
 var ErrNoObjectsVisited = errors.New("no objects visited")
@@ -110,7 +114,6 @@ func (c *Client) Build(reader io.Reader) (ResourceList, error) {
 		Do().Infos()
 	return result, scrubValidationError(err)
 }
-
 
 // Update reads in the current configuration and a target configuration from io.reader
 // and creates resources that don't already exists, updates resources that have been modified
@@ -281,6 +284,13 @@ func createPatch(target *resource.Info, current runtime.Object) ([]byte, types.P
 	newData, err := json.Marshal(target.Object)
 	if err != nil {
 		return nil, types.StrategicMergePatchType, errors.Wrap(err, "serializing target configuration")
+	}
+	if targetUnstructured, ok := target.Object.(*unstructured.Unstructured); ok {
+		targetAnnotations := targetUnstructured.GetAnnotations()
+		upgradePolicyAnno, ok := targetAnnotations[resourceUpgradePolicyAnno]
+		if ok && upgradePolicyAnno == upgradePolicy {
+			return nil, types.StrategicMergePatchType, nil
+		}
 	}
 
 	// Fetch the current object for the three way merge

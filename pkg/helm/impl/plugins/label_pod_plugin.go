@@ -3,8 +3,8 @@ package plugins
 import (
 	"encoding/json"
 	"github.com/tidwall/sjson"
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	"k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
@@ -43,6 +43,19 @@ func LabelPod(context *PluginContext, args string) (err error) {
 	newResource := []runtime.Object{}
 	for _, resource := range context.Resources {
 		switch resource.GetObjectKind().GroupVersionKind().Kind {
+		case "Job":
+			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
+			if err != nil {
+				klog.Infof("failed to convert unstructured : %s", err.Error())
+				return err
+			}
+			job, err := buildJob(converted)
+			if err != nil {
+				klog.Infof("failed to build deployment : %s", err.Error())
+				return err
+			}
+			labelJobPod(job, labelPodArgs)
+			newResource = append(newResource, job)
 		case "Deployment":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
@@ -90,8 +103,8 @@ func LabelPod(context *PluginContext, args string) (err error) {
 	return
 }
 
-func buildStatefulSet(obj runtime.Object) (*appsv1beta1.StatefulSet, error) {
-	if statefulSet, ok := obj.(*appsv1beta1.StatefulSet); ok {
+func buildStatefulSet(obj runtime.Object) (*appsv1.StatefulSet, error) {
+	if statefulSet, ok := obj.(*appsv1.StatefulSet); ok {
 		return statefulSet, nil
 	} else {
 		objBytes, err := json.Marshal(obj)
@@ -99,11 +112,11 @@ func buildStatefulSet(obj runtime.Object) (*appsv1beta1.StatefulSet, error) {
 			return nil, err
 		}
 		objStr := string(objBytes)
-		objStr, err = sjson.Set(objStr, "apiVersion", "apps/v1beta1")
+		objStr, err = sjson.Set(objStr, "apiVersion", "apps/v1")
 		if err != nil {
 			return nil, err
 		}
-		statefulSet = &appsv1beta1.StatefulSet{}
+		statefulSet = &appsv1.StatefulSet{}
 		err = json.Unmarshal([]byte(objStr), statefulSet)
 		if err != nil {
 			return nil, err
@@ -112,7 +125,29 @@ func buildStatefulSet(obj runtime.Object) (*appsv1beta1.StatefulSet, error) {
 	}
 }
 
-func labelStatefulSetPod(statefulSet *appsv1beta1.StatefulSet, labelPodArgs *LabelPodArgs) {
+func buildJob(obj runtime.Object) (*batchv1.Job, error) {
+	if job, ok := obj.(*batchv1.Job); ok {
+		return job, nil
+	} else {
+		objBytes, err := json.Marshal(obj)
+		if err != nil {
+			return nil, err
+		}
+		objStr := string(objBytes)
+		objStr, err = sjson.Set(objStr, "apiVersion", "batch/v1")
+		if err != nil {
+			return nil, err
+		}
+		job = &batchv1.Job{}
+		err = json.Unmarshal([]byte(objStr), job)
+		if err != nil {
+			return nil, err
+		}
+		return job, nil
+	}
+}
+
+func labelStatefulSetPod(statefulSet *appsv1.StatefulSet, labelPodArgs *LabelPodArgs) {
 	if statefulSet.Spec.Template.Labels == nil {
 		statefulSet.Spec.Template.Labels = labelPodArgs.LabelsToAdd
 	} else {
@@ -129,8 +164,25 @@ func labelStatefulSetPod(statefulSet *appsv1beta1.StatefulSet, labelPodArgs *Lab
 	}
 }
 
-func buildDaemonSet(obj runtime.Object) (*v1beta1.DaemonSet, error) {
-	if daemonSet, ok := obj.(*v1beta1.DaemonSet); ok {
+func labelJobPod(job *batchv1.Job, labelPodArgs *LabelPodArgs) {
+	if job.Spec.Template.Labels == nil {
+		job.Spec.Template.Labels = labelPodArgs.LabelsToAdd
+	} else {
+		for k, v := range labelPodArgs.LabelsToAdd {
+			job.Spec.Template.Labels[k] = v
+		}
+	}
+	if job.Spec.Template.Annotations == nil {
+		job.Spec.Template.Annotations = labelPodArgs.AnnotationsToAdd
+	} else {
+		for k, v := range labelPodArgs.AnnotationsToAdd {
+			job.Spec.Template.Annotations[k] = v
+		}
+	}
+}
+
+func buildDaemonSet(obj runtime.Object) (*appsv1.DaemonSet, error) {
+	if daemonSet, ok := obj.(*appsv1.DaemonSet); ok {
 		return daemonSet, nil
 	} else {
 		objBytes, err := json.Marshal(obj)
@@ -138,11 +190,11 @@ func buildDaemonSet(obj runtime.Object) (*v1beta1.DaemonSet, error) {
 			return nil, err
 		}
 		objStr := string(objBytes)
-		objStr, err = sjson.Set(objStr, "apiVersion", "extensions/v1beta1")
+		objStr, err = sjson.Set(objStr, "apiVersion", "apps/v1")
 		if err != nil {
 			return nil, err
 		}
-		daemonSet = &v1beta1.DaemonSet{}
+		daemonSet = &appsv1.DaemonSet{}
 		err = json.Unmarshal([]byte(objStr), daemonSet)
 		if err != nil {
 			return nil, err
@@ -151,7 +203,7 @@ func buildDaemonSet(obj runtime.Object) (*v1beta1.DaemonSet, error) {
 	}
 }
 
-func labelDaemonSetPod(daemonSet *v1beta1.DaemonSet, labelPodArgs *LabelPodArgs) {
+func labelDaemonSetPod(daemonSet *appsv1.DaemonSet, labelPodArgs *LabelPodArgs) {
 	if daemonSet.Spec.Template.Labels == nil {
 		daemonSet.Spec.Template.Labels = labelPodArgs.LabelsToAdd
 	} else {
@@ -168,8 +220,8 @@ func labelDaemonSetPod(daemonSet *v1beta1.DaemonSet, labelPodArgs *LabelPodArgs)
 	}
 }
 
-func buildDeployment(obj runtime.Object) (*v1beta1.Deployment, error) {
-	if deployment, ok := obj.(*v1beta1.Deployment); ok {
+func buildDeployment(obj runtime.Object) (*appsv1.Deployment, error) {
+	if deployment, ok := obj.(*appsv1.Deployment); ok {
 		return deployment, nil
 	} else {
 		objBytes, err := json.Marshal(obj)
@@ -177,11 +229,11 @@ func buildDeployment(obj runtime.Object) (*v1beta1.Deployment, error) {
 			return nil, err
 		}
 		objStr := string(objBytes)
-		objStr, err = sjson.Set(objStr, "apiVersion", "extensions/v1beta1")
+		objStr, err = sjson.Set(objStr, "apiVersion", "apps/v1")
 		if err != nil {
 			return nil, err
 		}
-		deployment = &v1beta1.Deployment{}
+		deployment = &appsv1.Deployment{}
 		err = json.Unmarshal([]byte(objStr), deployment)
 		if err != nil {
 			return nil, err
@@ -190,7 +242,7 @@ func buildDeployment(obj runtime.Object) (*v1beta1.Deployment, error) {
 	}
 }
 
-func labelDeploymentPod(deployment *v1beta1.Deployment, labelPodArgs *LabelPodArgs) {
+func labelDeploymentPod(deployment *appsv1.Deployment, labelPodArgs *LabelPodArgs) {
 	if deployment.Spec.Template.Labels == nil {
 		deployment.Spec.Template.Labels = labelPodArgs.LabelsToAdd
 	} else {

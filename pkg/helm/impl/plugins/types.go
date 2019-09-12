@@ -17,6 +17,9 @@ const (
 	WalmPluginConfigKey string = "Walm-Plugin-Key"
 )
 
+const ResourceUpgradePolicyAnno = "helm.sh/upgrade-policy"
+const UpgradePolicy = "keep"
+
 var pluginRunners map[string]*WalmPluginRunner
 
 func register(name string, runner *WalmPluginRunner) {

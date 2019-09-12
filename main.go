@@ -44,7 +44,7 @@ func initKubeLogs() {
 	klog.InitFlags(gofs)
 	pflag.CommandLine.AddGoFlagSet(gofs)
 	pflag.CommandLine.Set("logtostderr", "true")
-	pflag.CommandLine.Set("v", "2")
+	pflag.CommandLine.Set("v", "1")
 }
 
 func main() {
