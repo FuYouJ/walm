@@ -1,8 +1,8 @@
 package main
 
 import (
+	"WarpCloud/walm/cmd/walmctl/util"
 	"WarpCloud/walm/cmd/walmctl/util/walmctlclient"
-	"flag"
 	"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
@@ -35,13 +35,12 @@ type createCmd struct {
 	withchart   string
 	timeoutSec  int64
 	async       bool
+	dryrun      bool
 	out         io.Writer
 }
 
 func newCreateCmd(out io.Writer) *cobra.Command {
 	cc := &createCmd{out: out}
-	gofs := flag.NewFlagSet("klog", flag.ExitOnError)
-	klog.InitFlags(gofs)
 
 	cmd := &cobra.Command{
 		Use:                   "create release/project",
@@ -50,7 +49,6 @@ func newCreateCmd(out io.Writer) *cobra.Command {
 		Long:                  createDesc,
 
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			if walmserver == "" {
 				return errServerRequired
 			}
@@ -73,6 +71,7 @@ func newCreateCmd(out io.Writer) *cobra.Command {
 	cmd.Flags().StringVar(&cc.withchart, "withchart", "", "update release with local chart, absolutely or relative path to source file")
 	cmd.Flags().Int64Var(&cc.timeoutSec, "timeoutSec", 0, "timeout")
 	cmd.Flags().BoolVar(&cc.async, "async", false, "whether asynchronous")
+	cmd.Flags().BoolVar(&cc.dryrun, "dryrun", false, "dry run")
 
 	cmd.MarkFlagRequired("file")
 	return cmd
@@ -83,7 +82,7 @@ func (cc *createCmd) run() error {
 		err          error
 		filePath     string
 		chartPath    string
-		fileBytes	 []byte
+		fileBytes    []byte
 		configValues map[string]interface{}
 	)
 	chartPath = cc.withchart
@@ -109,21 +108,35 @@ func (cc *createCmd) run() error {
 		return err
 	}
 
+	destConfigValues, _, _, err := util.SmartConfigValues(configValues)
+	if err != nil {
+		klog.Errorf("smart yaml Unmarshal file %s error %v", cc.file, err)
+		return err
+	}
+
 	client := walmctlclient.CreateNewClient(walmserver)
 	if err = client.ValidateHostConnect(); err != nil {
 		return err
 	}
 	if cc.sourceType == "release" {
+		if cc.dryrun {
+			klog.Infof("Dry Run %s %s", namespace, cc.name)
+			response, err := client.DryRunCreateRelease(namespace, chartPath, cc.name, destConfigValues)
+			//bodyStr := response.Body()
+			klog.Infof("%v", response)
+			klog.Infof("error %v", err)
+			return nil
+		}
 		if cc.projectName == "" {
-			_, err = client.CreateRelease(namespace, chartPath, cc.name, cc.async, cc.timeoutSec, configValues)
+			_, err = client.CreateRelease(namespace, chartPath, cc.name, cc.async, cc.timeoutSec, destConfigValues)
 		} else {
-			_, err = client.AddReleaseInProject(namespace, cc.name, cc.projectName, cc.async, cc.timeoutSec, configValues)
+			_, err = client.AddReleaseInProject(namespace, cc.name, cc.projectName, cc.async, cc.timeoutSec, destConfigValues)
 		}
 	} else {
 		if cc.name == "" {
 			return errProjectNameRequired
 		}
-		_, err = client.CreateProject(namespace, chartPath, cc.name, cc.async, cc.timeoutSec, configValues)
+		_, err = client.CreateProject(namespace, chartPath, cc.name, cc.async, cc.timeoutSec, destConfigValues)
 	}
 
 	if err != nil {

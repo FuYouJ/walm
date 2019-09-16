@@ -1,14 +1,15 @@
 package main
 
 import (
+	"WarpCloud/walm/cmd/walmctl/util"
 	"WarpCloud/walm/cmd/walmctl/util/walmctlclient"
 
+	"WarpCloud/walm/pkg/models/release"
+	"encoding/json"
+	"fmt"
 	"github.com/go-resty/resty"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"fmt"
-	"encoding/json"
-	"WarpCloud/walm/pkg/models/release"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"io"
@@ -99,6 +100,14 @@ func (uc *updateCmd) run() error {
 		if err != nil {
 			return err
 		}
+		configValues := make(map[string]interface{}, 0)
+		err = json.Unmarshal(fileByte, &configValues)
+		if err != nil {
+			return err
+		}
+		_, metaInfoParamParams, releasePlugins, err := util.SmartConfigValues(configValues)
+		releaseRequest.MetaInfoParams.Params = metaInfoParamParams
+		releaseRequest.Plugins = releasePlugins
 	} else {
 		resp, err = client.GetRelease(namespace, uc.sourceName)
 		if err != nil {
@@ -121,7 +130,6 @@ func (uc *updateCmd) run() error {
 	configValuesStr := string(configValuesByte)
 
 	if uc.sourceType == "release" {
-
 		propertySetArray := strings.Split(uc.setproperties, ",")
 
 		for _, propertySet := range propertySetArray {
@@ -138,7 +146,6 @@ func (uc *updateCmd) run() error {
 			var destVal interface{}
 
 			switch result.Type.String() {
-
 			case "True", "False":
 				destVal, err = strconv.ParseBool(propertyVal)
 			case "String":
@@ -153,7 +160,6 @@ func (uc *updateCmd) run() error {
 			case "Null":
 				destVal = propertyVal
 			default:
-
 			}
 
 			if err != nil {

@@ -5,7 +5,6 @@ import (
 	"WarpCloud/walm/pkg/models/project"
 	"WarpCloud/walm/pkg/models/release"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"github.com/bitly/go-simplejson"
 	"github.com/ghodss/yaml"
@@ -56,8 +55,6 @@ type listProject struct {
 
 func newListCmd(out io.Writer) *cobra.Command {
 	lc := listCmd{out: out}
-	gofs := flag.NewFlagSet("klog", flag.ExitOnError)
-	klog.InitFlags(gofs)
 
 	cmd := &cobra.Command{
 		Use:   "list",

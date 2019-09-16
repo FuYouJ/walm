@@ -42,8 +42,52 @@ func (c *WalmctlClient) ValidateHostConnect() error {
 	return nil
 }
 
+func (c *WalmctlClient) DryRunCreateRelease(
+	namespace, chart string, releaseName string,
+	configValues map[string]interface{},
+) (*resty.Response, error) {
+	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "/dryrun"
+
+	if releaseName != "" {
+		releaseNameConfigs := make(map[string]interface{}, 0)
+		releaseNameConfigs["name"] = releaseName
+		util.MergeValues(configValues, releaseNameConfigs, false)
+	}
+	filestr, err := json.Marshal(configValues)
+	if err != nil {
+		klog.Errorf("marshal to json error %v", err)
+	}
+
+	resp := &resty.Response{}
+	if chart != "" {
+		chartFullUrl := walmctlClient.baseURL + "/release/" + namespace + "/dryrun/withchart"
+		resp, err = resty.R().
+			SetHeader("Content-Type", "multipart/form-data").
+			SetFile("chart", chart).
+			SetFormData(map[string]string{
+				"namespace": namespace,
+				"release":   releaseName,
+				"body":      string(filestr[:]),
+			}).
+			Post(chartFullUrl)
+	} else {
+		resp, err = resty.R().
+			SetHeader("Content-Type", "application/json").
+			SetBody(filestr).
+			Post(fullUrl)
+	}
+	if resp == nil || resp.StatusCode() != 200 {
+		return nil, errors.New(fmt.Sprintf("error response %v %v", err, resp))
+	}
+	return resp, err
+}
+
 // release
-func (c *WalmctlClient) CreateRelease(namespace, chart string, releaseName string, async bool, timeoutSec int64, configValues map[string]interface{}) (*resty.Response, error) {
+func (c *WalmctlClient) CreateRelease(
+	namespace, chart string, releaseName string,
+	async bool, timeoutSec int64,
+	configValues map[string]interface{},
+) (*resty.Response, error) {
 	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
 
@@ -149,7 +193,11 @@ func (c *WalmctlClient) ListRelease(namespace string, labelSelector string) (res
 }
 
 // project
-func (c *WalmctlClient) CreateProject(namespace, chartPath, projectName string, async bool, timeoutSec int64, configValues map[string]interface{}) (resp *resty.Response, err error) {
+func (c *WalmctlClient) CreateProject(
+	namespace, chartPath, projectName string,
+	async bool, timeoutSec int64,
+	configValues map[string]interface{},
+) (resp *resty.Response, err error) {
 	fullUrl := walmctlClient.baseURL + "/project/" + namespace + "/name/" + projectName + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
 
@@ -227,7 +275,6 @@ func (c *WalmctlClient) AddReleaseInProject(namespace string, releaseName string
 
 	return resp, err
 }
-
 
 func (c *WalmctlClient) DeleteReleaseInProject(namespace string, projectName string, releaseName string, async bool, timeoutSec int64, deletePvcs bool) (resp *resty.Response, err error) {
 	fullUrl := walmctlClient.baseURL + "/project/" + namespace + "/name/" + projectName + "/instance/" + releaseName + "?async=" + strconv.FormatBool(async) +

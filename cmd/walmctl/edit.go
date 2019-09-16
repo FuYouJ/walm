@@ -50,7 +50,7 @@ var (
 		kubectl edit deployment/mydeployment -o yaml --save-config`))
 )
 
-func newEditCmd(out io.Writer ) *cobra.Command {
+func newEditCmd(out io.Writer) *cobra.Command {
 	ioStreams := genericclioptions.IOStreams{Out: out}
 	o := editor.NewEditOptions(editor.NormalEditMode, ioStreams)
 

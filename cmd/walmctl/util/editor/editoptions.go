@@ -105,7 +105,6 @@ func (o *EditOptions) Validate() error {
 }
 
 func (o *EditOptions) Run() error {
-
 	o.editPrinterOptions.Complete(o.PrintFlags)
 	// check resource
 	var resp *resty.Response
@@ -132,7 +131,6 @@ func (o *EditOptions) Run() error {
 	edit := NewDefaultEditor(editorEnvs())
 	// editFn is invoked for each edit session (once with a list for normal edit, once for each individual resource in a edit-on-create invocation)
 	editFn := func(releaseRequest *release.ReleaseRequestV2) error {
-
 		var (
 			results  = editResults{}
 			original []byte
@@ -234,7 +232,6 @@ func (o *EditOptions) Run() error {
 }
 
 func (e *editPrinterOptions) PrintRequest(releaseRequest *release.ReleaseRequestV2, out io.Writer) error {
-
 	var releaseRequestByte []byte
 	var err error
 

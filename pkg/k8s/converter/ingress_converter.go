@@ -20,6 +20,7 @@ func ConvertIngressFromK8s(oriIngress *extv1beta1.Ingress) (*k8s.Ingress, error)
 		walmIngress.Host = rule.Host
 		if rule.HTTP != nil && len(rule.HTTP.Paths) > 0 {
 			path := rule.HTTP.Paths[0]
+			walmIngress.Annotations = ingress.Annotations
 			walmIngress.Path = path.Path
 			walmIngress.ServiceName = path.Backend.ServiceName
 			walmIngress.ServicePort = path.Backend.ServicePort.String()

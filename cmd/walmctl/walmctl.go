@@ -1,9 +1,13 @@
 package main
 
 import (
+	"flag"
+	"os"
+
 	walmctlEnv "WarpCloud/walm/cmd/walmctl/util/environment"
 	"github.com/spf13/cobra"
-	"os"
+	"github.com/spf13/pflag"
+	"k8s.io/klog"
 )
 
 var globalUsage = `walmctl controls the walm application lifecycle manager.
@@ -61,7 +65,16 @@ func newRootCmd(args []string) *cobra.Command {
 	return cmd
 }
 
+func initKubeLogs() {
+	gofs := flag.NewFlagSet("klog", flag.ExitOnError)
+	klog.InitFlags(gofs)
+	pflag.CommandLine.AddGoFlagSet(gofs)
+	pflag.CommandLine.Set("logtostderr", "true")
+	pflag.CommandLine.Set("v", "1")
+}
+
 func main() {
+	initKubeLogs()
 	cmd := newRootCmd(os.Args[1:])
 	if err := cmd.Execute(); err != nil {
 		os.Exit(1)

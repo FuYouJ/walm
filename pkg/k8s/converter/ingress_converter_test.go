@@ -39,6 +39,12 @@ func TestConvertIngressFromK8s(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "test-ingress",
 					Namespace: "test-namespace",
+					Annotations: map[string]string{
+						"test": "testAnn",
+					},
+					Labels: map[string]string{
+						"test": "testLabel",
+					},
 				},
 				Spec:       extv1beta1.IngressSpec{
 					Rules: []extv1beta1.IngressRule{
@@ -60,6 +66,9 @@ func TestConvertIngressFromK8s(t *testing.T) {
 						Reason:  "",
 						Message: "",
 					},
+				},
+				Annotations: map[string]string{
+					"test": "testAnn",
 				},
 				Host:        "test-ingress.example.com",
 				Path:        "/",

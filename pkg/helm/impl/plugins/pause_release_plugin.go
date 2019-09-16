@@ -1,8 +1,7 @@
 package plugins
 
 import (
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	"k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
@@ -60,7 +59,7 @@ func PauseRelease(context *PluginContext, args string) (err error) {
 	return
 }
 
-func pauseStatefulSet(statefulSet *appsv1beta1.StatefulSet) {
+func pauseStatefulSet(statefulSet *appsv1.StatefulSet) {
 	if len(statefulSet.Annotations) > 0 && statefulSet.Annotations[UsePodOfflineKey] == UsePodOfflineValue {
 		statefulSet.Annotations[PodOfflineKey] = ""
 	} else {
@@ -69,7 +68,7 @@ func pauseStatefulSet(statefulSet *appsv1beta1.StatefulSet) {
 	}
 }
 
-func pasueDeployment(deployment *v1beta1.Deployment) {
+func pasueDeployment(deployment *appsv1.Deployment) {
 	replicas := int32(0)
 	deployment.Spec.Replicas = &replicas
 }
