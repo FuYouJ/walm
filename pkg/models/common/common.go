@@ -9,6 +9,13 @@ import (
 	"errors"
 )
 
+type WalmVersion string
+
+const(
+	WalmVersionV1 WalmVersion = "v1"
+	WalmVersionV2 WalmVersion = "v2"
+)
+
 type BufferedFile struct {
 	Name string
 	Data []byte

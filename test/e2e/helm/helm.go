@@ -55,7 +55,7 @@ var _ = Describe("HelmRelease", func() {
 		)
 
 		BeforeEach(func() {
-			tomcatChartPath, err := framework.GetTestTomcatChartPath()
+			tomcatChartPath, err := framework.GetLocalTomcatChartPath()
 			Expect(err).NotTo(HaveOccurred())
 
 			tomcatChartFiles, err = framework.LoadChartArchive(tomcatChartPath)
@@ -105,8 +105,8 @@ var _ = Describe("HelmRelease", func() {
 				ReleaseRequest: release.ReleaseRequest{
 					Name:         "tomcat-test",
 					RepoName:     framework.TestChartRepoName,
-					ChartName:    framework.TestChartName,
-					ChartVersion: framework.TestChartVersion,
+					ChartName:    framework.TomcatChartName,
+					ChartVersion: framework.TomcatChartVersion,
 				},
 			}
 
@@ -133,7 +133,7 @@ var _ = Describe("HelmRelease", func() {
 				ReleaseRequest: release.ReleaseRequest{
 					Name: "tomcat-test",
 				},
-				ChartImage: framework.GetTestChartImage(),
+				ChartImage: framework.GetTomcatChartImage(),
 			}
 
 			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, nil, false, false, nil, nil)
@@ -144,7 +144,7 @@ var _ = Describe("HelmRelease", func() {
 			Expect(releaseCache.ComputedValues).To(Equal(tomcatComputedValues))
 
 			manifest := fmt.Sprintf("\n---\napiVersion: v1\nkind: Service\nmetadata:\n  labels:\n    app: tomcat\n    chart: tomcat-0.2.0\n    heritage: Helm\n    release: tomcat-test\n  name: tomcat-test\n  namespace: %s\nspec:\n  ports:\n  - name: http\n    port: 80\n    protocol: TCP\n    targetPort: 8080\n  selector:\n    app: tomcat\n    release: tomcat-test\n  type: NodePort\n\n---\napiVersion: apps/v1beta2\nkind: Deployment\nmetadata:\n  labels:\n    app: tomcat\n    chart: tomcat-0.2.0\n    heritage: Helm\n    release: tomcat-test\n  name: tomcat-test\n  namespace: %s\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: tomcat\n      release: tomcat-test\n  template:\n    metadata:\n      labels:\n        app: tomcat\n        release: tomcat-test\n    spec:\n      containers:\n      - image: tomcat:7.0\n        imagePullPolicy: Always\n        livenessProbe:\n          httpGet:\n            path: /sample\n            port: 8080\n          initialDelaySeconds: 60\n          periodSeconds: 30\n        name: tomcat\n        ports:\n        - containerPort: 8080\n          hostPort: 8009\n        readinessProbe:\n          failureThreshold: 6\n          httpGet:\n            path: /sample\n            port: 8080\n          initialDelaySeconds: 60\n          periodSeconds: 30\n        resources:\n          limits:\n            cpu: 0.2\n            memory: 200Mi\n          requests:\n            cpu: 0.1\n            memory: 100Mi\n        volumeMounts:\n        - mountPath: /usr/local/tomcat/webapps\n          name: app-volume\n      initContainers:\n      - command:\n        - sh\n        - -c\n        - cp /*.war /app\n        image: ananwaresystems/webarchive:1.0\n        imagePullPolicy: Always\n        name: war\n        volumeMounts:\n        - mountPath: /app\n          name: app-volume\n      volumes:\n      - emptyDir: {}\n        name: app-volume\n\n---\napiVersion: apiextensions.transwarp.io/v1beta1\nkind: ReleaseConfig\nmetadata:\n  creationTimestamp: null\n  name: tomcat-test\n  namespace: %s\nspec:\n  chartAppVersion: \"7\"\n  chartImage: %s\n  chartName: tomcat\n  chartVersion: 0.2.0\n  configValues: {}\n  dependencies: null\n  dependenciesConfigValues: {}\n  outputConfig: {}\n  repo: \"\"\nstatus: {}\n",
-				namespace, namespace, namespace, framework.GetTestChartImage())
+				namespace, namespace, namespace, framework.GetTomcatChartImage())
 			Expect(releaseCache.Manifest).To(Equal(manifest))
 
 			Expect(releaseCache.ReleaseResourceMetas).To(Equal(getTomcatChartDefaultReleaseResourceMeta(namespace, "tomcat-test")))

@@ -30,6 +30,7 @@ const (
 	TranswarpIconFileName         = "icon.svg"
 	TranswarpAdvantageFileName    = "advantage.html"
 	TranswarpArchitectureFileName = "architecture.html"
+	TranswarpAppYamlPattern       = TranswarpJsonnetTemplateDir + "%s/%s/app.yaml"
 )
 
 var commonTemplateFilesPath string
