@@ -1,5 +1,7 @@
 package release
 
+import "WarpCloud/walm/pkg/models/common"
+
 type RepoInfo struct {
 	TenantRepoName string `json:"repoName"`
 	TenantRepoURL  string `json:"repoUrl"`
@@ -10,13 +12,17 @@ type RepoInfoList struct {
 }
 
 type ChartInfo struct {
-	ChartName        string                  `json:"chartName"`
-	ChartVersion     string                  `json:"chartVersion"`
-	ChartDescription string                  `json:"chartDescription"`
-	ChartAppVersion  string                  `json:"chartAppVersion"`
-	ChartEngine      string                  `json:"chartEngine"`
-	DefaultValue     string                  `json:"defaultValue" description:"default values.yaml defined by the chart"`
-	MetaInfo         *ChartMetaInfo `json:"metaInfo" description:"transwarp chart meta info"`
+	ChartName        string         `json:"chartName"`
+	ChartVersion     string         `json:"chartVersion"`
+	ChartDescription string         `json:"chartDescription"`
+	ChartAppVersion  string         `json:"chartAppVersion"`
+	ChartEngine      string         `json:"chartEngine"`
+	DefaultValue     string         `json:"defaultValue" description:"default values.yaml defined by the chart"`
+	MetaInfo         *ChartMetaInfo `json:"metaInfo,omitempty" description:"transwarp chart meta info"`
+	// Compatible
+	DependencyCharts  []ChartDependencyInfo `json:"dependencyCharts,omitempty" description:"dependency chart name"`
+	ChartPrettyParams *PrettyChartParams     `json:"chartPrettyParams,omitempty" description:"pretty chart params for market"`
+	WalmVersion       common.WalmVersion    `json:"walmVersion" description:"chart walm version: v1, v2"`
 }
 
 type ChartDetailInfo struct {

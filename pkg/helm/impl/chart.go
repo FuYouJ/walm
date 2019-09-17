@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"WarpCloud/walm/pkg/models/common"
 )
 
 func (helmImpl *Helm) GetChartAutoDependencies(repoName, chartName, chartVersion string) (subChartNames []string, err error) {
@@ -28,11 +29,18 @@ func (helmImpl *Helm) GetChartAutoDependencies(repoName, chartName, chartVersion
 	if err != nil {
 		return nil, err
 	}
-	if detailChartInfo.MetaInfo != nil && detailChartInfo.MetaInfo.ChartDependenciesInfo != nil {
-		for _, dependency := range detailChartInfo.MetaInfo.ChartDependenciesInfo {
-			if dependency.AutoDependency() {
-				subChartNames = append(subChartNames, dependency.Name)
+
+	if detailChartInfo.WalmVersion == common.WalmVersionV2 {
+		if detailChartInfo.MetaInfo != nil && detailChartInfo.MetaInfo.ChartDependenciesInfo != nil {
+			for _, dependency := range detailChartInfo.MetaInfo.ChartDependenciesInfo {
+				if dependency.AutoDependency() {
+					subChartNames = append(subChartNames, dependency.Name)
+				}
 			}
+		}
+	} else if detailChartInfo.WalmVersion == common.WalmVersionV1 {
+		for _, dependencyChart := range detailChartInfo.DependencyCharts {
+			subChartNames = append(subChartNames, dependencyChart.ChartName)
 		}
 	}
 
@@ -171,7 +179,27 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 		chartDetailInfo.DefaultValue = string(defaultValueBytes)
 	}
 
+	chartDetailInfo.WalmVersion = common.WalmVersionV2
 	for _, f := range rawChart.Files {
+		if f.Name == fmt.Sprintf(transwarpjsonnet.TranswarpAppYamlPattern, rawChart.Metadata.Name, rawChart.Metadata.AppVersion) {
+			chartDetailInfo.WalmVersion = common.WalmVersionV1
+			appMetaInfo := &TranswarpAppInfo{}
+			err := yaml.Unmarshal(f.Data, &appMetaInfo)
+			if err != nil {
+				klog.Errorf("failed to unmarshal app yaml : %s", err.Error())
+				return nil, err
+			}
+			for _, dependency := range appMetaInfo.Dependencies {
+				dependency := release.ChartDependencyInfo {
+					ChartName: dependency.Name,
+					MaxVersion: dependency.MaxVersion,
+					MinVersion: dependency.MinVersion,
+					DependencyOptional: dependency.DependencyOptional,
+				}
+				chartDetailInfo.DependencyCharts = append(chartDetailInfo.DependencyCharts, dependency)
+			}
+			chartDetailInfo.ChartPrettyParams = convertUserInputParams(appMetaInfo.UserInputParams)
+		}
 		if f.Name == transwarpjsonnet.TranswarpMetadataDir+transwarpjsonnet.TranswarpArchitectureFileName {
 			chartDetailInfo.Architecture = string(f.Data[:])
 		}
