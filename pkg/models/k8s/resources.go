@@ -205,6 +205,10 @@ func (resource *Job) AddToResourceSet(resourceSet *ResourceSet) {
 	resourceSet.Jobs = append(resourceSet.Jobs, resource)
 }
 
+type ConfigMapRequestBody struct {
+	Data map[string]string `json:"data" description:"config map data"`
+}
+
 type ConfigMap struct {
 	Meta
 	Data map[string]string `json:"data" description:"config map data"`
@@ -212,6 +216,12 @@ type ConfigMap struct {
 
 func (resource *ConfigMap) AddToResourceSet(resourceSet *ResourceSet) {
 	resourceSet.ConfigMaps = append(resourceSet.ConfigMaps, resource)
+}
+
+type IngressRequestBody struct {
+	Annotations map[string]string `json:"annotations" description:"ingress annotations"`
+	Host        string            `json:"host" description:"ingress host"`
+	Path        string            `json:"path" description:"ingress path"`
 }
 
 type Ingress struct {
@@ -260,6 +270,12 @@ type UnifyUnitNodeResourceInfo struct {
 	LimitsAllocated   NodeResourceInfo `json:"limitsAllocated" description:"node limits allocated info"`
 }
 
+type NodeTaint struct {
+	Key    string `json:"key"`
+	Value  string `json:"value"`
+	Effect string `json:"effect"`
+}
+
 type Node struct {
 	Meta
 	Labels                map[string]string         `json:"labels" description:"node labels"`
@@ -271,6 +287,7 @@ type Node struct {
 	LimitsAllocated       map[string]string         `json:"limitsAllocated" description:"limits resource allocated"`
 	WarpDriveStorageList  []WarpDriveStorage        `json:"warpDriveStorageList" description:"warp drive storage list"`
 	UnifyUnitResourceInfo UnifyUnitNodeResourceInfo `json:"unifyUnitResourceInfo" description:"resource info with unified unit"`
+	Taints                []NodeTaint               `json:"taints" description:"node taint"`
 }
 
 type WarpDriveStorage struct {
@@ -404,4 +421,9 @@ type LabelNodeRequestBody struct {
 type AnnotateNodeRequestBody struct {
 	AddAnnotations    map[string]string `json:"addAnnotations"`
 	RemoveAnnotations []string          `json:"removeAnnotations"`
+}
+
+type TaintNodeRequestBody struct {
+	AddTaints    map[string]string `json:"addTaints"`
+	RemoveTaints []string          `json:"removeTaints"`
 }

@@ -25,6 +25,20 @@ func (_m *Operator) AnnotateNode(name string, annotationsToAdd map[string]string
 	return r0
 }
 
+// TaintNode provides a mock function with given fields: name, taintsToAdd, taintsToRemove
+func (_m *Operator) TaintNoExecuteNode(name string, taintsToAdd map[string]string, taintsToRemove []string) error {
+	ret := _m.Called(name, taintsToAdd, taintsToRemove)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, map[string]string, []string) error); ok {
+		r0 = rf(name, taintsToAdd, taintsToRemove)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // BuildManifestObjects provides a mock function with given fields: namespace, manifest
 func (_m *Operator) BuildManifestObjects(namespace string, manifest string) ([]map[string]interface{}, error) {
 	ret := _m.Called(namespace, manifest)
@@ -274,6 +288,34 @@ func (_m *Operator) UpdateSecret(namespace string, secretRequestBody *modelsk8s.
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string, *modelsk8s.CreateSecretRequestBody) error); ok {
 		r0 = rf(namespace, secretRequestBody)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateIngress provides a mock function with given fields: namespace, ingressName, requestBody
+func (_m *Operator) UpdateIngress(namespace, ingressName string, requestBody *modelsk8s.IngressRequestBody) error {
+	ret := _m.Called(namespace, requestBody)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, *modelsk8s.IngressRequestBody) error); ok {
+		r0 = rf(namespace, requestBody)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateConfigMap provides a mock function with given fields: namespace, configMapName, requestBody
+func (_m *Operator) UpdateConfigMap(namespace, configMapName string, requestBody *modelsk8s.ConfigMapRequestBody) error {
+	ret := _m.Called(namespace, requestBody)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, *modelsk8s.ConfigMapRequestBody) error); ok {
+		r0 = rf(namespace, requestBody)
 	} else {
 		r0 = ret.Error(0)
 	}

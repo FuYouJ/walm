@@ -24,6 +24,7 @@ type Operator interface {
 
 	LabelNode(name string, labelsToAdd map[string]string, labelsToRemove []string) (error)
 	AnnotateNode(name string, annotationsToAdd map[string]string, annotationsToRemove []string) (error)
+	TaintNoExecuteNode(name string, taintsToAdd map[string]string, taintsToRemove []string) (error)
 
 	DeleteStatefulSetPvcs(statefulSets []*k8s.StatefulSet) error
 	DeletePvc(namespace string, name string) error
@@ -32,4 +33,7 @@ type Operator interface {
 	CreateSecret(namespace string, secretRequestBody *k8s.CreateSecretRequestBody) error
 	UpdateSecret(namespace string, secretRequestBody *k8s.CreateSecretRequestBody) error
 	DeleteSecret(namespace, name string) (err error)
+
+	UpdateIngress(namespace, ingressName string, requestBody *k8s.IngressRequestBody) error
+	UpdateConfigMap(namespace, configMapName string, requestBody *k8s.ConfigMapRequestBody) error
 }

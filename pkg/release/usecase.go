@@ -1,6 +1,7 @@
 package release
 
 import (
+	"WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/common"
 )
@@ -28,4 +29,6 @@ type UseCase interface {
 	RecoverRelease(namespace, releaseName string, async bool, timeoutSec int64) error
 	PauseRelease(namespace, releaseName string, async bool, timeoutSec int64) error
 
+	UpdateReleaseIngress(namespace, name, ingressName string, requestBody *k8s.IngressRequestBody) error
+	UpdateReleaseConfigMap(namespace, name, configMapName string, requestBody *k8s.ConfigMapRequestBody) error
 }

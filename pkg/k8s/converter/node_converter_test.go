@@ -131,6 +131,7 @@ func TestConvertNodeFromK8s(t *testing.T) {
 						Memory: 390,
 					},
 				},
+				Taints: make([]k8s.NodeTaint, 0),
 			},
 			err: nil,
 		},

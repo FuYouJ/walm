@@ -1,18 +1,18 @@
 package helm
 
 import (
-	"testing"
-	"errors"
-	"github.com/stretchr/testify/assert"
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 	helmMocks "WarpCloud/walm/pkg/helm/mocks"
 	k8sMocks "WarpCloud/walm/pkg/k8s/mocks"
-	taskMocks "WarpCloud/walm/pkg/task/mocks"
-	"github.com/stretchr/testify/mock"
-	"WarpCloud/walm/pkg/release/mocks"
+	"WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/task"
-	"WarpCloud/walm/pkg/models/k8s"
-	"WarpCloud/walm/pkg/helm/impl/plugins"
+	"WarpCloud/walm/pkg/release/mocks"
+	taskMocks "WarpCloud/walm/pkg/task/mocks"
+	"errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"testing"
 )
 
 func TestHelm_PauseRelease(t *testing.T) {
@@ -42,15 +42,15 @@ func TestHelm_PauseRelease(t *testing.T) {
 	}
 
 	tests := []struct {
-		initMock           func()
-		err                error
+		initMock func()
+		err      error
 	}{
 		{
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseTask", mock.Anything, mock.Anything).Return(nil, errors.New("failed"))
 			},
-			err:         errors.New("failed"),
+			err: errors.New("failed"),
 		},
 		{
 			initMock: func() {
@@ -78,7 +78,7 @@ func TestHelm_PauseRelease(t *testing.T) {
 				mockK8sCache.On("GetResourceSet", ([]release.ReleaseResourceMeta)(nil)).Return(k8s.NewResourceSet(), nil)
 				mockK8sCache.On("GetResource", k8s.ReleaseConfigKind, "test-ns", "test-name").Return(&k8s.ReleaseConfig{}, nil)
 			},
-			err:         errors.New("failed"),
+			err: errors.New("failed"),
 		},
 		{
 			initMock: func() {
@@ -99,14 +99,14 @@ func TestHelm_PauseRelease(t *testing.T) {
 					ComputedValues: map[string]interface{}{
 						plugins.WalmPluginConfigKey: []interface{}{
 							map[string]interface{}{
-								"name": "test-plugin",
-								"args": "test-args",
+								"name":    "test-plugin",
+								"args":    "test-args",
 								"version": "test-version",
 								"disable": false,
 							},
 							map[string]interface{}{
-								"name": plugins.PauseReleasePluginName,
-								"args": "",
+								"name":    plugins.PauseReleasePluginName,
+								"args":    "",
 								"version": "",
 								"disable": false,
 							},
@@ -122,7 +122,7 @@ func TestHelm_PauseRelease(t *testing.T) {
 				mockK8sCache.On("GetResourceSet", ([]release.ReleaseResourceMeta)(nil)).Return(k8s.NewResourceSet(), nil)
 				mockK8sCache.On("GetResource", k8s.ReleaseConfigKind, "test-ns", "test-name").Return(&k8s.ReleaseConfig{}, nil)
 			},
-			err:         nil,
+			err: nil,
 		},
 		{
 			initMock: func() {
@@ -156,7 +156,7 @@ func TestHelm_PauseRelease(t *testing.T) {
 				mockTask.On("TouchTask", mock.Anything, mock.Anything).Return(nil)
 				mockTask.On("PurgeTaskState", mock.Anything).Return(nil)
 			},
-			err:        nil,
+			err: nil,
 		},
 	}
 
