@@ -1,16 +1,17 @@
 package http
 
 import (
-	"WarpCloud/walm/pkg/release"
-	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful-openapi"
-	releaseModel "WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/http"
+	"WarpCloud/walm/pkg/models/k8s"
+	releaseModel "WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/release"
 	httpUtils "WarpCloud/walm/pkg/util/http"
-	"fmt"
-	"WarpCloud/walm/pkg/models/common"
 	"encoding/json"
+	"fmt"
+	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-openapi"
 )
 
 const (
@@ -40,7 +41,8 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Param(ws.QueryParameter("labelselector", "标签过滤").DataType("string")).
 		Writes(releaseModel.ReleaseInfoV2List{}).
 		Returns(200, "OK", releaseModel.ReleaseInfoV2List{}).
-		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
+	)
 
 	ws.Route(ws.GET("/{namespace}").To(releaseHandler.ListReleaseByNamespace).
 		Doc("获取Namepaces下的所有Release列表").
@@ -187,7 +189,30 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Param(ws.QueryParameter("async", "异步与否").DataType("boolean").Required(false)).
 		Param(ws.QueryParameter("timeoutSec", "超时时间").DataType("integer").Required(false)).
 		Returns(200, "OK", nil).
-		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
+	)
+
+	ws.Route(ws.POST("/{namespace}/name/{release}/ingresses/{ingress}").To(releaseHandler.UpdateReleaseIngress).
+		Doc("修改Release下Ingress资源信息").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Param(ws.PathParameter("ingress", "Ingress名字").DataType("string")).
+		Reads(k8s.IngressRequestBody{}).
+		Returns(200, "OK", nil).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
+	)
+
+	ws.Route(ws.POST("/{namespace}/name/{release}/configmaps/{configmap}").To(releaseHandler.UpdateReleaseConfigMap).
+		Doc("修改Release下ConfigMap资源信息").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Param(ws.PathParameter("configmap", "configMap名字").DataType("string")).
+		Reads(k8s.ConfigMapRequestBody{}).
+		Returns(200, "OK", nil).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
+	)
 
 	return ws
 }
@@ -539,6 +564,44 @@ func (handler *ReleaseHandler) RecoverRelease(request *restful.Request, response
 	err = handler.usecase.RecoverRelease(namespace, name, async, timeoutSec)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to recover release %s: %s", name, err.Error()))
+		return
+	}
+}
+
+func (handler *ReleaseHandler) UpdateReleaseIngress(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	ingressName := request.PathParameter("ingress")
+
+	ingressBody := &k8s.IngressRequestBody{}
+	err := request.ReadEntity(ingressBody)
+	if err != nil {
+		_ = httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
+		return
+	}
+
+	err = handler.usecase.UpdateReleaseIngress(namespace, name, ingressName, ingressBody)
+	if err != nil {
+		_ = httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to update ingress release %s: %s", name, err.Error()))
+		return
+	}
+}
+
+func (handler *ReleaseHandler) UpdateReleaseConfigMap(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	configMapName := request.PathParameter("configmap")
+
+	configMapBody := &k8s.ConfigMapRequestBody{}
+	err := request.ReadEntity(configMapBody)
+	if err != nil {
+		_ = httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
+		return
+	}
+
+	err = handler.usecase.UpdateReleaseConfigMap(namespace, name, configMapName, configMapBody)
+	if err != nil {
+		_ = httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to update configMap release %s: %s", name, err.Error()))
 		return
 	}
 }

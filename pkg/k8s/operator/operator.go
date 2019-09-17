@@ -527,6 +527,58 @@ func (op *Operator) AnnotateNode(name string, annotationsToAdd map[string]string
 	return
 }
 
+func (op *Operator) TaintNoExecuteNode(name string, taintsToAdd map[string]string, taintsToRemove []string) (err error) {
+	taints := make([]v1.Taint, 0)
+	noExecuteTaints := make([]v1.Taint, 0)
+	if len(taintsToAdd) == 0 && len(taintsToRemove) == 0 {
+		return
+	}
+
+	node, err := op.client.CoreV1().Nodes().Get(name, metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+
+	for _, nodeTaint := range node.Spec.Taints {
+		if nodeTaint.Effect == v1.TaintEffectNoExecute {
+			noExecuteTaints = append(noExecuteTaints, nodeTaint)
+		} else {
+			taints = append(taints, nodeTaint)
+		}
+	}
+	for key, value := range taintsToAdd {
+		found := false
+		for _, noExecuteTaint := range noExecuteTaints {
+			if noExecuteTaint.Key == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			noExecuteTaints = append(noExecuteTaints, v1.Taint{
+				Key:    key,
+				Value:  value,
+				Effect: v1.TaintEffectNoExecute,
+			})
+		}
+	}
+	for _, key := range taintsToRemove {
+		for idx, noExecuteTaint := range noExecuteTaints {
+			if noExecuteTaint.Key == key {
+				noExecuteTaints = append(noExecuteTaints[:idx], noExecuteTaints[idx+1:]...)
+			}
+		}
+	}
+
+	_, err = op.client.CoreV1().Nodes().Update(node)
+	if err != nil {
+		klog.Errorf("failed to update node %s : %s", name, err.Error())
+		return
+	}
+
+	return
+}
+
 func (op *Operator) DeletePvc(namespace string, name string) error {
 	resource, err := op.k8sCache.GetResource(k8sModel.PersistentVolumeClaimKind, namespace, name)
 	if err != nil {
@@ -654,6 +706,54 @@ func buildSecret(namespace string, walmSecret *k8sModel.CreateSecretRequestBody)
 		Data: DataByte,
 		Type: v1.SecretType(walmSecret.Type),
 	}
+	return
+}
+
+func (op *Operator) UpdateIngress(namespace, ingressName string, requestBody *k8sModel.IngressRequestBody) (err error) {
+	k8sIngress, err := op.client.ExtensionsV1beta1().Ingresses(namespace).Get(ingressName, metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+	if len(requestBody.Annotations) != 0 {
+		k8sIngress.Annotations = requestBody.Annotations
+	}
+	if len(k8sIngress.Spec.Rules) > 0 {
+		rule := k8sIngress.Spec.Rules[0]
+		if requestBody.Host != "" {
+			k8sIngress.Spec.Rules[0].Host = requestBody.Host
+		}
+		if rule.HTTP != nil && len(rule.HTTP.Paths) > 0 {
+			if requestBody.Path != "" {
+				k8sIngress.Spec.Rules[0].HTTP.Paths[0].Path = requestBody.Path
+			}
+		}
+	}
+	if len(requestBody.Annotations) != 0 {
+		k8sIngress.Annotations = requestBody.Annotations
+	}
+	_, err = op.client.ExtensionsV1beta1().Ingresses(namespace).Update(k8sIngress)
+	if err != nil {
+		klog.Errorf("failed to update ingress %s : %s", ingressName, err.Error())
+		return
+	}
+
+	return
+}
+
+func (op *Operator) UpdateConfigMap(namespace, configMapName string, requestBody *k8sModel.ConfigMapRequestBody) (err error) {
+	k8sConfigMap, err := op.client.CoreV1().ConfigMaps(namespace).Get(configMapName, metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+	for key, value := range requestBody.Data {
+		k8sConfigMap.Data[key] = value
+	}
+	_, err = op.client.CoreV1().ConfigMaps(namespace).Update(k8sConfigMap)
+	if err != nil {
+		klog.Errorf("failed to update configMap %s : %s", configMapName, err.Error())
+		return
+	}
+
 	return
 }
 

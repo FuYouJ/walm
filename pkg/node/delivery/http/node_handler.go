@@ -1,14 +1,14 @@
 package http
 
 import (
-	"github.com/emicklei/go-restful"
+	"WarpCloud/walm/pkg/k8s"
+	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/http"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
-	"github.com/emicklei/go-restful-openapi"
-	"WarpCloud/walm/pkg/k8s"
-	"fmt"
 	httpUtils "WarpCloud/walm/pkg/util/http"
-	errorModel "WarpCloud/walm/pkg/models/error"
+	"fmt"
+	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-openapi"
 )
 
 type NodeHandler struct {
@@ -24,7 +24,7 @@ func RegisterNodeHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.
 
 	ws := new(restful.WebService)
 
-	ws.Path(http.ApiV1 + "/node").
+	ws.Path(http.ApiV1+"/node").
 		Doc("Kubernetes节点相关操作").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON, restful.MIME_XML)
@@ -63,6 +63,15 @@ func RegisterNodeHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.
 		Reads(k8sModel.AnnotateNodeRequestBody{}).
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
+	ws.Route(ws.POST("/{nodename}/noexecutetaints").To(handler.TaintNoExecuteNode).
+		Doc("修改节点NoExecute Taints").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("nodename", "节点名字").DataType("string")).
+		Reads(k8sModel.TaintNodeRequestBody{}).
+		Returns(200, "OK", nil).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
+	)
 
 	return ws
 }
@@ -129,6 +138,26 @@ func (handler *NodeHandler) AnnotateNode(request *restful.Request, response *res
 	}
 
 	err = handler.k8sOperator.AnnotateNode(nodeName, annotateNodeRequest.AddAnnotations, annotateNodeRequest.RemoveAnnotations)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to annotate node %s: %s", nodeName, err.Error()))
+		return
+	}
+}
+
+func (handler *NodeHandler) TaintNoExecuteNode(request *restful.Request, response *restful.Response) {
+	nodeName := request.PathParameter("nodename")
+	if nodeName == "" {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("node name can not be empty"))
+		return
+	}
+	taintNodeRequest := &k8sModel.TaintNodeRequestBody{}
+	err := request.ReadEntity(taintNodeRequest)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
+		return
+	}
+
+	err = handler.k8sOperator.TaintNoExecuteNode(nodeName, taintNodeRequest.AddTaints, taintNodeRequest.RemoveTaints)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to annotate node %s: %s", nodeName, err.Error()))
 		return

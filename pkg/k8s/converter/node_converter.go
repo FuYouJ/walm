@@ -23,6 +23,7 @@ func ConvertNodeFromK8s(oriNode *corev1.Node, podsOnNode *corev1.PodList) (walmN
 		Capacity:             convertResourceListToMap(node.Status.Capacity),
 		Allocatable:          convertResourceListToMap(node.Status.Allocatable),
 		WarpDriveStorageList: []k8s.WarpDriveStorage{},
+		Taints:               make([]k8s.NodeTaint, 0),
 	}
 
 	requestsAllocated, limitsAllocated := getTotalRequestsAndLimits(podsOnNode)
@@ -51,6 +52,15 @@ func ConvertNodeFromK8s(oriNode *corev1.Node, podsOnNode *corev1.PodList) (walmN
 			}
 		}
 	}
+
+	for _, taint := range oriNode.Spec.Taints {
+		walmNode.Taints = append(walmNode.Taints, k8s.NodeTaint{
+			Key:    taint.Key,
+			Value:  taint.Value,
+			Effect: string(taint.Effect),
+		})
+	}
+
 	return
 }
 
