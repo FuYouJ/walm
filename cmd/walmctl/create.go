@@ -124,7 +124,9 @@ func (cc *createCmd) run() error {
 			response, err := client.DryRunCreateRelease(namespace, chartPath, cc.name, destConfigValues)
 			//bodyStr := response.Body()
 			klog.Infof("%v", response)
-			klog.Infof("error %v", err)
+			if err != nil {
+				klog.Errorf("error %v", err)
+			}
 			return nil
 		}
 		if cc.projectName == "" {

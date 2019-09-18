@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/tidwall/sjson"
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -96,7 +95,12 @@ func CustomIngressTransform(context *PluginContext, args string) (err error) {
 			klog.Errorf("add ingress plugin error %v", err)
 			continue
 		}
-		newResource = append(newResource, ingressObj)
+		unstructuredObj, err := convertToUnstructured(ingressObj)
+		if err != nil {
+			klog.Infof("failed to convertToUnstructured : %v", *ingressObj)
+			return err
+		}
+		newResource = append(newResource, unstructuredObj)
 	}
 
 	//if context.R.Version == 1 // New Fresh Install Release
@@ -115,7 +119,12 @@ func CustomIngressTransform(context *PluginContext, args string) (err error) {
 				}
 			}
 		}
-		newResource = append(newResource, chartIngressResource)
+		unstructuredObj, err := convertToUnstructured(chartIngressResource)
+		if err != nil {
+			klog.Infof("failed to convertToUnstructured : %v", *chartIngressResource)
+			return err
+		}
+		newResource = append(newResource, unstructuredObj)
 	}
 	context.Resources = newResource
 	return
@@ -174,26 +183,4 @@ func convertK8SIngress(releaseName, releaseNamespace, ingressName string, addObj
 	}
 
 	return ingressObj, nil
-}
-
-func buildIngress(obj runtime.Object) (*v1beta1.Ingress, error) {
-	if ingress, ok := obj.(*v1beta1.Ingress); ok {
-		return ingress, nil
-	} else {
-		objBytes, err := json.Marshal(obj)
-		if err != nil {
-			return nil, err
-		}
-		objStr := string(objBytes)
-		objStr, err = sjson.Set(objStr, "apiVersion", "extensions/v1beta1")
-		if err != nil {
-			return nil, err
-		}
-		ingress = &v1beta1.Ingress{}
-		err = json.Unmarshal([]byte(objStr), ingress)
-		if err != nil {
-			return nil, err
-		}
-		return ingress, nil
-	}
 }
