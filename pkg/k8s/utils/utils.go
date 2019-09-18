@@ -127,7 +127,7 @@ func GetPodRequestsAndLimits(podSpec v1.PodSpec) (reqs map[v1.ResourceName]resou
 	return
 }
 
-func ParseK8sResourceMemory(strValue string) (int64) {
+func ParseK8sResourceMemory(strValue string) int64 {
 	if strValue == "" {
 		return 0
 	}
@@ -139,7 +139,7 @@ func ParseK8sResourceMemory(strValue string) (int64) {
 	return quantity.Value() / K8sResourceMemoryScale
 }
 
-func ParseK8sResourceCpu(strValue string) (float64) {
+func ParseK8sResourceCpu(strValue string) float64 {
 	if strValue == "" {
 		return 0
 	}
@@ -151,7 +151,7 @@ func ParseK8sResourceCpu(strValue string) (float64) {
 	return float64(quantity.MilliValue()) / K8sResourceCpuScale
 }
 
-func ParseK8sResourceStorage(strValue string) (int64) {
+func ParseK8sResourceStorage(strValue string) int64 {
 	if strValue == "" {
 		return 0
 	}
@@ -163,7 +163,7 @@ func ParseK8sResourceStorage(strValue string) (int64) {
 	return quantity.Value() / K8sResourceStorageScale
 }
 
-func ParseK8sResourcePod(strValue string) (int64) {
+func ParseK8sResourcePod(strValue string) int64 {
 	if strValue == "" {
 		return 0
 	}

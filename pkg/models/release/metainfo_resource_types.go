@@ -29,7 +29,7 @@ func getResourceStr(jsonStr, mapKey string) string {
 	if jsonStr == "" || mapKey == "" {
 		return ""
 	}
-	return  gjson.Get(jsonStr, mapKey).String()
+	return gjson.Get(jsonStr, mapKey).String()
 }
 
 type MetaResourceCpuConfig struct {
@@ -51,6 +51,7 @@ func (config *MetaResourceCpuConfig) BuildCpuConfigValue(jsonStr string) float64
 type ResourceStorage struct {
 	AccessModes  []string `json:"accessModes, omitempty" description:"storage access modes"`
 	StorageClass string   `json:"storageClass" description:"storage class"`
+	DiskReplicas int      `json:"diskReplicas"`
 }
 
 type MetaResourceStorage struct {
@@ -64,18 +65,21 @@ type MetaResourceStorageWithStringSize struct {
 }
 
 type MetaResourceStorageConfig struct {
-	Name         string               `json:"name" description:"config name"`
-	MapKey       string               `json:"mapKey" description:"config map values.yaml key"`
-	DefaultValue *MetaResourceStorage `json:"defaultValue" description:"default value of mapKey"`
-	Description  string               `json:"description" description:"config description"`
-	Type         string               `json:"type" description:"config type"`
-	Required     bool                 `json:"required" description:"required"`
+	Name               string               `json:"name" description:"config name"`
+	MapKey             string               `json:"mapKey" description:"config map values.yaml key"`
+	DefaultValue       *MetaResourceStorage `json:"defaultValue" description:"default value of mapKey"`
+	Description        string               `json:"description" description:"config description"`
+	Type               string               `json:"type" description:"config type"`
+	Required           bool                 `json:"required" description:"required"`
+	AccessModeMapKey   string               `json:"accessModeMapKey"`
+	StorageClassMapKey string               `json:"storageClassMapKey"`
+	SizeMapKey         string               `json:"sizeMapKey"`
 }
 
 type MetaConfigTestSet struct {
-	MapKey       string               `json:"mapKey" description:"config map values.yaml key"`
-	Type         string               `json:"type" description:"config type"`
-	Required     bool                 `json:"required" description:"required"`
+	MapKey   string `json:"mapKey" description:"config map values.yaml key"`
+	Type     string `json:"type" description:"config type"`
+	Required bool   `json:"required" description:"required"`
 }
 
 func (config *MetaResourceStorageConfig) BuildDefaultValue(jsonStr string) {
@@ -95,7 +99,38 @@ func (config *MetaResourceStorageConfig) BuildStorageConfigValue(jsonStr string)
 		if resourceStorageWithStringSize.Size != "" {
 			resourceStorageConfigValue.Value.Size = utils.ParseK8sResourceStorage(resourceStorageWithStringSize.Size)
 		}
+	} else {
+		storageClass := ""
+		storageAccessMode := ""
+		var storageSize int64
+		if config.StorageClassMapKey != "" {
+			storageClass = gjson.Get(jsonStr, config.StorageClassMapKey).Str
+		}
+		if config.AccessModeMapKey != "" {
+			storageAccessMode = gjson.Get(jsonStr, config.AccessModeMapKey).Str
+		}
+		if config.SizeMapKey != "" {
+			storageSize = utils.ParseK8sResourceStorage(gjson.Get(jsonStr, config.SizeMapKey).Str)
+		}
+		if storageClass != "" || storageAccessMode != "" || storageSize != 0 {
+			resourceStorageConfigValue.Value = &MetaResourceStorage{
+				ResourceStorage: ResourceStorage{
+					StorageClass: "silver",
+					AccessModes:  []string{"ReadWriteOnce"},
+				},
+			}
+			if storageClass != "" {
+				resourceStorageConfigValue.Value.StorageClass = storageClass
+			}
+			if storageAccessMode != "" {
+				resourceStorageConfigValue.Value.AccessModes = []string{storageAccessMode}
+			}
+			if storageSize != 0 {
+				resourceStorageConfigValue.Value.Size = storageSize
+			}
+		}
 	}
+
 	return resourceStorageConfigValue
 }
 

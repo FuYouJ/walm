@@ -126,11 +126,13 @@ func (lint *lintOptions) run() error {
 	dec.DisallowUnknownFields()
 
 	if err = dec.Decode(&chartMetaInfo); err != nil {
+		klog.Errorf("check json decode error %v", err)
 		return err
 	}
 
 	err = json.Unmarshal(metainfoByte, &chartMetaInfo)
 	if err != nil {
+		klog.Errorf("json unmarshal metainfo error %v", err)
 		return err
 	}
 

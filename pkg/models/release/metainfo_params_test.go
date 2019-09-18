@@ -157,7 +157,50 @@ func TestMetaInfoParams_BuildConfigValues(t *testing.T) {
 					},
 				},
 			},
-			configValues: "{\"envs\":[{\"name\":\"test-key\",\"value\":\"test-value\"}],\"image\":{\"application\":{\"image\":\"test-image\"},\"java\":{\"command\":\"test-params-value\"}},\"priority\":1,\"replicas\":2,\"resources\":{\"LimitsMem\":\"400Mi\",\"limitsCpu\":\"0.2\",\"limitsGpu\":\"2\",\"requestsCpu\":\"0.1\",\"requestsGpu\":\"1\",\"requestsMem\":\"200Mi\"},\"storage\":{\"accessModes\":[\"ReadOnly\"],\"size\":\"100Gi\",\"storageClass\":\"silver\"},\"test-other\":\"test-other-value\",\"useHostNetwork\":true}",
+			configValues: "{\"envs\":[{\"name\":\"test-key\",\"value\":\"test-value\"}],\"image\":{\"application\":{\"image\":\"test-image\"},\"java\":{\"command\":\"test-params-value\"}},\"priority\":1,\"replicas\":2,\"resources\":{\"LimitsMem\":\"400Mi\",\"limitsCpu\":\"0.2\",\"limitsGpu\":\"2\",\"requestsCpu\":\"0.1\",\"requestsGpu\":\"1\",\"requestsMem\":\"200Mi\"},\"storage\":{\"accessModes\":[\"ReadOnly\"],\"diskReplicas\":0,\"size\":\"100Gi\",\"storageClass\":\"silver\"},\"test-other\":\"test-other-value\",\"useHostNetwork\":true}",
+			err:          nil,
+		},
+		{
+			params: &MetaInfoParams{
+				Roles: []*MetaRoleConfigValue{
+					{
+						Name: "test-role",
+						RoleResourceConfigValue: &MetaResourceConfigValue{
+							StorageResources: []*MetaResourceStorageConfigValue{
+								{
+									Name: "test-storage",
+									Value: &MetaResourceStorage{
+										ResourceStorage: ResourceStorage{
+											AccessModes:  []string{"ReadOnly"},
+											StorageClass: "silver",
+										},
+										Size: 100,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			metaInfo: &ChartMetaInfo{
+				ChartRoles: []*MetaRoleConfig{
+					{
+						Name: "test-role",
+						RoleResourceConfig: &MetaResourceConfig{
+							StorageResources: []*MetaResourceStorageConfig{
+								{
+									Name:   "test-storage",
+									MapKey: "storage",
+									AccessModeMapKey: "storage.accessModeMapKey",
+									StorageClassMapKey: "storage.storageClassMapKey",
+									SizeMapKey: "storage.sizeMapKey",
+								},
+							},
+						},
+					},
+				},
+			},
+			configValues: "{\"storage\":{\"accessModeMapKey\":\"ReadOnly\",\"accessModes\":[\"ReadOnly\"],\"diskReplicas\":0,\"size\":\"100Gi\",\"sizeMapKey\":\"100Gi\",\"storageClass\":\"silver\",\"storageClassMapKey\":\"silver\"}}",
 			err:          nil,
 		},
 	}
