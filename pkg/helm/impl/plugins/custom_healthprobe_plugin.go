@@ -31,7 +31,7 @@ type CustomHealthProbeArgs struct {
 	DisableAllReadinessProbe          bool                   `json:"disableAllReadinessProbe"`
 }
 
-func CustomHealthProbeTransform(context *PluginContext, args string) (err error) {
+func CustomHealthProbeTransform(context *PluginContext, args string) error {
 	if args == "" {
 		klog.Errorf("ignore ingress plugin, because plugin args is empty")
 		return nil
@@ -40,9 +40,9 @@ func CustomHealthProbeTransform(context *PluginContext, args string) (err error)
 	}
 
 	customHealthProbeArgs := &CustomHealthProbeArgs{}
-	err = json.Unmarshal([]byte(args), customHealthProbeArgs)
+	err := json.Unmarshal([]byte(args), customHealthProbeArgs)
 	if err != nil {
-		klog.Infof("failed to unmarshal plugin args : %s", err.Error())
+		klog.Errorf("failed to unmarshal plugin args : %s", err.Error())
 		return err
 	}
 
@@ -52,7 +52,7 @@ func CustomHealthProbeTransform(context *PluginContext, args string) (err error)
 		case "Deployment":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Errorf("failed to convert unstructured : %s", err.Error())
 				return err
 			}
 			deployment, err := buildDeployment(converted)
@@ -61,11 +61,16 @@ func CustomHealthProbeTransform(context *PluginContext, args string) (err error)
 				return err
 			}
 			customHealthProbeDeployment(deployment, customHealthProbeArgs)
-			newResource = append(newResource, deployment)
+			unstructuredObj, err := convertToUnstructured(deployment)
+			if err != nil {
+				klog.Infof("failed to convertToUnstructured : %v", *deployment)
+				return err
+			}
+			newResource = append(newResource, unstructuredObj)
 		case "StatefulSet":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Errorf("failed to convert unstructured : %s", err.Error())
 				return err
 			}
 			statefulSet, err := buildStatefulSet(converted)
@@ -74,13 +79,19 @@ func CustomHealthProbeTransform(context *PluginContext, args string) (err error)
 				return err
 			}
 			customHealthProbeStatefulSet(statefulSet, customHealthProbeArgs)
-			newResource = append(newResource, statefulSet)
+			unstructuredObj, err := convertToUnstructured(statefulSet)
+			if err != nil {
+				klog.Infof("failed to convertToUnstructured : %v", *statefulSet)
+				return err
+			}
+			newResource = append(newResource, unstructuredObj)
 		default:
 			newResource = append(newResource, resource)
 		}
 	}
 
-	return
+	context.Resources = newResource
+	return nil
 }
 
 func customHealthProbeStatefulSet(statefulSet *appsv1.StatefulSet, customHealthProbeArgs *CustomHealthProbeArgs) {
@@ -104,12 +115,12 @@ func customHealthProbeStatefulSet(statefulSet *appsv1.StatefulSet, customHealthP
 		disableReadinessProbe = true
 	}
 
-	for _, container := range statefulSet.Spec.Template.Spec.Containers {
+	for idx, _ := range statefulSet.Spec.Template.Spec.Containers {
 		if disableLivenessProbe {
-			container.LivenessProbe = nil
+			statefulSet.Spec.Template.Spec.Containers[idx].LivenessProbe = nil
 		}
 		if disableReadinessProbe {
-			container.ReadinessProbe = nil
+			statefulSet.Spec.Template.Spec.Containers[idx].ReadinessProbe = nil
 		}
 	}
 }
@@ -119,12 +130,12 @@ func customHealthProbeDeployment(deployment *appsv1.Deployment, customHealthProb
 	disableReadinessProbe := false
 
 	for _, probeResource := range customHealthProbeArgs.DisableLivenessProbeResourceList {
-		if probeResource.Kind == "StatefulSet" && probeResource.ResourceName == deployment.Name {
+		if probeResource.Kind == "Deployment" && probeResource.ResourceName == deployment.Name {
 			disableLivenessProbe = true
 		}
 	}
 	for _, probeResource := range customHealthProbeArgs.DisableReadinessProbeResourceList {
-		if probeResource.Kind == "StatefulSet" && probeResource.ResourceName == deployment.Name {
+		if probeResource.Kind == "Deployment" && probeResource.ResourceName == deployment.Name {
 			disableReadinessProbe = true
 		}
 	}
@@ -135,12 +146,14 @@ func customHealthProbeDeployment(deployment *appsv1.Deployment, customHealthProb
 		disableReadinessProbe = true
 	}
 
-	for _, container := range deployment.Spec.Template.Spec.Containers {
+	for idx, _ := range deployment.Spec.Template.Spec.Containers {
 		if disableLivenessProbe {
-			container.LivenessProbe = nil
+			klog.Infof("remove livenessProbe %v", deployment.Spec.Template.Spec.Containers[idx].LivenessProbe)
+			deployment.Spec.Template.Spec.Containers[idx].LivenessProbe = nil
 		}
 		if disableReadinessProbe {
-			container.ReadinessProbe = nil
+			klog.Infof("remove readinessProbe %v", deployment.Spec.Template.Spec.Containers[idx].ReadinessProbe)
+			deployment.Spec.Template.Spec.Containers[idx].ReadinessProbe = nil
 		}
 	}
 }

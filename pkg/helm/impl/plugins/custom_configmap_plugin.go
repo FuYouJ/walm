@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/tidwall/sjson"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
@@ -69,7 +68,12 @@ func CustomConfigmapTransform(context *PluginContext, args string) (err error) {
 			klog.Errorf("add configMap plugin error %v", err)
 			continue
 		}
-		newResource = append(newResource, configMapObj)
+		unstructuredObj, err := convertToUnstructured(configMapObj)
+		if err != nil {
+			klog.Infof("failed to convertToUnstructured : %v", *configMapObj)
+			return err
+		}
+		newResource = append(newResource, unstructuredObj)
 	}
 
 	for _, resource := range context.Resources {
@@ -92,7 +96,12 @@ func CustomConfigmapTransform(context *PluginContext, args string) (err error) {
 					return err
 				}
 			}
-			newResource = append(newResource, job)
+			unstructuredObj, err := convertToUnstructured(job)
+			if err != nil {
+				klog.Infof("failed to convertToUnstructured : %v", *job)
+				return err
+			}
+			newResource = append(newResource, unstructuredObj)
 		case "Deployment":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
@@ -111,7 +120,12 @@ func CustomConfigmapTransform(context *PluginContext, args string) (err error) {
 					return err
 				}
 			}
-			newResource = append(newResource, deployment)
+			unstructuredObj, err := convertToUnstructured(deployment)
+			if err != nil {
+				klog.Infof("failed to convertToUnstructured : %v", *deployment)
+				return err
+			}
+			newResource = append(newResource, unstructuredObj)
 		case "DaemonSet":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
@@ -130,7 +144,12 @@ func CustomConfigmapTransform(context *PluginContext, args string) (err error) {
 					return err
 				}
 			}
-			newResource = append(newResource, daemonSet)
+			unstructuredObj, err := convertToUnstructured(daemonSet)
+			if err != nil {
+				klog.Infof("failed to convertToUnstructured : %v", *daemonSet)
+				return err
+			}
+			newResource = append(newResource, unstructuredObj)
 		case "StatefulSet":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
@@ -149,7 +168,12 @@ func CustomConfigmapTransform(context *PluginContext, args string) (err error) {
 					return err
 				}
 			}
-			newResource = append(newResource, statefulSet)
+			unstructuredObj, err := convertToUnstructured(statefulSet)
+			if err != nil {
+				klog.Infof("failed to convertToUnstructured : %v", *statefulSet)
+				return err
+			}
+			newResource = append(newResource, unstructuredObj)
 		case "Configmap":
 			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
 			if err != nil {
@@ -188,7 +212,12 @@ func CustomConfigmapTransform(context *PluginContext, args string) (err error) {
 				}
 			}
 		}
-		newResource = append(newResource, chartConfigmapResource)
+		unstructuredObj, err := convertToUnstructured(chartConfigmapResource)
+		if err != nil {
+			klog.Infof("failed to convertToUnstructured : %v", *chartConfigmapResource)
+			return err
+		}
+		newResource = append(newResource, unstructuredObj)
 	}
 
 	context.Resources = newResource
@@ -221,28 +250,6 @@ func convertK8SConfigMap(releaseName, releaseNamespace, configMapName string, ad
 	}
 
 	return configMapObj, nil
-}
-
-func buildConfigmap(obj runtime.Object) (*v1.ConfigMap, error) {
-	if configmap, ok := obj.(*v1.ConfigMap); ok {
-		return configmap, nil
-	} else {
-		objBytes, err := json.Marshal(obj)
-		if err != nil {
-			return nil, err
-		}
-		objStr := string(objBytes)
-		objStr, err = sjson.Set(objStr, "apiVersion", "v1")
-		if err != nil {
-			return nil, err
-		}
-		configmap = &v1.ConfigMap{}
-		err = json.Unmarshal([]byte(objStr), configmap)
-		if err != nil {
-			return nil, err
-		}
-		return configmap, nil
-	}
 }
 
 func splitConfigmapVolumes(releaseName, configMapName string, addConfigMapObj *AddConfigmapObject) (v1.Volume, []v1.VolumeMount, error) {

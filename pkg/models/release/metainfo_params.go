@@ -266,10 +266,10 @@ func buildResourceStorageArrayValues(mapping map[string]interface{}, resourceSto
 			if resourceStorageConfig.MapKey != "" {
 				mapping[resourceStorageConfig.MapKey] = resourceStorageWithStringSize
 			}
-			if resourceStorageConfig.SizeMapKey != "" {
+			if resourceStorageConfig.SizeMapKey != "" && resourceStorageWithStringSize.Size != "" {
 				mapping[resourceStorageConfig.SizeMapKey] = resourceStorageWithStringSize.Size
 			}
-			if resourceStorageConfig.StorageClassMapKey != "" {
+			if resourceStorageConfig.StorageClassMapKey != "" && resourceStorageWithStringSize.StorageClass != "" {
 				mapping[resourceStorageConfig.StorageClassMapKey] = resourceStorageWithStringSize.StorageClass
 			}
 			if resourceStorageConfig.AccessModeMapKey != "" && len(resourceStorageWithStringSize.AccessModes) > 0 {
