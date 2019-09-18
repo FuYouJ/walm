@@ -146,7 +146,8 @@ func (lint *lintOptions) run() error {
 	/* check params in values */
 	err = chartMetaInfo.CheckParamsInValues(string(valuesByte), configMaps)
 	if err != nil {
-		klog.Warning(err)
+		klog.Errorf("check params in values err: %v", err)
+		return err
 	}
 
 	klog.Info("values.yaml is valid...")
