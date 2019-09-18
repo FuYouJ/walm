@@ -161,6 +161,7 @@ type MetaRoleBaseConfigValue struct {
 	Priority       *int64                   `json:"priority" description:"role priority"`
 	Replicas       *int64                   `json:"replicas" description:"role replicas"`
 	Env            []MetaEnv                `json:"env" description:"role env list"`
+	EnvMap         map[string]string        `json:"envMap" description:"role env map"`
 	UseHostNetwork *bool                    `json:"useHostNetwork" description:"whether role use host network"`
 	Others         []*MetaCommonConfigValue `json:"others" description:"role other configs"`
 }
@@ -182,6 +183,9 @@ func (roleBaseConfigValue *MetaRoleBaseConfigValue) BuildConfigValue(roleBaseCon
 	}
 	if roleBaseConfig.Env != nil && len(roleBaseConfigValue.Env) > 0 {
 		mapping[roleBaseConfig.Env.MapKey] = roleBaseConfigValue.Env
+	}
+	if roleBaseConfig.EnvMap != nil && len(roleBaseConfigValue.EnvMap) > 0 {
+		mapping[roleBaseConfig.EnvMap.MapKey] = roleBaseConfigValue.EnvMap
 	}
 	if roleBaseConfig.Replicas != nil && roleBaseConfigValue.Replicas != nil {
 		mapping[roleBaseConfig.Replicas.MapKey] = *roleBaseConfigValue.Replicas
@@ -259,7 +263,18 @@ func buildResourceStorageArrayValues(mapping map[string]interface{}, resourceSto
 				ResourceStorage: resourceStorageConfigValue.Value.ResourceStorage,
 				Size:            convertResourceBinaryIntByUnit(&resourceStorageConfigValue.Value.Size, utils.K8sResourceStorageUnit),
 			}
-			mapping[resourceStorageConfig.MapKey] = resourceStorageWithStringSize
+			if resourceStorageConfig.MapKey != "" {
+				mapping[resourceStorageConfig.MapKey] = resourceStorageWithStringSize
+			}
+			if resourceStorageConfig.SizeMapKey != "" {
+				mapping[resourceStorageConfig.SizeMapKey] = resourceStorageWithStringSize.Size
+			}
+			if resourceStorageConfig.StorageClassMapKey != "" {
+				mapping[resourceStorageConfig.StorageClassMapKey] = resourceStorageWithStringSize.StorageClass
+			}
+			if resourceStorageConfig.AccessModeMapKey != "" && len(resourceStorageWithStringSize.AccessModes) > 0 {
+				mapping[resourceStorageConfig.AccessModeMapKey] = resourceStorageWithStringSize.AccessModes[0]
+			}
 		}
 	}
 }
