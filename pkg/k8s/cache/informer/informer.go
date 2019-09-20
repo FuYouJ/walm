@@ -51,6 +51,35 @@ type Informer struct {
 	releaseConfigLister  releaseconfigv1beta1.ReleaseConfigLister
 }
 
+func (informer *Informer) ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error) {
+	selector, err := labels.Parse(labelSelectorStr)
+	if err != nil {
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		return nil, err
+	}
+
+	resources, err := informer.serviceLister.List(selector)
+	if err != nil {
+		klog.Errorf("failed to list services in namespace %s : %s", namespace, err.Error())
+		return nil, err
+	}
+
+	services := []*k8s.Service{}
+	for _, resource := range resources {
+		endpoints, err := informer.getEndpoints(namespace, resource.Name)
+		if err != nil && !errorModel.IsNotFoundError(err) {
+			return nil, err
+		}
+		service, err := converter.ConvertServiceFromK8s(resource, endpoints)
+		if err != nil {
+			klog.Errorf("failed to convert service %s/%s: %s", resource.Namespace, resource.Name, err.Error())
+			return nil, err
+		}
+		services = append(services, service)
+	}
+	return services, nil
+}
+
 func (informer *Informer) ListStorageClasses(namespace string, labelSelectorStr string) ([]*k8s.StorageClass, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
@@ -330,6 +359,9 @@ func (informer *Informer) GetResource(kind k8s.ResourceKind, namespace, name str
 		return informer.getNode(namespace, name)
 	case k8s.StorageClassKind:
 		return informer.getStorageClass(namespace, name)
+	case k8s.InstanceKind:
+		//TODO
+		return nil, errorModel.NotFoundError{}
 	default:
 		return &k8s.DefaultResource{Meta: k8s.NewMeta(kind, namespace, name, k8s.NewState("Unknown", "NotSupportedKind", "Can not get this resource"))}, nil
 	}

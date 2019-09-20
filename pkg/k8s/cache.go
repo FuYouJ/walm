@@ -28,4 +28,5 @@ type Cache interface {
 	ListSecrets(namespace string, name string) (*k8s.SecretList, error)
 
 	ListStorageClasses(namespace string, labelSelectorStr string) ([]*k8s.StorageClass, error)
+	ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error)
 }

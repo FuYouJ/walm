@@ -222,6 +222,29 @@ func (_m *Cache) ListSecrets(namespace string, name string) (*modelsk8s.SecretLi
 	return r0, r1
 }
 
+// ListServices provides a mock function with given fields: namespace, labelSelectorStr
+func (_m *Cache) ListServices(namespace string, labelSelectorStr string) ([]*modelsk8s.Service, error) {
+	ret := _m.Called(namespace, labelSelectorStr)
+
+	var r0 []*modelsk8s.Service
+	if rf, ok := ret.Get(0).(func(string, string) []*modelsk8s.Service); ok {
+		r0 = rf(namespace, labelSelectorStr)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*modelsk8s.Service)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, labelSelectorStr)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListStatefulSets provides a mock function with given fields: namespace, labelSelectorStr
 func (_m *Cache) ListStatefulSets(namespace string, labelSelectorStr string) ([]*modelsk8s.StatefulSet, error) {
 	ret := _m.Called(namespace, labelSelectorStr)

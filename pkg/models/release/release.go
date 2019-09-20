@@ -43,12 +43,13 @@ type ReleaseResourceMeta struct {
 }
 
 type ReleaseRequest struct {
-	Name         string                 `json:"name" description:"name of the release"`
-	RepoName     string                 `json:"repoName" description:"chart name"`
-	ChartName    string                 `json:"chartName" description:"chart name"`
-	ChartVersion string                 `json:"chartVersion" description:"chart repo"`
-	ConfigValues map[string]interface{} `json:"configValues" description:"extra values added to the chart"`
-	Dependencies map[string]string      `json:"dependencies" description:"map of dependency chart name and release"`
+	Name                string                 `json:"name" description:"name of the release"`
+	RepoName            string                 `json:"repoName" description:"chart name"`
+	ChartName           string                 `json:"chartName" description:"chart name"`
+	ChartVersion        string                 `json:"chartVersion" description:"chart repo"`
+	ConfigValues        map[string]interface{} `json:"configValues" description:"extra values added to the chart"`
+	Dependencies        map[string]string      `json:"dependencies" description:"map of dependency chart name and release"`
+	ReleasePrettyParams *PrettyChartParams      `json:"releasePrettyParams" description:"pretty chart params"`
 }
 
 type ReleaseConfigDeltaEventType string
@@ -60,7 +61,7 @@ const (
 
 type ReleaseConfigDeltaEvent struct {
 	Type ReleaseConfigDeltaEventType `json:"type" description:"delta type: CreateOrUpdate, Delete"`
-	Data *k8s.ReleaseConfig           `json:"data" description:"release config data"`
+	Data *k8s.ReleaseConfig          `json:"data" description:"release config data"`
 }
 
 type ReleaseInfoV2 struct {

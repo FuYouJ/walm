@@ -16,6 +16,7 @@ const (
 	StorageClassKind          ResourceKind = "StorageClass"
 	NamespaceKind             ResourceKind = "Namespace"
 	ReleaseConfigKind         ResourceKind = "ReleaseConfig"
+	InstanceKind              ResourceKind = "ApplicationInstance"
 )
 
 type ResourceKind string
@@ -142,9 +143,10 @@ func (resource *Pod) AddToResourceSet(resourceSet *ResourceSet) {
 
 type Service struct {
 	Meta
-	Ports       []ServicePort `json:"ports" description:"service ports"`
-	ClusterIp   string        `json:"clusterIp" description:"service cluster ip"`
-	ServiceType string        `json:"serviceType" description:"service type"`
+	Ports       []ServicePort     `json:"ports" description:"service ports"`
+	ClusterIp   string            `json:"clusterIp" description:"service cluster ip"`
+	ServiceType string            `json:"serviceType" description:"service type"`
+	Annotations map[string]string `json:"annotations" description:"annotations"`
 }
 
 func (resource *Service) AddToResourceSet(resourceSet *ResourceSet) {
@@ -426,4 +428,12 @@ type AnnotateNodeRequestBody struct {
 type TaintNodeRequestBody struct {
 	AddTaints    map[string]string `json:"addTaints"`
 	RemoveTaints []string          `json:"removeTaints"`
+}
+
+type ApplicationInstance struct {
+	Meta
+	InstanceId string `json:"instanceId"`
+}
+
+func (resource *ApplicationInstance) AddToResourceSet(resourceSet *ResourceSet) {
 }

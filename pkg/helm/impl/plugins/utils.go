@@ -5,7 +5,7 @@ import (
 	"github.com/tidwall/sjson"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -143,6 +143,28 @@ func buildConfigmap(obj runtime.Object) (*v1.ConfigMap, error) {
 			return nil, err
 		}
 		return configmap, nil
+	}
+}
+
+func buildService(obj runtime.Object) (*v1.Service, error) {
+	if service, ok := obj.(*v1.Service); ok {
+		return service, nil
+	} else {
+		objBytes, err := json.Marshal(obj)
+		if err != nil {
+			return nil, err
+		}
+		objStr := string(objBytes)
+		objStr, err = sjson.Set(objStr, "apiVersion", "v1")
+		if err != nil {
+			return nil, err
+		}
+		service = &v1.Service{}
+		err = json.Unmarshal([]byte(objStr), service)
+		if err != nil {
+			return nil, err
+		}
+		return service, nil
 	}
 }
 

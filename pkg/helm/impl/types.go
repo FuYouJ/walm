@@ -67,3 +67,26 @@ type AppDependency struct {
 	Name string `json:"name,omitempty"`
 	Dependencies []*DependencyDeclare `json:"dependencies"`
 }
+
+type DependencyMeta struct {
+	Provides map[string]DependencyProvide `json:"provides,omitempty"`
+}
+
+type DependencyProvide struct {
+	// immediate value
+	ImmediateValue interface{} `json:"immediate_value,omitempty"`
+	// k8s resource type
+	ResourceType `json:"resource_type,omitempty"`
+	// key path
+	Key string `json:"key,omitempty"`
+	// label selector
+	Selector map[string]string `json:"selector,omitempty"`
+}
+
+type ResourceType string
+const (
+	DependencyReplicationController ResourceType = "replicationcontrollers"
+	DependencyService               ResourceType = "services"
+	DependencyDeployment            ResourceType = "deployments"
+	DependencyStatefulset           ResourceType = "statefulsets"
+)

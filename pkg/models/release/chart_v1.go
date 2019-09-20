@@ -1,10 +1,11 @@
 package release
 
 type ChartDependencyInfo struct {
-	ChartName          string  `json:"chartName"`
-	MaxVersion         float32 `json:"maxVersion"`
-	MinVersion         float32 `json:"minVersion"`
-	DependencyOptional bool    `json:"dependencyOptional"`
+	ChartName          string            `json:"chartName"`
+	MaxVersion         float32           `json:"maxVersion"`
+	MinVersion         float32           `json:"minVersion"`
+	DependencyOptional bool              `json:"dependencyOptional"`
+	Requires           map[string]string `json:"requires"`
 }
 
 type PrettyChartParams struct {

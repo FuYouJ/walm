@@ -206,6 +206,9 @@ var _ = Describe("HelmChart", func() {
 					MinVersion: 6,
 					MaxVersion: 5.2,
 					DependencyOptional: true,
+					Requires: map[string]string{
+						"GUARDIAN_CLIENT_CONFIG": "$(GUARDIAN_CLIENT_CONFIG)",
+					},
 				},
 			},
 			ChartPrettyParams: &release.PrettyChartParams{
