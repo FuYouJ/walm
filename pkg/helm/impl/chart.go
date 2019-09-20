@@ -195,6 +195,7 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 					MaxVersion: dependency.MaxVersion,
 					MinVersion: dependency.MinVersion,
 					DependencyOptional: dependency.DependencyOptional,
+					Requires: dependency.Requires,
 				}
 				chartDetailInfo.DependencyCharts = append(chartDetailInfo.DependencyCharts, dependency)
 			}

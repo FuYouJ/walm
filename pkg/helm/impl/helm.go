@@ -5,11 +5,9 @@ import (
 	"WarpCloud/walm/pkg/k8s"
 	k8sHelm "WarpCloud/walm/pkg/k8s/client/helm"
 	"WarpCloud/walm/pkg/models/common"
-	errorModel "WarpCloud/walm/pkg/models/error"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/redis"
-	"WarpCloud/walm/pkg/release/utils"
 	"WarpCloud/walm/pkg/setting"
 	"WarpCloud/walm/pkg/util"
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
@@ -162,23 +160,32 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		klog.Errorf("failed to build chart info : %s", err.Error())
 		return nil, err
 	}
-	// support meta pretty parameters
-	configValues := releaseRequest.ConfigValues
-	if configValues == nil {
-		configValues = map[string]interface{}{}
+
+	if releaseRequest.ConfigValues == nil {
+		releaseRequest.ConfigValues = map[string]interface{}{}
 	}
-	if releaseRequest.MetaInfoParams != nil {
-		metaInfoConfigs, err := releaseRequest.MetaInfoParams.BuildConfigValues(chartInfo.MetaInfo)
-		if err != nil {
-			klog.Errorf("failed to get meta info parameters : %s", err.Error())
-			return nil, err
+
+	if chartInfo.WalmVersion == common.WalmVersionV2 {
+		// support meta pretty parameters
+		if releaseRequest.MetaInfoParams != nil {
+			metaInfoConfigs, err := releaseRequest.MetaInfoParams.BuildConfigValues(chartInfo.MetaInfo)
+			if err != nil {
+				klog.Errorf("failed to get meta info parameters : %s", err.Error())
+				return nil, err
+			}
+			util.MergeValues(releaseRequest.ConfigValues, metaInfoConfigs, false)
 		}
-		util.MergeValues(configValues, metaInfoConfigs, false)
+	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
+		// compatible for v1 pretty params
+		if releaseRequest.ReleasePrettyParams != nil {
+			processPrettyParams(&releaseRequest.ReleaseRequest)
+		}
 	}
 
 	dependencies := releaseRequest.Dependencies
 	releaseLabels := releaseRequest.ReleaseLabels
 	releasePlugins := releaseRequest.Plugins
+	configValues := releaseRequest.ConfigValues
 	if update {
 		// reuse config values, dependencies, release labels, walm plugins
 		configValues, dependencies, releaseLabels, releasePlugins, err = reuseReleaseRequest(oldReleaseInfo, releaseRequest)
@@ -196,21 +203,33 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		}
 	}
 
-	// get all the dependency releases' output configs from ReleaseConfig
-	dependencyConfigs, err := helmImpl.GetDependencyOutputConfigs(namespace, dependencies, chartInfo.MetaInfo)
+	// get all the dependency releases' output configs from ReleaseConfig or dummy service(for compatible)
+	dependencyConfigs, err := helmImpl.GetDependencyOutputConfigs(namespace, dependencies, chartInfo)
 	if err != nil {
 		klog.Errorf("failed to get all the dependency releases' output configs : %s", err.Error())
 		return nil, err
 	}
 
-	err = transwarpjsonnet.ProcessJsonnetChart(
-		releaseRequest.RepoName, rawChart, namespace,
-		releaseRequest.Name, configValues, dependencyConfigs,
-		dependencies, releaseLabels, releaseRequest.ChartImage,
-	)
-	if err != nil {
-		klog.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
-		return nil, err
+	if chartInfo.WalmVersion == common.WalmVersionV2 {
+		err = transwarpjsonnet.ProcessJsonnetChart(
+			releaseRequest.RepoName, rawChart, namespace,
+			releaseRequest.Name, configValues, dependencyConfigs,
+			dependencies, releaseLabels, releaseRequest.ChartImage,
+		)
+		if err != nil {
+			klog.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
+			return nil, err
+		}
+	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
+		err = transwarpjsonnet.ProcessJsonnetChartV1(
+			releaseRequest.RepoName, rawChart, namespace,
+			releaseRequest.Name, configValues, dependencyConfigs,
+			dependencies, releaseLabels, releaseRequest.ChartImage,
+		)
+		if err != nil {
+			klog.Errorf("failed to ProcessJsonnetChart v1: %s", err.Error())
+			return nil, err
+		}
 	}
 
 	if paused != nil {
@@ -528,49 +547,6 @@ func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *rel
 	walmPlugins, err = mergeReleasePlugins(releaseRequest.Plugins, releaseInfo.Plugins)
 	if err != nil {
 		return
-	}
-	return
-}
-
-func (helmImpl *Helm) GetDependencyOutputConfigs(namespace string, dependencies map[string]string, chartMetaInfo *release.ChartMetaInfo) (dependencyConfigs map[string]interface{}, err error) {
-	dependencyConfigs = map[string]interface{}{}
-	if chartMetaInfo == nil {
-		return
-	}
-
-	chartDependencies := chartMetaInfo.ChartDependenciesInfo
-	dependencyAliasConfigVars := map[string]string{}
-	for _, chartDependency := range chartDependencies {
-		dependencyAliasConfigVars[chartDependency.Name] = chartDependency.AliasConfigVar
-	}
-
-	for dependencyKey, dependency := range dependencies {
-		dependencyAliasConfigVar, ok := dependencyAliasConfigVars[dependencyKey]
-		if !ok {
-			err = fmt.Errorf("dependency key %s is not valid, you can see valid keys in chart metainfo", dependencyKey)
-			klog.Errorf(err.Error())
-			return
-		}
-
-		dependencyNamespace, dependencyName, err := utils.ParseDependedRelease(namespace, dependency)
-		if err != nil {
-			return nil, err
-		}
-
-		dependencyReleaseConfigResource, err := helmImpl.k8sCache.GetResource(k8sModel.ReleaseConfigKind, dependencyNamespace, dependencyName)
-		if err != nil {
-			if errorModel.IsNotFoundError(err) {
-				klog.Warningf("release config %s/%s is not found", dependencyNamespace, dependencyName)
-				continue
-			}
-			klog.Errorf("failed to get release config %s/%s : %s", dependencyNamespace, dependencyName, err.Error())
-			return nil, err
-		}
-
-		dependencyReleaseConfig := dependencyReleaseConfigResource.(*k8sModel.ReleaseConfig)
-		if len(dependencyReleaseConfig.OutputConfig) > 0 {
-			dependencyConfigs[dependencyAliasConfigVar] = dependencyReleaseConfig.OutputConfig
-		}
 	}
 	return
 }

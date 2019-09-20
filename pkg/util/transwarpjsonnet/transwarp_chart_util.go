@@ -17,6 +17,7 @@ import (
 	"WarpCloud/walm/pkg/helm/impl/plugins"
 	"WarpCloud/walm/pkg/setting"
 	"WarpCloud/walm/pkg/util"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 const (
@@ -31,6 +32,10 @@ const (
 	TranswarpAdvantageFileName    = "advantage.html"
 	TranswarpArchitectureFileName = "architecture.html"
 	TranswarpAppYamlPattern       = TranswarpJsonnetTemplateDir + "%s/%s/app.yaml"
+
+	TranswarpInstallIDKey        = "Transwarp_Install_ID"
+	TranswarpInstallNamespaceKey = "Transwarp_Install_Namespace"
+	TosVersionKey                = "TosVersion"
 )
 
 var commonTemplateFilesPath string
@@ -96,6 +101,10 @@ func buildConfigValuesToRender(
 	configValues["chartName"] = rawChart.Metadata.Name
 	configValues["chartAppVersion"] = rawChart.Metadata.AppVersion
 	configValues["Transwarp_Install_Namespace"] = namespace
+	//Compatible
+	configValues["Customized_Namespace"] = namespace
+	configValues["TosVersion"] = "1.9"
+	configValues[TranswarpInstallIDKey] = rand.String(5)
 
 	util.MergeValues(configValues, userConfigs, false)
 
@@ -162,6 +171,74 @@ func ProcessJsonnetChart(
 	jsonnetTemplateFiles[path.Join(releaseName, rawChart.Metadata.AppVersion, "values.yaml")] = string(valueYamlContent)
 
 	loadCommonJsonnetLib(jsonnetTemplateFiles)
+
+	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs)
+	if err != nil {
+		klog.Errorf("failed to build config values to render jsonnet template files : %s", err.Error())
+		return err
+	}
+	jsonStr, err := renderMainJsonnetFile(jsonnetTemplateFiles, configValues)
+	if err != nil {
+		klog.Errorf("failed to render jsonnet files : %s", err.Error())
+		return err
+	}
+
+	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr)
+	if err != nil {
+		klog.Errorf("failed to build native chart templates : %s", err.Error())
+		return err
+	}
+
+	for fileName, kubeResourceBytes := range kubeResources {
+		rawChart.Templates = append(rawChart.Templates, &chart.File{
+			Name: BuildNotRenderedFileName(fileName),
+			Data: kubeResourceBytes,
+		})
+	}
+	return nil
+}
+
+func ProcessJsonnetChartV1(
+	repo string, rawChart *chart.Chart, releaseNamespace,
+	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
+	dependencies, releaseLabels map[string]string, chartImage string) error {
+	jsonnetTemplateFiles := make(map[string]string, 0)
+	var rawChartFiles []*chart.File
+	for _, f := range rawChart.Files {
+		if strings.HasPrefix(f.Name, TranswarpJsonnetTemplateDir) {
+			cname := strings.TrimPrefix(f.Name, TranswarpJsonnetTemplateDir)
+			if strings.IndexAny(cname, "._") == 0 {
+				// Ignore charts/ that start with . or _.
+				continue
+			}
+			appcname := path.Join(releaseName, rawChart.Metadata.AppVersion, TranswarpJsonnetTemplateDir, cname)
+			jsonnetTemplateFiles[appcname] = string(f.Data)
+		} else {
+			rawChartFiles = append(rawChartFiles, f)
+		}
+	}
+
+	autoGenReleaseConfig, err := buildAutoGenReleaseConfig(
+		releaseNamespace, releaseName, repo,
+		rawChart.Metadata.Name, rawChart.Metadata.Version,
+		rawChart.Metadata.AppVersion, releaseLabels, dependencies,
+		dependencyConfigs, userConfigs, chartImage,
+	)
+	if err != nil {
+		klog.Errorf("failed to auto gen release config : %s", err.Error())
+		return err
+	}
+	rawChart.Templates = append(rawChart.Templates, &chart.File{
+		Name: BuildNotRenderedFileName("autogen-releaseconfig.json"),
+		Data: autoGenReleaseConfig,
+	})
+	rawChart.Files = rawChartFiles
+
+	if len(jsonnetTemplateFiles) == 0 {
+		// native chart
+		klog.Infof("chart %s is native chart", rawChart.Metadata.Name)
+		return nil
+	}
 
 	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs)
 	if err != nil {

@@ -49,6 +49,29 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 				}
 				releaseConfig = rc
 			}
+		} else if resource.GetObjectKind().GroupVersionKind().Kind == "Service"{
+			// compatible dummy service
+			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
+			if err != nil {
+				klog.Errorf("failed to convert unstructured : %s", err.Error())
+				return err
+			}
+			service, err := buildService(converted)
+			if err != nil {
+				klog.Infof("failed to build service : %s", err.Error())
+				return err
+			}
+			if service.Labels != nil && service.Labels["transwarp.meta"]== "true" && service.Labels["transwarp.install"] != "" &&
+				service.Annotations != nil && service.Annotations["transwarp.meta"] != "" {
+					releaseConfig = &v1beta1.ReleaseConfig{}
+					err := json.Unmarshal([]byte(service.Annotations["transwarp.meta"]), &releaseConfig.Spec.OutputConfig)
+					if err != nil {
+						klog.Errorf("failed to unmarshal dummy service transwarp meta : %s", err.Error())
+						return err
+					}
+			} else {
+				newResource = append(newResource, resource)
+			}
 		} else {
 			newResource = append(newResource, resource)
 		}

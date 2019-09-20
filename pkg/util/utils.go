@@ -1,5 +1,9 @@
 package util
 
+import (
+	"encoding/json"
+	"k8s.io/klog"
+)
 
 func MergeValues(dest map[string]interface{}, src map[string]interface{}, deleteKey bool) map[string]interface{} {
 	for k, v := range src {
@@ -30,4 +34,19 @@ func MergeValues(dest map[string]interface{}, src map[string]interface{}, delete
 		dest[k] = MergeValues(destMap, nextMap, deleteKey)
 	}
 	return dest
+}
+
+func UnifyConfigValue(config map[string]interface{}) (map[string]interface{}, error) {
+	str, err := json.Marshal(config)
+	if err != nil {
+		klog.Errorf("failed to marshal config values : %s", err.Error())
+		return nil , err
+	}
+	result := map[string]interface{}{}
+	err = json.Unmarshal(str, &result)
+	if err != nil {
+		klog.Errorf("failed to unmarshal config values : %s", err.Error())
+		return nil, err
+	}
+	return result, nil
 }

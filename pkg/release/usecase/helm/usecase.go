@@ -39,7 +39,7 @@ func (helm *Helm) ReloadRelease(namespace, name string) error {
 	}
 
 	oldDependenciesConfigValues := releaseInfo.DependenciesConfigValues
-	newDependenciesConfigValues, err := helm.helm.GetDependencyOutputConfigs(namespace, releaseInfo.Dependencies, chartInfo.MetaInfo)
+	newDependenciesConfigValues, err := helm.helm.GetDependencyOutputConfigs(namespace, releaseInfo.Dependencies, chartInfo)
 	if err != nil {
 		klog.Errorf("failed to get dependencies output configs of %s/%s : %s", namespace, name, err.Error())
 		return err
