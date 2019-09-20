@@ -121,6 +121,7 @@ type List struct {
 	Offset int
 	// Filter is a filter that is applied to the results
 	Filter       string
+	HelmVersion  string
 	Short        bool
 	Uninstalled  bool
 	Superseded   bool
@@ -251,7 +252,7 @@ func (l *List) SetStateMask() {
 
 func FormatList(rels []*release.Release) string {
 	table := uitable.New()
-	table.AddRow("NAME", "NAMESPACE", "REVISION", "UPDATED", "STATUS", "CHART")
+	table.AddRow("NAME", "NAMESPACE", "REVISION", "UPDATED", "STATUS", "CHART", "HELMVERSION")
 	for _, r := range rels {
 		md := r.Chart.Metadata
 		c := fmt.Sprintf("%s-%s", md.Name, md.Version)
@@ -262,7 +263,8 @@ func FormatList(rels []*release.Release) string {
 		s := r.Info.Status.String()
 		v := r.Version
 		n := r.Namespace
-		table.AddRow(r.Name, n, v, t, s, c)
+		h := r.HelmVersion
+		table.AddRow(r.Name, n, v, t, s, c, h)
 	}
 	return table.String()
 }

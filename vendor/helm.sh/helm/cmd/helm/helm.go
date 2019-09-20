@@ -107,6 +107,10 @@ func initActionConfig(actionConfig *action.Configuration, allNamespaces bool) {
 		d := driver.NewConfigMaps(clientset.CoreV1().ConfigMaps(namespace))
 		d.Log = debug
 		store = storage.Init(d)
+	case "configmapex", "configmapsex":
+		d := driver.NewConfigMapsEx(clientset.CoreV1().ConfigMaps(namespace), clientset.CoreV1().ConfigMaps(driver.KubeSystemNamespace), namespace)
+		d.Log = debug
+		store = storage.Init(d)
 	case "memory":
 		d := driver.NewMemory()
 		store = storage.Init(d)
