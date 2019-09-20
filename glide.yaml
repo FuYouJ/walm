@@ -1,5 +1,8 @@
 package: WarpCloud/walm
 import:
+- package: transwarp/application-instance
+  repo: ssh://git@172.16.1.41:10022/k8s/application-instance.git
+  version: release-1.10
 - package: helm.sh/helm
   repo: ssh://git@172.16.1.41:10022/k8s/helm.git
   version: dev-v3-update

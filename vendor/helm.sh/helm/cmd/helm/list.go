@@ -97,6 +97,6 @@ func newListCmd(cfg *action.Configuration, out io.Writer) *cobra.Command {
 	f.IntVarP(&client.Limit, "max", "m", 256, "maximum number of releases to fetch")
 	f.IntVarP(&client.Offset, "offset", "o", 0, "next release name in the list, used to offset from start value")
 	f.StringVarP(&client.Filter, "filter", "f", "", "a regular expression (Perl compatible). Any releases that match the expression will be included in the results")
-
+	f.StringVar(&client.HelmVersion, "helmVersion", "", "show releases belong to responding helm version")
 	return cmd
 }

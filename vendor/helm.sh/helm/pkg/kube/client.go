@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"log"
 	"strings"
 	"time"
@@ -31,7 +32,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
@@ -114,6 +114,7 @@ func (c *Client) Build(reader io.Reader) (ResourceList, error) {
 		Do().Infos()
 	return result, scrubValidationError(err)
 }
+
 
 // Update reads in the current configuration and a target configuration from io.reader
 // and creates resources that don't already exists, updates resources that have been modified

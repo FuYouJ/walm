@@ -37,6 +37,8 @@ type Release struct {
 	Version int `json:"version,omitempty"`
 	// Namespace is the kubernetes namespace of the release.
 	Namespace string `json:"namespace,omitempty"`
+	// HelmVersion is the field represent release belongs to helm v2 or v3.
+	HelmVersion string `json:"helmVersion,omitempty"`
 }
 
 // SetStatus is a helper for setting the status on a release.
