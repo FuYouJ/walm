@@ -85,9 +85,22 @@ func loadCommonJsonnetLib(templates map[string]string) (err error) {
 	return nil
 }
 
+type HelmNativeValues struct {
+	ChartName string `json:"chartName"`
+	ChartVersion string `json:"chartVersion"`
+	AppVersion string `json:"appVersion"`
+	ReleaseName string `json:"releaseName"`
+	ReleaseNamespace string `json:"releaseNamespace"`
+}
+
+type AppHelmValues struct {
+	Dependencies map[string]string `json:"dependencies"`
+	NativeValues HelmNativeValues `json:"HelmNativeValues"`
+}
+
 func buildConfigValuesToRender(
 	rawChart *chart.Chart, namespace, name string,
-	userConfigs, dependencyConfigs map[string]interface{},
+	userConfigs, dependencyConfigs map[string]interface{}, dependencies map[string]string,
 ) (configValues map[string]interface{}, err error) {
 	configValues = map[string]interface{}{}
 	util.MergeValues(configValues, rawChart.Values, false)
@@ -101,10 +114,24 @@ func buildConfigValuesToRender(
 	configValues["chartName"] = rawChart.Metadata.Name
 	configValues["chartAppVersion"] = rawChart.Metadata.AppVersion
 	configValues["Transwarp_Install_Namespace"] = namespace
+
 	//Compatible
 	configValues["Customized_Namespace"] = namespace
 	configValues["TosVersion"] = "1.9"
-	configValues[TranswarpInstallIDKey] = rand.String(5)
+	helmVals := AppHelmValues{}
+	helmVals.NativeValues.ChartName = rawChart.Metadata.Name
+	helmVals.NativeValues.ChartVersion = rawChart.Metadata.Version
+	helmVals.NativeValues.AppVersion = rawChart.Metadata.AppVersion
+	helmVals.NativeValues.ReleaseName = name
+	helmVals.NativeValues.ReleaseNamespace = namespace
+	helmVals.Dependencies = dependencies
+
+	chartRawBase := map[string]interface{}{}
+	chartRawBase["HelmAdditionalValues"] = helmVals
+	chartJsonRawBase := map[string]interface{}{}
+	chartJsonRawVals, _ := yaml.Marshal(chartRawBase)
+	yaml.Unmarshal(chartJsonRawVals, &chartJsonRawBase)
+	util.MergeValues(configValues, chartJsonRawBase, false )
 
 	util.MergeValues(configValues, userConfigs, false)
 
@@ -172,7 +199,7 @@ func ProcessJsonnetChart(
 
 	loadCommonJsonnetLib(jsonnetTemplateFiles)
 
-	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs)
+	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs, dependencies)
 	if err != nil {
 		klog.Errorf("failed to build config values to render jsonnet template files : %s", err.Error())
 		return err
@@ -202,6 +229,12 @@ func ProcessJsonnetChartV1(
 	repo string, rawChart *chart.Chart, releaseNamespace,
 	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
 	dependencies, releaseLabels map[string]string, chartImage string) error {
+	if userConfigs == nil {
+		userConfigs = map[string]interface{}{}
+	}
+	if _, ok := userConfigs[TranswarpInstallIDKey]; !ok {
+		userConfigs[TranswarpInstallIDKey] = rand.String(5)
+	}
 	jsonnetTemplateFiles := make(map[string]string, 0)
 	var rawChartFiles []*chart.File
 	for _, f := range rawChart.Files {
@@ -240,7 +273,7 @@ func ProcessJsonnetChartV1(
 		return nil
 	}
 
-	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs)
+	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs, dependencies)
 	if err != nil {
 		klog.Errorf("failed to build config values to render jsonnet template files : %s", err.Error())
 		return err

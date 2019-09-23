@@ -11,6 +11,7 @@ import (
 	"sync"
 	"WarpCloud/walm/pkg/models/common"
 	k8sutils "WarpCloud/walm/pkg/k8s/utils"
+	"WarpCloud/walm/pkg/util/transwarpjsonnet"
 )
 
 const (
@@ -142,6 +143,7 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 			instance := instResource.(*k8sModel.ApplicationInstance)
 			releaseV2.Dependencies = instance.Dependencies
 			releaseV2.OutputConfigValues = k8sutils.ConvertDependencyMetaToOutputConfig(instance.DependencyMeta)
+			releaseV2.ConfigValues[transwarpjsonnet.TranswarpInstallIDKey] = instance.InstanceId
 		}
 	}
 
