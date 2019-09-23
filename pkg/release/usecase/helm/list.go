@@ -9,6 +9,12 @@ import (
 	"fmt"
 	"k8s.io/klog"
 	"sync"
+	"WarpCloud/walm/pkg/models/common"
+	k8sutils "WarpCloud/walm/pkg/k8s/utils"
+)
+
+const (
+	releasePausedConfigKey = "Transwarp_Application_Pause"
 )
 
 func (helm *Helm) GetRelease(namespace, name string) (releaseV2 *releaseModel.ReleaseInfoV2, err error) {
@@ -73,6 +79,16 @@ func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.Rele
 	return
 }
 
+func convertHelmVersionToWalmVersion(helmVersion string) common.WalmVersion {
+	if helmVersion == "v3" {
+		return common.WalmVersionV2
+	}
+	if helmVersion == "v2" {
+		return common.WalmVersionV1
+	}
+	return common.WalmVersionV2
+}
+
 func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*releaseModel.ReleaseInfoV2, error) {
 	releaseV1, err := helm.buildReleaseInfo(releaseCache)
 	if err != nil {
@@ -80,30 +96,54 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 		return nil, err
 	}
 
-	releaseV2 := &releaseModel.ReleaseInfoV2{ReleaseInfo: *releaseV1}
-	releaseConfigResource, err := helm.k8sCache.GetResource(k8sModel.ReleaseConfigKind, releaseCache.Namespace, releaseCache.Name)
-	if err != nil {
-		if errorModel.IsNotFoundError(err) {
-			releaseV2.DependenciesConfigValues = map[string]interface{}{}
-			releaseV2.OutputConfigValues = map[string]interface{}{}
-			releaseV2.ReleaseLabels = map[string]string{}
-		} else {
-			klog.Errorf("failed to get release config : %s", err.Error())
-			return nil, err
-		}
-	} else {
-		releaseConfig := releaseConfigResource.(*k8sModel.ReleaseConfig)
-		releaseV2.ConfigValues = releaseConfig.ConfigValues
-		releaseV2.Dependencies = releaseConfig.Dependencies
-		releaseV2.DependenciesConfigValues = releaseConfig.DependenciesConfigValues
-		releaseV2.OutputConfigValues = releaseConfig.OutputConfig
-		releaseV2.ReleaseLabels = releaseConfig.Labels
-		releaseV2.RepoName = releaseConfig.Repo
-		releaseV2.ChartImage = releaseConfig.ChartImage
+	releaseV2 := &releaseModel.ReleaseInfoV2{
+		ReleaseInfo:        *releaseV1,
+		ReleaseWarmVersion: convertHelmVersionToWalmVersion(releaseCache.HelmVersion),
+		ComputedValues:     releaseCache.ComputedValues,
 	}
-	releaseV2.ComputedValues = releaseCache.ComputedValues
-	releaseV2.MetaInfoValues = releaseCache.MetaInfoValues
-	releaseV2.Plugins, releaseV2.Paused, err = walmHelm.BuildReleasePluginsByConfigValues(releaseV2.ComputedValues)
+
+	if releaseV2.ReleaseWarmVersion == common.WalmVersionV2 {
+		releaseConfigResource, err := helm.k8sCache.GetResource(k8sModel.ReleaseConfigKind, releaseCache.Namespace, releaseCache.Name)
+		if err != nil {
+			if errorModel.IsNotFoundError(err) {
+				releaseV2.DependenciesConfigValues = map[string]interface{}{}
+				releaseV2.OutputConfigValues = map[string]interface{}{}
+				releaseV2.ReleaseLabels = map[string]string{}
+			} else {
+				klog.Errorf("failed to get release config : %s", err.Error())
+				return nil, err
+			}
+		} else {
+			releaseConfig := releaseConfigResource.(*k8sModel.ReleaseConfig)
+			releaseV2.ConfigValues = releaseConfig.ConfigValues
+			releaseV2.Dependencies = releaseConfig.Dependencies
+			releaseV2.DependenciesConfigValues = releaseConfig.DependenciesConfigValues
+			releaseV2.OutputConfigValues = releaseConfig.OutputConfig
+			releaseV2.ReleaseLabels = releaseConfig.Labels
+			releaseV2.RepoName = releaseConfig.Repo
+			releaseV2.ChartImage = releaseConfig.ChartImage
+		}
+		releaseV2.MetaInfoValues = releaseCache.MetaInfoValues
+		releaseV2.Plugins, releaseV2.Paused, err = walmHelm.BuildReleasePluginsByConfigValues(releaseV2.ComputedValues)
+	} else if releaseV2.ReleaseWarmVersion == common.WalmVersionV1 {
+		releaseV2.DependenciesConfigValues = map[string]interface{}{}
+		releaseV2.OutputConfigValues = map[string]interface{}{}
+		releaseV2.ReleaseLabels = map[string]string{}
+		releaseV2.Plugins = []*releaseModel.ReleasePlugin{}
+		releaseV2.Paused = buildV1ReleasePauseInfo(releaseV2.ConfigValues)
+
+		instResource, err := helm.k8sCache.GetResource(k8sModel.InstanceKind, releaseCache.Namespace, releaseCache.Name)
+		if err != nil {
+			if !errorModel.IsNotFoundError(err) {
+				klog.Errorf("failed to get instance : %s", err.Error())
+				return nil, err
+			}
+		} else {
+			instance := instResource.(*k8sModel.ApplicationInstance)
+			releaseV2.Dependencies = instance.Dependencies
+			releaseV2.OutputConfigValues = k8sutils.ConvertDependencyMetaToOutputConfig(instance.DependencyMeta)
+		}
+	}
 
 	if releaseV2.Paused {
 		releaseV2.Ready = false
@@ -111,6 +151,16 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 	}
 
 	return releaseV2, nil
+}
+
+// for compatible
+func buildV1ReleasePauseInfo(ConfigValues map[string]interface{}) bool {
+	if pausedValue, ok := ConfigValues[releasePausedConfigKey]; ok {
+		if paused, ok1 := pausedValue.(bool); ok1 && paused {
+			return true
+		}
+	}
+	return false
 }
 
 func (helm *Helm) buildReleaseInfo(releaseCache *releaseModel.ReleaseCache) (releaseInfo *releaseModel.ReleaseInfo, err error) {

@@ -25,6 +25,12 @@ import (
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	releaseconfigexternalversions "transwarp/release-config/pkg/client/informers/externalversions"
 	releaseconfigv1beta1 "transwarp/release-config/pkg/client/listers/transwarp/v1beta1"
+	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
+	instancev1beta1 "transwarp/application-instance/pkg/client/listers/transwarp/v1beta1"
+	instanceexternalversions "transwarp/application-instance/pkg/client/informers/externalversions"
+	beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
+	"fmt"
+	"encoding/json"
 )
 
 type Informer struct {
@@ -49,6 +55,9 @@ type Informer struct {
 
 	releaseConifgFactory releaseconfigexternalversions.SharedInformerFactory
 	releaseConfigLister  releaseconfigv1beta1.ReleaseConfigLister
+
+	instanceFactory instanceexternalversions.SharedInformerFactory
+	instanceLister  instancev1beta1.ApplicationInstanceLister
 }
 
 func (informer *Informer) ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error) {
@@ -360,8 +369,7 @@ func (informer *Informer) GetResource(kind k8s.ResourceKind, namespace, name str
 	case k8s.StorageClassKind:
 		return informer.getStorageClass(namespace, name)
 	case k8s.InstanceKind:
-		//TODO
-		return nil, errorModel.NotFoundError{}
+		return informer.getInstance(namespace, name)
 	default:
 		return &k8s.DefaultResource{Meta: k8s.NewMeta(kind, namespace, name, k8s.NewState("Unknown", "NotSupportedKind", "Can not get this resource"))}, nil
 	}
@@ -370,18 +378,44 @@ func (informer *Informer) GetResource(kind k8s.ResourceKind, namespace, name str
 func (informer *Informer) start(stopCh <-chan struct{}) {
 	informer.factory.Start(stopCh)
 	informer.releaseConifgFactory.Start(stopCh)
+	informer.instanceFactory.Start(stopCh)
 }
 
 func (informer *Informer) waitForCacheSync(stopCh <-chan struct{}) {
 	informer.factory.WaitForCacheSync(stopCh)
 	informer.releaseConifgFactory.WaitForCacheSync(stopCh)
+	informer.instanceFactory.WaitForCacheSync(stopCh)
 }
 
 func (informer *Informer) searchEvents(namespace string, objOrRef runtime.Object) (*corev1.EventList, error) {
 	return informer.client.CoreV1().Events(namespace).Search(runtime.NewScheme(), objOrRef)
 }
 
-func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfigclientset.Clientset, resyncPeriod time.Duration, stopCh <-chan struct{}) (*Informer) {
+func (informer *Informer) getDependencyMetaByInstance(instance *beta1.ApplicationInstance) (*k8s.DependencyMeta, error) {
+	dummyServiceSelectorStr := fmt.Sprintf("transwarp.meta=true,transwarp.install=%s", instance.Spec.InstanceId)
+
+	dummyServices, err := informer.ListServices(instance.Namespace, dummyServiceSelectorStr)
+	if err != nil {
+		klog.Errorf("failed to list dummy services : %s", err.Error())
+		return nil, err
+	}
+	if len(dummyServices) == 0 {
+		return nil, nil
+	}
+	svc := dummyServices[0]
+	metaString, found := svc.Annotations["transwarp.meta"]
+	if !found {
+		return nil, nil
+	}
+	meta := &k8s.DependencyMeta{}
+	if err := json.Unmarshal([]byte(metaString), meta); err != nil {
+		klog.Errorf("Fail to unmarshal dependency meta, error %v", err)
+		return nil, err
+	}
+	return meta, nil
+}
+
+func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfigclientset.Clientset, instanceClient *instanceclientset.Clientset, resyncPeriod time.Duration, stopCh <-chan struct{}) (*Informer) {
 	informer := &Informer{}
 	informer.client = client
 	informer.factory = informers.NewSharedInformerFactory(client, resyncPeriod)
@@ -404,6 +438,9 @@ func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfi
 
 	informer.releaseConifgFactory = releaseconfigexternalversions.NewSharedInformerFactory(releaseConfigClient, resyncPeriod)
 	informer.releaseConfigLister = informer.releaseConifgFactory.Transwarp().V1beta1().ReleaseConfigs().Lister()
+
+	informer.instanceFactory = instanceexternalversions.NewSharedInformerFactory(instanceClient, resyncPeriod)
+	informer.instanceLister = informer.instanceFactory.Transwarp().V1beta1().ApplicationInstances().Lister()
 
 	informer.start(stopCh)
 	informer.waitForCacheSync(stopCh)

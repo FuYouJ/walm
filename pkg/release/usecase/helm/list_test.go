@@ -13,6 +13,7 @@ import (
 	"WarpCloud/walm/pkg/models/task"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/common"
 )
 
 func TestHelm_GetRelease(t *testing.T) {
@@ -250,6 +251,7 @@ func TestHelm_GetRelease(t *testing.T) {
 					Status: k8s.NewResourceSet(),
 				},
 				Plugins: []*release.ReleasePlugin{},
+				ReleaseWarmVersion: common.WalmVersionV2,
 			},
 			err: nil,
 		},
@@ -480,6 +482,7 @@ func TestHelm_ListReleases(t *testing.T) {
 						Status: k8s.NewResourceSet(),
 					},
 					Plugins: []*release.ReleasePlugin{},
+					ReleaseWarmVersion: common.WalmVersionV2,
 				},
 			},
 			err: nil,
@@ -672,6 +675,7 @@ func TestHelm_ListReleasesByLabels(t *testing.T) {
 						Status: k8s.NewResourceSet(),
 					},
 					Plugins: []*release.ReleasePlugin{},
+					ReleaseWarmVersion: common.WalmVersionV2,
 				},
 			},
 			err:          nil,

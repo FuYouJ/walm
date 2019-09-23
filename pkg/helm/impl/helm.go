@@ -34,6 +34,10 @@ import (
 	"strings"
 )
 
+const (
+	compatibleNamespace = "kube-system"
+)
+
 type ChartRepository struct {
 	Name     string
 	URL      string
@@ -62,7 +66,7 @@ func (helmImpl *Helm) getActionConfig(namespace string) (*action.Configuration, 
 			return nil, err
 		}
 
-		d := driver.NewConfigMaps(clientset.CoreV1().ConfigMaps(namespace))
+		d := driver.NewConfigMapsEx(clientset.CoreV1().ConfigMaps(namespace), clientset.CoreV1().ConfigMaps(compatibleNamespace), namespace)
 		store := storage.Init(d)
 		config := &action.Configuration{
 			KubeClient:       kubeClient,
@@ -447,6 +451,7 @@ func (helmImpl *Helm) convertHelmRelease(helmRelease *helmRelease.Release) (rele
 		return nil, err
 	}
 	releaseCache.Manifest = helmRelease.Manifest
+	releaseCache.HelmVersion = helmRelease.HelmVersion
 	return
 }
 

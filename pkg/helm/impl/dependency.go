@@ -9,8 +9,8 @@ import (
 	"WarpCloud/walm/pkg/release/utils"
 	"k8s.io/klog"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
-	"encoding/json"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	k8sutils "WarpCloud/walm/pkg/k8s/utils"
 )
 
 const (
@@ -63,21 +63,7 @@ func (helmImpl *Helm) getDependencyOutputConfigsForChartV1(namespace string, dep
 	return dependencyConfigs, nil
 }
 
-func getDependencyMetaByReleaseConfig(releaseConfig *k8sModel.ReleaseConfig) (*DependencyMeta) {
-	metaString, err := json.Marshal(releaseConfig.OutputConfig)
-	if err != nil {
-		klog.Warningf("failed marshal release config output config : %s", err.Error())
-		return nil
-	}
-	meta := &DependencyMeta{}
-	if err := json.Unmarshal(metaString, meta); err != nil {
-		klog.Warningf("Fail to unmarshal dependency meta, error %v", err)
-		return nil
-	}
-	return meta
-}
-
-func buildDependencyConfigsForChartV1(dependencyConfigs map[string]interface{}, dependencyRequire map[string]string, dependencyMeta *DependencyMeta) error {
+func buildDependencyConfigsForChartV1(dependencyConfigs map[string]interface{}, dependencyRequire map[string]string, dependencyMeta *k8sModel.DependencyMeta) error {
 	cache := make(map[string]interface{})
 	for key, statement := range dependencyRequire {
 		varName, fieldPath, err := splitVarAndFieldPath(statement)
@@ -135,31 +121,7 @@ func (helmImpl *Helm) getDependencyOutputConfigsForChartV2(namespace string, dep
 	return
 }
 
-func (helmImpl *Helm) getDependencyMetaByInstance(instance *k8sModel.ApplicationInstance) (*DependencyMeta, error) {
-	dummyServiceSelectorStr := fmt.Sprintf("transwarp.meta=true,transwarp.install=%s", instance.InstanceId)
-
-	dummyServices, err := helmImpl.k8sCache.ListServices(instance.Namespace, dummyServiceSelectorStr)
-	if err != nil {
-		klog.Errorf("failed to list dummy services : %s", err.Error())
-		return nil, err
-	}
-	if len(dummyServices) == 0 {
-		return nil, nil
-	}
-	svc := dummyServices[0]
-	metaString, found := svc.Annotations["transwarp.meta"]
-	if !found {
-		return nil, nil
-	}
-	meta := &DependencyMeta{}
-	if err := json.Unmarshal([]byte(metaString), meta); err != nil {
-		klog.Errorf("Fail to unmarshal dependency meta, error %v", err)
-		return nil, err
-	}
-	return meta, nil
-}
-
-func (helmImpl *Helm) getDependencyMetaForChartV1(namespace string, dependency string) (*DependencyMeta, error) {
+func (helmImpl *Helm) getDependencyMetaForChartV1(namespace string, dependency string) (*k8sModel.DependencyMeta, error) {
 	dependencyNamespace, dependencyName, err := utils.ParseDependedRelease(namespace, dependency)
 	if err != nil {
 		return nil, err
@@ -173,12 +135,8 @@ func (helmImpl *Helm) getDependencyMetaForChartV1(namespace string, dependency s
 			return nil, err
 		}
 	} else {
-		dependencyMeta, err := helmImpl.getDependencyMetaByInstance(dependencyInstanceResource.(*k8sModel.ApplicationInstance))
-		if err != nil {
-			klog.Errorf("failed to get dependency meta by instance : %s", err.Error())
-			return nil, err
-		}
-		return dependencyMeta, nil
+		dependencyInstance := dependencyInstanceResource.(*k8sModel.ApplicationInstance)
+		return dependencyInstance.DependencyMeta, nil
 	}
 
 	dependencyReleaseConfigResource, err := helmImpl.k8sCache.GetResource(k8sModel.ReleaseConfigKind, dependencyNamespace, dependencyName)
@@ -192,7 +150,7 @@ func (helmImpl *Helm) getDependencyMetaForChartV1(namespace string, dependency s
 	}
 
 	dependencyReleaseConfig := dependencyReleaseConfigResource.(*k8sModel.ReleaseConfig)
-	return getDependencyMetaByReleaseConfig(dependencyReleaseConfig), nil
+	return k8sutils.ConvertOutputConfigToDependencyMeta(dependencyReleaseConfig.OutputConfig), nil
 }
 
 func (helmImpl *Helm) getOutputConfigValuesForChartV2(namespace string, dependency string) (map[string]interface{}, error) {
@@ -209,18 +167,8 @@ func (helmImpl *Helm) getOutputConfigValuesForChartV2(namespace string, dependen
 			return nil, err
 		}
 	} else {
-		dependencyMeta, err := helmImpl.getDependencyMetaByInstance(dependencyInstanceResource.(*k8sModel.ApplicationInstance))
-		if err != nil {
-			klog.Errorf("failed to get dependency meta by instance : %s", err.Error())
-			return nil, err
-		}
-		outputConfig := map[string]interface{}{}
-		if dependencyMeta != nil {
-			for key, value := range dependencyMeta.Provides {
-				outputConfig[key] = value
-			}
-		}
-		return outputConfig, nil
+		dependencyMeta := (dependencyInstanceResource.(*k8sModel.ApplicationInstance)).DependencyMeta
+		return k8sutils.ConvertDependencyMetaToOutputConfig(dependencyMeta), nil
 	}
 
 	dependencyReleaseConfigResource, err := helmImpl.k8sCache.GetResource(k8sModel.ReleaseConfigKind, dependencyNamespace, dependencyName)
@@ -254,7 +202,7 @@ func splitVarAndFieldPath(statement string) (string, string, error) {
 }
 
 // getProvidedValue helps to extract instance's provided value with the help of dependency meta in dummy service's annotation
-func getProvidedValue(meta *DependencyMeta, varName string) (interface{}, error) {
+func getProvidedValue(meta *k8sModel.DependencyMeta, varName string) (interface{}, error) {
 	for name, provide := range meta.Provides {
 		if name == varName {
 			if provide.ResourceType == "" {

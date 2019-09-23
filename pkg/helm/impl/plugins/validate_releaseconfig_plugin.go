@@ -7,6 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
+	"k8s.io/api/core/v1"
 )
 
 const (
@@ -61,14 +62,13 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 				klog.Infof("failed to build service : %s", err.Error())
 				return err
 			}
-			if service.Labels != nil && service.Labels["transwarp.meta"]== "true" && service.Labels["transwarp.install"] != "" &&
-				service.Annotations != nil && service.Annotations["transwarp.meta"] != "" {
-					releaseConfig = &v1beta1.ReleaseConfig{}
-					err := json.Unmarshal([]byte(service.Annotations["transwarp.meta"]), &releaseConfig.Spec.OutputConfig)
-					if err != nil {
-						klog.Errorf("failed to unmarshal dummy service transwarp meta : %s", err.Error())
-						return err
-					}
+			if isDummyService(service) {
+				releaseConfig = &v1beta1.ReleaseConfig{}
+				err := json.Unmarshal([]byte(service.Annotations["transwarp.meta"]), &releaseConfig.Spec.OutputConfig)
+				if err != nil {
+					klog.Errorf("failed to unmarshal dummy service transwarp meta : %s", err.Error())
+					return err
+				}
 			} else {
 				newResource = append(newResource, resource)
 			}
@@ -89,7 +89,7 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 		}
 		if releaseConfig == nil {
 			newResource = append(newResource, autoGenReleaseConfig)
-		}else {
+		} else {
 			autoGenReleaseConfig.Spec.OutputConfig = releaseConfig.Spec.OutputConfig
 			if autoGenReleaseConfig.Labels == nil {
 				autoGenReleaseConfig.Labels = map[string]string{}
@@ -107,6 +107,11 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 
 	context.Resources = newResource
 	return nil
+}
+
+func isDummyService(service *v1.Service) bool {
+	return service.Labels != nil && service.Labels["transwarp.meta"] == "true" && service.Labels["transwarp.install"] != "" &&
+		service.Annotations != nil && service.Annotations["transwarp.meta"] != ""
 }
 
 func buildReleaseConfig(resource *unstructured.Unstructured) (*v1beta1.ReleaseConfig, error) {

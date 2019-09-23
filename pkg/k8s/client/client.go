@@ -8,6 +8,7 @@ import (
 	"k8s.io/klog"
 	"time"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
+	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 )
 
 const (
@@ -98,6 +99,26 @@ func NewReleaseConfigClient(apiserverHost string, kubeConfig string) (*releaseco
 	klog.Infof("Creating API release config client for %s", cfg.Host)
 
 	client, err := releaseconfigclientset.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+// k8s client to deal with application instance, only for k8s 1.9+
+func NewInstanceClient(apiserverHost string, kubeConfig string) (*instanceclientset.Clientset, error) {
+	cfg, err := clientcmd.BuildConfigFromFlags(apiserverHost, kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.QPS = defaultQPS
+	cfg.Burst = defaultBurst
+
+	klog.Infof("Creating API application instance client for %s", cfg.Host)
+
+	client, err := instanceclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

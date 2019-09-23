@@ -19,6 +19,11 @@ func ConvertServiceFromK8s(oriService *corev1.Service, endpoints *corev1.Endpoin
 		Meta:        k8s.NewMeta(k8s.ServiceKind, service.Namespace, service.Name, k8s.NewState("Ready", "", "")),
 		ClusterIp:   service.Spec.ClusterIP,
 		ServiceType: string(service.Spec.Type),
+		Annotations: service.Annotations,
+	}
+
+	if walmService.Annotations == nil {
+		walmService.Annotations = map[string]string{}
 	}
 
 	walmService.Ports, err = buildWalmServicePorts(service, endpoints)

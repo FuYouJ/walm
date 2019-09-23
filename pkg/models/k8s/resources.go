@@ -432,8 +432,54 @@ type TaintNodeRequestBody struct {
 
 type ApplicationInstance struct {
 	Meta
-	InstanceId string `json:"instanceId"`
+	Dependencies map[string]string `json:"dependencies"`
+	InstanceId   string            `json:"instanceId"`
+	Modules      *ResourceSet      `json:"resourceSet"`
+	DependencyMeta *DependencyMeta  `json:"dependencyMeta"`
 }
 
+type DependencyMeta struct {
+	Provides map[string]DependencyProvide `json:"provides,omitempty"`
+}
+
+type DependencyProvide struct {
+	// immediate value
+	ImmediateValue interface{} `json:"immediate_value,omitempty"`
+	// k8s resource type
+	ResourceType `json:"resource_type,omitempty"`
+	// key path
+	Key string `json:"key,omitempty"`
+	// label selector
+	Selector map[string]string `json:"selector,omitempty"`
+}
+
+type ResourceType string
+
 func (resource *ApplicationInstance) AddToResourceSet(resourceSet *ResourceSet) {
+	if resource.Modules != nil {
+		for _, resource := range resource.Modules.Deployments {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.Secrets {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.StatefulSets {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.ConfigMaps {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.DaemonSets {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.Services {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.Jobs {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.Ingresses {
+			resource.AddToResourceSet(resourceSet)
+		}
+	}
 }
