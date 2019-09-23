@@ -22,6 +22,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -33,6 +34,7 @@ import (
 	_ "crypto/sha256"
 
 	"github.com/containerd/containerd/archive/tartest"
+	"github.com/containerd/containerd/pkg/testutil"
 	"github.com/containerd/continuity/fs"
 	"github.com/containerd/continuity/fs/fstest"
 	"github.com/pkg/errors"
@@ -183,6 +185,50 @@ func TestSymlinks(t *testing.T) {
 	}
 }
 
+func TestTarWithXattr(t *testing.T) {
+	testutil.RequiresRoot(t)
+
+	fileXattrExist := func(f1, xattrKey, xattrValue string) func(string) error {
+		return func(root string) error {
+			values, err := getxattr(filepath.Join(root, f1), xattrKey)
+			if err != nil {
+				return err
+			}
+			if xattrValue != string(values) {
+				return fmt.Errorf("file xattrs expect to be %s, actually get %s", xattrValue, values)
+			}
+			return nil
+		}
+	}
+
+	tests := []struct {
+		name  string
+		key   string
+		value string
+		err   error
+	}{
+		{
+			name:  "WithXattrsUser",
+			key:   "user.key",
+			value: "value",
+		},
+		{
+			// security related xattrs need root permission to test
+			name:  "WithXattrSelinux",
+			key:   "security.selinux",
+			value: "unconfined_u:object_r:default_t:s0\x00",
+		},
+	}
+	for _, at := range tests {
+		tc := tartest.TarContext{}.WithUIDGID(os.Getuid(), os.Getgid()).WithModTime(time.Now().UTC()).WithXattrs(map[string]string{
+			at.key: at.value,
+		})
+		w := tartest.TarAll(tc.File("/file", []byte{}, 0755))
+		validator := fileXattrExist("file", at.key, at.value)
+		t.Run(at.name, makeWriterToTarTest(w, nil, validator, at.err))
+	}
+}
+
 func TestBreakouts(t *testing.T) {
 	tc := tartest.TarContext{}.WithUIDGID(os.Getuid(), os.Getgid()).WithModTime(time.Now().UTC())
 	expected := "unbroken"
@@ -283,7 +329,7 @@ func TestBreakouts(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if bytes.Compare(b, content) != 0 {
+			if !bytes.Equal(b, content) {
 				return errors.Errorf("content differs: expected %v, got %v", content, b)
 			}
 			return nil
@@ -1133,7 +1179,7 @@ func fileEntry(name string, expected []byte, mode int) tarEntryValidator {
 		if hdr.Mode != int64(mode) {
 			return errors.Errorf("wrong mode %o, expected %o", hdr.Mode, mode)
 		}
-		if bytes.Compare(b, expected) != 0 {
+		if !bytes.Equal(b, expected) {
 			return errors.Errorf("different file content")
 		}
 		return nil

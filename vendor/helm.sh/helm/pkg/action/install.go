@@ -30,6 +30,7 @@ import (
 	"github.com/Masterminds/sprig"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/cli-runtime/pkg/resource"
 
 	"helm.sh/helm/pkg/chart"
 	"helm.sh/helm/pkg/chartutil"
@@ -37,7 +38,6 @@ import (
 	"helm.sh/helm/pkg/downloader"
 	"helm.sh/helm/pkg/engine"
 	"helm.sh/helm/pkg/getter"
-	"helm.sh/helm/pkg/helmpath"
 	kubefake "helm.sh/helm/pkg/kube/fake"
 	"helm.sh/helm/pkg/release"
 	"helm.sh/helm/pkg/releaseutil"
@@ -107,12 +107,66 @@ func NewInstall(cfg *Configuration) *Install {
 	}
 }
 
+func (i *Install) installCRDs(crds []*chart.File) error {
+	// We do these one file at a time in the order they were read.
+	totalItems := []*resource.Info{}
+	for _, obj := range crds {
+		// Read in the resources
+		res, err := i.cfg.KubeClient.Build(bytes.NewBuffer(obj.Data))
+		if err != nil {
+			return errors.Wrapf(err, "failed to install CRD %s", obj.Name)
+		}
+
+		// Send them to Kube
+		if _, err := i.cfg.KubeClient.Create(res); err != nil {
+			// If the error is CRD already exists, continue.
+			if apierrors.IsAlreadyExists(err) {
+				crdName := res[0].Name
+				i.cfg.Log("CRD %s is already present. Skipping.", crdName)
+				continue
+			}
+			return errors.Wrapf(err, "failed to instal CRD %s", obj.Name)
+		}
+		totalItems = append(totalItems, res...)
+	}
+	// Invalidate the local cache, since it will not have the new CRDs
+	// present.
+	discoveryClient, err := i.cfg.RESTClientGetter.ToDiscoveryClient()
+	if err != nil {
+		return err
+	}
+	i.cfg.Log("Clearing discovery cache")
+	discoveryClient.Invalidate()
+	// Give time for the CRD to be recognized.
+	if err := i.cfg.KubeClient.Wait(totalItems, 60*time.Second); err != nil {
+		return err
+	}
+	// Make sure to force a rebuild of the cache.
+	discoveryClient.ServerGroups()
+	return nil
+}
+
 // Run executes the installation
 //
 // If DryRun is set to true, this will prepare the release, but not install it
 func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.Release, error) {
+	if err := i.cfg.KubeClient.IsReachable(); err != nil {
+		return nil, err
+	}
+
 	if err := i.availableName(); err != nil {
 		return nil, err
+	}
+
+	// Pre-install anything in the crd/ directory. We do this before Helm
+	// contacts the upstream server and builds the capabilities object.
+	if crds := chrt.CRDs(); !i.ClientOnly && !i.SkipCRDs && len(crds) > 0 {
+		// On dry run, bail here
+		if i.DryRun {
+			i.cfg.Log("WARNING: This chart or one of its subcharts contains CRDs. Rendering may fail or contain inaccuracies.")
+		} else if err := i.installCRDs(crds); err != nil {
+			return nil, err
+		}
 	}
 
 	if i.ClientOnly {
@@ -136,13 +190,9 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 		return nil, err
 	}
 
-	revision := 1
-	ts := time.Now()
 	options := chartutil.ReleaseOptions{
 		Name:      i.ReleaseName,
-		Time:      ts,
 		Namespace: i.Namespace,
-		Revision:  revision,
 		IsInstall: true,
 	}
 	valuesToRender, err := chartutil.ToRenderValues(chrt, vals, options, caps)
@@ -151,34 +201,6 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 	}
 
 	rel := i.createRelease(chrt, vals)
-
-	// Pre-install anything in the crd/ directory
-	if crds := chrt.CRDs(); !i.SkipCRDs && len(crds) > 0 {
-		// We do these one at a time in the order they were read.
-		for _, obj := range crds {
-			// Read in the resources
-			res, err := i.cfg.KubeClient.Build(bytes.NewBuffer(obj.Data))
-			if err != nil {
-				// We bail out immediately
-				return nil, errors.Wrapf(err, "failed to install CRD %s", obj.Name)
-			}
-			// On dry run, bail here
-			if i.DryRun {
-				i.cfg.Log("WARNING: This chart or one of its subcharts contains CRDs. Rendering may fail or contain inaccuracies.")
-				continue
-			}
-			// Send them to Kube
-			if _, err := i.cfg.KubeClient.Create(res); err != nil {
-				// If the error is CRD already exists, continue.
-				if apierrors.IsAlreadyExists(err) {
-					crdName := res[0].Name
-					i.cfg.Log("CRD %s is already present. Skipping.", crdName)
-					continue
-				}
-				return i.failRelease(rel, err)
-			}
-		}
-	}
 
 	var manifestDoc *bytes.Buffer
 	rel.Hooks, manifestDoc, rel.Info.Notes, err = i.cfg.renderResources(chrt, valuesToRender, i.OutputDir)
@@ -200,11 +222,11 @@ func (i *Install) Run(chrt *chart.Chart, vals map[string]interface{}) (*release.
 		i.ReleaseChan <- rel
 		i.cfg.Log("waiting for executing pre_install plugins")
 		select {
-		case err = <- i.ReleaseErrChan:
+		case err = <-i.ReleaseErrChan:
 			i.cfg.Log("failed to execute pre_install plugins")
 			rel.SetStatus(release.StatusFailed, fmt.Sprintf("failed to execute pre_install plugins: %s", err.Error()))
 			return rel, err
-		case rel = <- i.ReleaseChan:
+		case rel = <-i.ReleaseChan:
 			i.cfg.Log("succeed to execute pre_install plugins")
 		}
 	}
@@ -293,7 +315,7 @@ func (i *Install) failRelease(rel *release.Release, err error) (*release.Release
 		}
 		return rel, errors.Wrapf(err, "release %s failed, and has been uninstalled due to atomic being set", i.ReleaseName)
 	}
-	i.recordRelease(rel) // Ignore the error, since we have another error to deal with.
+	err = i.recordRelease(rel) // Ignore the error, since we have another error to deal with.
 	return rel, err
 }
 
@@ -586,8 +608,8 @@ OUTER:
 // - if path is absolute or begins with '.', error out here
 // - URL
 //
-// If 'verify' is true, this will attempt to also verify the chart.
-func (c *ChartPathOptions) LocateChart(name string, settings cli.EnvSettings) (string, error) {
+// If 'verify' was set on ChartPathOptions, this will attempt to also verify the chart.
+func (c *ChartPathOptions) LocateChart(name string, settings *cli.EnvSettings) (string, error) {
 	name = strings.TrimSpace(name)
 	version := strings.TrimSpace(c.Version)
 
@@ -614,6 +636,8 @@ func (c *ChartPathOptions) LocateChart(name string, settings cli.EnvSettings) (s
 		Options: []getter.Option{
 			getter.WithBasicAuth(c.Username, c.Password),
 		},
+		RepositoryConfig: settings.RepositoryConfig,
+		RepositoryCache:  settings.RepositoryCache,
 	}
 	if c.Verify {
 		dl.Verify = downloader.VerifyAlways
@@ -627,11 +651,11 @@ func (c *ChartPathOptions) LocateChart(name string, settings cli.EnvSettings) (s
 		name = chartURL
 	}
 
-	if _, err := os.Stat(helmpath.Archive()); os.IsNotExist(err) {
-		os.MkdirAll(helmpath.Archive(), 0744)
+	if err := os.MkdirAll(settings.RepositoryCache, 0755); err != nil {
+		return "", err
 	}
 
-	filename, _, err := dl.DownloadTo(name, version, helmpath.Archive())
+	filename, _, err := dl.DownloadTo(name, version, settings.RepositoryCache)
 	if err == nil {
 		lname, err := filepath.Abs(filename)
 		if err != nil {

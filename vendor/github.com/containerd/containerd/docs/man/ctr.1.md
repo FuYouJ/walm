@@ -1,5 +1,9 @@
 # ctr 1 01/30/2018
 
+## NAME
+
+ctr - command line for containerd
+
 ## SYNOPSIS
 
 **ctr [global options] command [command options] [arguments...]**
@@ -8,7 +12,7 @@
 
 **ctr** is an unsupported debug and administrative client for interacting
 with the containerd daemon. Because it is unsupported, the commands,
-options, and operation are not guaranteed to be backward compatible or
+options, and operations are not guaranteed to be backward compatible or
 stable from release to release of the containerd project.
 
 ## OPTIONS

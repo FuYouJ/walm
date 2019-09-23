@@ -149,13 +149,11 @@ func (u *Upgrade) prepareUpgrade(name string, chart *chart.Chart, vals map[strin
 	// Increment revision count. This is passed to templates, and also stored on
 	// the release object.
 	revision := lastRelease.Version + 1
-	ts := time.Now()
+
 	options := chartutil.ReleaseOptions{
 		Name:      name,
 		Namespace: currentRelease.Namespace,
-		Time: ts,
 		IsUpgrade: true,
-		Revision: revision,
 	}
 
 	caps, err := u.cfg.getCapabilities()
@@ -201,10 +199,10 @@ func (u *Upgrade) performUpgrade(originalRelease, upgradedRelease *release.Relea
 		u.ReleaseChan <- upgradedRelease
 		u.cfg.Log("waiting for executing pre_install plugins")
 		select {
-		case err := <- u.ReleaseErrChan:
+		case err := <-u.ReleaseErrChan:
 			u.cfg.Log("failed to execute pre_install plugins")
 			return upgradedRelease, err
-		case upgradedRelease = <- u.ReleaseChan:
+		case upgradedRelease = <-u.ReleaseChan:
 			u.cfg.Log("succeed to execute pre_install plugins")
 		}
 	}
@@ -281,7 +279,10 @@ func (u *Upgrade) failRelease(rel *release.Release, err error) (*release.Release
 
 	rel.Info.Status = release.StatusFailed
 	rel.Info.Description = msg
-	u.cfg.recordRelease(rel)
+	err = u.cfg.recordRelease(rel)
+	if err != nil {
+		return nil, err
+	}
 	if u.Atomic {
 		u.cfg.Log("Upgrade failed and atomic is set, rolling back to last successful release")
 

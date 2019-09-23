@@ -44,7 +44,7 @@ import (
 const FeatureGateOCI = gates.Gate("HELM_EXPERIMENTAL_OCI")
 
 var (
-	settings   cli.EnvSettings
+	settings   = cli.New()
 	config     genericclioptions.RESTClientGetter
 	configOnce sync.Once
 )
@@ -79,7 +79,12 @@ func main() {
 
 	if err := cmd.Execute(); err != nil {
 		debug("%+v", err)
-		os.Exit(1)
+		switch e := err.(type) {
+		case pluginError:
+			os.Exit(e.code)
+		default:
+			os.Exit(1)
+		}
 	}
 }
 
@@ -133,6 +138,10 @@ func kubeConfig() genericclioptions.RESTClientGetter {
 }
 
 func getNamespace() string {
+	if settings.Namespace != "" {
+		return settings.Namespace
+	}
+
 	if ns, _, err := kubeConfig().ToRawKubeConfigLoader().Namespace(); err == nil {
 		return ns
 	}
@@ -141,14 +150,14 @@ func getNamespace() string {
 
 // wordSepNormalizeFunc changes all flags that contain "_" separators
 func wordSepNormalizeFunc(f *pflag.FlagSet, name string) pflag.NormalizedName {
-	return pflag.NormalizedName(strings.Replace(name, "_", "-", -1))
+	return pflag.NormalizedName(strings.ReplaceAll(name, "_", "-"))
 }
 
 func checkOCIFeatureGate() func(_ *cobra.Command, _ []string) error {
 	return func(_ *cobra.Command, _ []string) error {
-		if !FeatureGateOCI.IsEnabled() {
-			return FeatureGateOCI.Error()
-		}
+		//if !FeatureGateOCI.IsEnabled() {
+		//	return FeatureGateOCI.Error()
+		//}
 		return nil
 	}
 }

@@ -17,21 +17,21 @@ limitations under the License.
 package main // import "helm.sh/helm/cmd/helm"
 
 import (
+	"crypto/tls"
+	"github.com/containerd/containerd/remotes/docker"
 	"io"
+	"net/http"
 
 	"github.com/spf13/cobra"
 
 	"helm.sh/helm/cmd/helm/require"
 	"helm.sh/helm/internal/experimental/registry"
 	"helm.sh/helm/pkg/action"
-	"net/http"
-	"crypto/tls"
-	"github.com/containerd/containerd/remotes/docker"
 )
 
 const (
 	bashCompletionFunc = `
-__helm_override_flag_list=(--kubeconfig --kube-context --home --namespace -n)
+__helm_override_flag_list=(--kubeconfig --kube-context --namespace -n)
 __helm_override_flags()
 {
     local ${__helm_override_flag_list[*]##*-} two_word_of of var
@@ -68,6 +68,22 @@ __helm_list_releases()
         COMPREPLY=( $( compgen -W "${out[*]}" -- "$cur" ) )
     fi
 }
+__helm_list_repos()
+{
+    __helm_debug "${FUNCNAME[0]}: c is $c words[c] is ${words[c]}"
+    local out
+    if out=$(helm repo list | tail +2 | cut -f1 2>/dev/null); then
+        COMPREPLY=( $( compgen -W "${out[*]}" -- "$cur" ) )
+    fi
+}
+__helm_list_plugins()
+{
+    __helm_debug "${FUNCNAME[0]}: c is $c words[c] is ${words[c]}"
+    local out
+    if out=$(helm plugin list | tail +2 | cut -f1 2>/dev/null); then
+        COMPREPLY=( $( compgen -W "${out[*]}" -- "$cur" ) )
+    fi
+}
 __helm_custom_func()
 {
 	__helm_debug "${FUNCNAME[0]}: last_command is $last_command"
@@ -76,7 +92,15 @@ __helm_custom_func()
 	    helm_upgrade | helm_rollback | helm_get_*)
             __helm_list_releases
             return
-            ;;
+			;;
+		helm_repo_remove)
+			__helm_list_repos
+			return
+			;;
+		helm_plugin_remove | helm_plugin_update)
+			__helm_list_plugins
+			return
+			;;
         *)
             ;;
     esac
@@ -86,13 +110,7 @@ __helm_custom_func()
 
 var globalUsage = `The Kubernetes package manager
 
-To begin working with Helm, run the 'helm init' command:
-
-	$ helm init
-
-This will set up any necessary local configuration.
-
-Common actions from this point include:
+Common actions for Helm:
 
 - helm search:    search for charts
 - helm fetch:     download a chart to your local directory to view
@@ -106,6 +124,22 @@ Environment:
   $HELM_DRIVER        set the backend storage driver. Values are: configmap, secret, memory
   $HELM_NO_PLUGINS    disable plugins. Set HELM_NO_PLUGINS=1 to disable plugins.
   $KUBECONFIG         set an alternative Kubernetes configuration file (default "~/.kube/config")
+
+Helm stores configuration based on the XDG base directory specification, so
+
+- cached files are stored in $XDG_CACHE_HOME/helm
+- configuration is stored in $XDG_CONFIG_HOME/helm
+- data is stored in $XDG_DATA_HOME/helm
+
+By default, the default directories depend on the Operating System. The defaults are listed below:
+
++------------------+---------------------------+--------------------------------+-------------------------+
+| Operating System | Cache Path                | Configuration Path             | Data Path               |
++------------------+---------------------------+--------------------------------+-------------------------+
+| Linux            | $HOME/.cache/helm         | $HOME/.config/helm             | $HOME/.local/share/helm |
+| macOS            | $HOME/Library/Caches/helm | $HOME/Library/Preferences/helm | $HOME/Library/helm      |
+| Windows          | %TEMP%\helm               | %APPDATA%\helm                 | %APPDATA%\helm          |
++------------------+---------------------------+--------------------------------+-------------------------+
 `
 
 func newRootCmd(actionConfig *action.Configuration, out io.Writer, args []string) *cobra.Command {
@@ -157,7 +191,7 @@ func newRootCmd(actionConfig *action.Configuration, out io.Writer, args []string
 		newUpgradeCmd(actionConfig, out),
 
 		newCompletionCmd(out),
-		newInitCmd(out),
+		newEnvCmd(out),
 		newPluginCmd(out),
 		newVersionCmd(out),
 

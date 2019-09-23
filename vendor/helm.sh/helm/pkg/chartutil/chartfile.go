@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/pkg/errors"
 	"sigs.k8s.io/yaml"
@@ -81,32 +80,5 @@ func IsChartDir(dirName string) (bool, error) {
 		return false, errors.New("invalid chart (Chart.yaml): name must not be empty")
 	}
 
-	return true, nil
-}
-
-// IsChartInstallable validates if a chart can be installed
-//
-// Application chart type is only installable
-func IsChartInstallable(chart *chart.Chart) (bool, error) {
-	chartType := chart.Metadata.Type
-	if strings.EqualFold(chartType, "library") {
-		return false, errors.New("Library charts are not installable")
-	}
-	validChartType, _ := IsValidChartType(chart)
-	if !validChartType {
-		return false, errors.New("Invalid chart types are not installable")
-	}
-	return true, nil
-}
-
-// IsValidChartType validates the chart type
-//
-// Valid types are: application or library
-func IsValidChartType(chart *chart.Chart) (bool, error) {
-	chartType := chart.Metadata.Type
-	if chartType != "" && !strings.EqualFold(chartType, "library") &&
-		!strings.EqualFold(chartType, "application") {
-		return false, errors.New("Invalid chart type. Valid types are: application or library")
-	}
 	return true, nil
 }

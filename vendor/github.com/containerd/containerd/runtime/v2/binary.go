@@ -24,13 +24,13 @@ import (
 	gruntime "runtime"
 	"strings"
 
-	eventstypes "github.com/containerd/containerd/api/events"
 	"github.com/containerd/containerd/events/exchange"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/runtime"
 	client "github.com/containerd/containerd/runtime/v2/shim"
 	"github.com/containerd/containerd/runtime/v2/task"
 	"github.com/containerd/ttrpc"
+	"github.com/gogo/protobuf/types"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 )
@@ -53,7 +53,7 @@ type binary struct {
 	rtTasks           *runtime.TaskList
 }
 
-func (b *binary) Start(ctx context.Context) (_ *shim, err error) {
+func (b *binary) Start(ctx context.Context, opts *types.Any, onClose func()) (_ *shim, err error) {
 	args := []string{"-id", b.bundle.ID}
 	if logrus.GetLevel() == logrus.DebugLevel {
 		args = append(args, "-debug")
@@ -65,6 +65,7 @@ func (b *binary) Start(ctx context.Context) (_ *shim, err error) {
 		b.runtime,
 		b.containerdAddress,
 		b.bundle.Path,
+		opts,
 		args...,
 	)
 	if err != nil {
@@ -84,7 +85,9 @@ func (b *binary) Start(ctx context.Context) (_ *shim, err error) {
 	// copy the shim's logs to containerd's output
 	go func() {
 		defer f.Close()
-		if _, err := io.Copy(os.Stderr, f); err != nil {
+		_, err := io.Copy(os.Stderr, f)
+		err = checkCopyShimLogError(ctx, err)
+		if err != nil {
 			log.G(ctx).WithError(err).Error("copy shim log")
 		}
 	}()
@@ -97,8 +100,7 @@ func (b *binary) Start(ctx context.Context) (_ *shim, err error) {
 	if err != nil {
 		return nil, err
 	}
-	client := ttrpc.NewClient(conn)
-	client.OnClose(func() { conn.Close() })
+	client := ttrpc.NewClient(conn, ttrpc.WithOnClose(onClose))
 	return &shim{
 		bundle:  b.bundle,
 		client:  client,
@@ -123,6 +125,7 @@ func (b *binary) Delete(ctx context.Context) (*runtime.Exit, error) {
 		b.runtime,
 		b.containerdAddress,
 		bundlePath,
+		nil,
 		"-id", b.bundle.ID,
 		"-bundle", b.bundle.Path,
 		"delete")
@@ -149,16 +152,6 @@ func (b *binary) Delete(ctx context.Context) (*runtime.Exit, error) {
 	if err := b.bundle.Delete(); err != nil {
 		return nil, err
 	}
-	// remove self from the runtime task list
-	// this seems dirty but it cleans up the API across runtimes, tasks, and the service
-	b.rtTasks.Delete(ctx, b.bundle.ID)
-	// shim will send the exit event
-	b.events.Publish(ctx, runtime.TaskDeleteEventTopic, &eventstypes.TaskDelete{
-		ContainerID: b.bundle.ID,
-		ExitStatus:  response.ExitStatus,
-		ExitedAt:    response.ExitedAt,
-		Pid:         response.Pid,
-	})
 	return &runtime.Exit{
 		Status:    response.ExitStatus,
 		Timestamp: response.ExitedAt,

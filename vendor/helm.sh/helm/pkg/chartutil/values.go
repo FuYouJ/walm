@@ -26,8 +26,6 @@ import (
 	"github.com/pkg/errors"
 	"sigs.k8s.io/yaml"
 
-
-	"time"
 	"helm.sh/helm/pkg/chart"
 )
 
@@ -131,11 +129,9 @@ func ReadValuesFile(filename string) (Values, error) {
 // for the composition of the final values struct
 type ReleaseOptions struct {
 	Name      string
-	Time      time.Time
 	Namespace string
 	IsUpgrade bool
 	IsInstall bool
-	Revision  int
 }
 
 // ToRenderValues composes the struct from the data coming from the Releases, Charts and Values files
@@ -150,11 +146,9 @@ func ToRenderValues(chrt *chart.Chart, chrtVals map[string]interface{}, options 
 		"Capabilities": caps,
 		"Release": map[string]interface{}{
 			"Name":      options.Name,
-			"Time":      options.Time,
 			"Namespace": options.Namespace,
 			"IsUpgrade": options.IsUpgrade,
 			"IsInstall": options.IsInstall,
-			"Revision":  options.Revision,
 			"Service":   "Helm",
 		},
 	}
