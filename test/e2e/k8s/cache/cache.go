@@ -29,7 +29,7 @@ var _ = Describe("K8sCache", func() {
 		namespace, err = framework.CreateRandomNamespace("k8sCacheTest", nil)
 		Expect(err).NotTo(HaveOccurred())
 		stopChan = make(chan struct{})
-		k8sCache = informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), 0, stopChan)
+		k8sCache = informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), framework.GetK8sInstanceClient(), 0, stopChan)
 	})
 
 	AfterEach(func() {

@@ -8,6 +8,8 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog"
 	"strings"
+	"WarpCloud/walm/pkg/models/k8s"
+	"encoding/json"
 )
 
 const (
@@ -173,4 +175,42 @@ func ParseK8sResourcePod(strValue string) int64 {
 		return 0
 	}
 	return quantity.Value()
+}
+
+// for compatible
+// transform release config output config to dependency meta
+func ConvertOutputConfigToDependencyMeta(outputConfig map[string]interface{}) *k8s.DependencyMeta {
+	if len(outputConfig) == 0 {
+		return nil
+	}
+	metaString, err := json.Marshal(outputConfig)
+	if err != nil {
+		klog.Warningf("failed marshal release config output config : %s", err.Error())
+		return nil
+	}
+	meta := &k8s.DependencyMeta{}
+	if err := json.Unmarshal(metaString, meta); err != nil {
+		klog.Warningf("Fail to unmarshal dependency meta, error %v", err)
+		return nil
+	}
+	return meta
+}
+
+// for compatible
+// transform  dependency meta to release config output config
+func ConvertDependencyMetaToOutputConfig(dependencyMeta *k8s.DependencyMeta)  map[string]interface{}{
+	res := map[string]interface{}{}
+	if dependencyMeta != nil && len(dependencyMeta.Provides) > 0{
+		metaString, err := json.Marshal(dependencyMeta)
+		if err != nil {
+			klog.Warningf("failed marshal dependency meta : %s", err.Error())
+			return nil
+		}
+		if err := json.Unmarshal(metaString, &res); err != nil {
+			klog.Warningf("Fail to unmarshal output config, error %v", err)
+			return nil
+		}
+	}
+
+	return res
 }

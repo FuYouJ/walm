@@ -8,6 +8,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
+	"transwarp/application-instance/pkg/apis/transwarp/v1beta1"
+	"WarpCloud/walm/pkg/models/release"
 )
 
 func (informer *Informer) getReleaseConfig(namespace, name string) (k8s.Resource, error) {
@@ -219,6 +221,42 @@ func (informer *Informer) getStorageClass(namespace, name string) (k8s.Resource,
 	}
 
 	return converter.ConvertStorageClassFromK8s(resource)
+}
+
+func (informer *Informer) getInstance(namespace, name string) (k8s.Resource, error) {
+	resource, err := informer.instanceLister.ApplicationInstances(namespace).Get(name)
+	if err != nil {
+		return convertResourceError(err, &k8s.ApplicationInstance{
+			Meta: k8s.NewNotFoundMeta(k8s.InstanceKind, namespace, name),
+		})
+	}
+
+	resourceMetas := convertInstanceModulesToResourceMetas(resource.Status.Modules)
+	instanceModules, err := informer.GetResourceSet(resourceMetas)
+	if err != nil {
+		klog.Errorf("failed to get instance modules : %s", err.Error())
+		return nil, err
+	}
+
+	dependencyMeta, err := informer.getDependencyMetaByInstance(resource)
+	if err != nil {
+		klog.Errorf("failed to get dependency meta by instance : %s", err.Error())
+		return nil, err
+	}
+
+	return converter.ConvertInstanceFromK8s(resource, instanceModules, dependencyMeta)
+}
+
+func convertInstanceModulesToResourceMetas(references []v1beta1.ResourceReference) []release.ReleaseResourceMeta {
+	res := []release.ReleaseResourceMeta{}
+	for _, ref := range references {
+		res = append(res, release.ReleaseResourceMeta{
+			Name: ref.ResourceRef.Name,
+			Namespace: ref.ResourceRef.Namespace,
+			Kind: k8s.ResourceKind(ref.ResourceRef.Kind),
+		})
+	}
+	return res
 }
 
 func convertResourceError(err error, notFoundResource k8s.Resource) (k8s.Resource, error) {

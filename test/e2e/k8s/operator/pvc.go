@@ -15,10 +15,10 @@ import (
 var _ = Describe("K8sOperatorPvc", func() {
 
 	var (
-		namespace    string
-		k8sOperator  *operator.Operator
-		err          error
-		stopChan     chan struct{}
+		namespace   string
+		k8sOperator *operator.Operator
+		err         error
+		stopChan    chan struct{}
 	)
 
 	BeforeEach(func() {
@@ -26,7 +26,7 @@ var _ = Describe("K8sOperatorPvc", func() {
 		namespace, err = framework.CreateRandomNamespace("k8sOperatorPvcTest", nil)
 		Expect(err).NotTo(HaveOccurred())
 		stopChan = make(chan struct{})
-		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), 0, stopChan)
+		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), framework.GetK8sInstanceClient(), 0, stopChan)
 		k8sOperator = operator.NewOperator(framework.GetK8sClient(), k8sCache, nil)
 	})
 

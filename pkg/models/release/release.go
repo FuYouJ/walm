@@ -2,6 +2,7 @@ package release
 
 import (
 	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/common"
 )
 
 type ReleaseInfoList struct {
@@ -34,6 +35,7 @@ type ReleaseCache struct {
 	ComputedValues       map[string]interface{} `json:"computedValues" description:"release computed values"`
 	MetaInfoValues       *MetaInfoParams        `json:"metaInfoValues" description:"meta info values"`
 	Manifest             string                 `json:"manifest" description:"meta info values"`
+	HelmVersion          string                 `json:"helmVersion" description:"helm version"`
 }
 
 type ReleaseResourceMeta struct {
@@ -49,7 +51,7 @@ type ReleaseRequest struct {
 	ChartVersion        string                 `json:"chartVersion" description:"chart repo"`
 	ConfigValues        map[string]interface{} `json:"configValues" description:"extra values added to the chart"`
 	Dependencies        map[string]string      `json:"dependencies" description:"map of dependency chart name and release"`
-	ReleasePrettyParams *PrettyChartParams      `json:"releasePrettyParams" description:"pretty chart params"`
+	ReleasePrettyParams *PrettyChartParams     `json:"releasePrettyParams" description:"pretty chart params"`
 }
 
 type ReleaseConfigDeltaEventType string
@@ -74,6 +76,7 @@ type ReleaseInfoV2 struct {
 	MetaInfoValues           *MetaInfoParams        `json:"metaInfoValues" description:"meta info values"`
 	Paused                   bool                   `json:"paused" description:"whether release is paused"`
 	ChartImage               string                 `json:"chartImage" description:"release chart image"`
+	ReleaseWarmVersion       common.WalmVersion     `json:"releaseWalmVersion" description:"release walm version: v1, v2"`
 }
 
 type ReleasePlugin struct {

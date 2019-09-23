@@ -115,7 +115,12 @@ func (sc *ServCmd) run() error {
 		klog.Errorf("failed to create k8s release config client : %s", err.Error())
 		return err
 	}
-	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, 0, stopChan)
+	k8sInstanceClient, err := client.NewInstanceClient("", kubeConfig)
+	if err != nil {
+		klog.Errorf("failed to create k8s instance client : %s", err.Error())
+		return err
+	}
+	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, k8sInstanceClient,0, stopChan)
 
 	if config.TaskConfig == nil {
 		err = errors.New("task config can not be empty")

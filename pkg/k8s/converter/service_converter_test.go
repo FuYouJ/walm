@@ -86,6 +86,7 @@ func TestConvertServiceFromK8s(t *testing.T) {
 				},
 				ClusterIp:   "10.0.171.239",
 				ServiceType: "ClusterIP",
+				Annotations: map[string]string{},
 			},
 			err: nil,
 		},
