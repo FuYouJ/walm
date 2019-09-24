@@ -38,16 +38,31 @@ import (
 
 type contentStore struct {
 	content.Store
-	db *DB
-	l  sync.RWMutex
+	db     *DB
+	shared bool
+	l      sync.RWMutex
 }
 
 // newContentStore returns a namespaced content store using an existing
 // content store interface.
-func newContentStore(db *DB, cs content.Store) *contentStore {
+// policy defines the sharing behavior for content between namespaces. Both
+// modes will result in shared storage in the backend for committed. Choose
+// "shared" to prevent separate namespaces from having to pull the same content
+// twice.  Choose "isolated" if the content must not be shared between
+// namespaces.
+//
+// If the policy is "shared", writes will try to resolve the "expected" digest
+// against the backend, allowing imports of content from other namespaces. In
+// "isolated" mode, the client must prove they have the content by providing
+// the entire blob before the content can be added to another namespace.
+//
+// Since we have only two policies right now, it's simpler using bool to
+// represent it internally.
+func newContentStore(db *DB, shared bool, cs content.Store) *contentStore {
 	return &contentStore{
-		Store: cs,
-		db:    db,
+		Store:  cs,
+		db:     db,
+		shared: shared,
 	}
 }
 
@@ -383,13 +398,15 @@ func (cs *contentStore) Writer(ctx context.Context, opts ...content.WriterOpt) (
 				return nil
 			}
 
-			if st, err := cs.Store.Info(ctx, wOpts.Desc.Digest); err == nil {
-				// Ensure the expected size is the same, it is likely
-				// an error if the size is mismatched but the caller
-				// must resolve this on commit
-				if wOpts.Desc.Size == 0 || wOpts.Desc.Size == st.Size {
-					shared = true
-					wOpts.Desc.Size = st.Size
+			if cs.shared {
+				if st, err := cs.Store.Info(ctx, wOpts.Desc.Digest); err == nil {
+					// Ensure the expected size is the same, it is likely
+					// an error if the size is mismatched but the caller
+					// must resolve this on commit
+					if wOpts.Desc.Size == 0 || wOpts.Desc.Size == st.Size {
+						shared = true
+						wOpts.Desc.Size = st.Size
+					}
 				}
 			}
 		}
@@ -550,6 +567,8 @@ func (nw *namespacedWriter) createAndCopy(ctx context.Context, desc ocispec.Desc
 }
 
 func (nw *namespacedWriter) Commit(ctx context.Context, size int64, expected digest.Digest, opts ...content.Opt) error {
+	ctx = namespaces.WithNamespace(ctx, nw.namespace)
+
 	nw.l.RLock()
 	defer nw.l.RUnlock()
 
@@ -618,11 +637,11 @@ func (nw *namespacedWriter) commit(ctx context.Context, tx *bolt.Tx, size int64,
 			return "", errors.Wrapf(errdefs.ErrFailedPrecondition, "%q failed size validation: %v != %v", nw.ref, status.Offset, size)
 		}
 		size = status.Offset
-		actual = nw.w.Digest()
 
 		if err := nw.w.Commit(ctx, size, expected); err != nil && !errdefs.IsAlreadyExists(err) {
 			return "", err
 		}
+		actual = nw.w.Digest()
 	}
 
 	bkt, err := createBlobBucket(tx, nw.namespace, actual)
@@ -750,11 +769,7 @@ func writeExpireAt(expire time.Time, bkt *bolt.Bucket) error {
 	if err != nil {
 		return err
 	}
-	if err := bkt.Put(bucketKeyExpireAt, expireAt); err != nil {
-		return err
-	}
-
-	return nil
+	return bkt.Put(bucketKeyExpireAt, expireAt)
 }
 
 func (cs *contentStore) garbageCollect(ctx context.Context) (d time.Duration, err error) {
@@ -762,7 +777,7 @@ func (cs *contentStore) garbageCollect(ctx context.Context) (d time.Duration, er
 	t1 := time.Now()
 	defer func() {
 		if err == nil {
-			d = time.Now().Sub(t1)
+			d = time.Since(t1)
 		}
 		cs.l.Unlock()
 	}()

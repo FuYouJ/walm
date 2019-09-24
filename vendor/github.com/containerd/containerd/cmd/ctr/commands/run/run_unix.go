@@ -27,10 +27,13 @@ import (
 	"github.com/containerd/containerd/cmd/ctr/commands"
 	"github.com/containerd/containerd/contrib/nvidia"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/containerd/platforms"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 )
+
+var platformRunFlags []cli.Flag
 
 // NewContainer creates a new container
 func NewContainer(ctx gocontext.Context, client *containerd.Client, context *cli.Context) (containerd.Container, error) {
@@ -42,14 +45,6 @@ func NewContainer(ctx gocontext.Context, client *containerd.Client, context *cli
 		id = context.Args().First()
 	} else {
 		id = context.Args().Get(1)
-	}
-
-	if raw := context.String("checkpoint"); raw != "" {
-		im, err := client.GetImage(ctx, raw)
-		if err != nil {
-			return nil, err
-		}
-		return client.NewContainer(ctx, id, containerd.WithCheckpoint(im, id), containerd.WithRuntime(context.String("runtime"), nil))
 	}
 
 	var (
@@ -79,10 +74,21 @@ func NewContainer(ctx gocontext.Context, client *containerd.Client, context *cli
 			opts = append(opts, oci.WithRootFSPath(rootfs))
 		} else {
 			snapshotter := context.String("snapshotter")
-			image, err := client.GetImage(ctx, ref)
+			var image containerd.Image
+			i, err := client.ImageService().Get(ctx, ref)
 			if err != nil {
 				return nil, err
 			}
+			if ps := context.String("platform"); ps != "" {
+				platform, err := platforms.Parse(ps)
+				if err != nil {
+					return nil, err
+				}
+				image = containerd.NewImageWithPlatform(client, i, platforms.Only(platform))
+			} else {
+				image = containerd.NewImage(client, i)
+			}
+
 			unpacked, err := image.IsUnpacked(ctx, snapshotter)
 			if err != nil {
 				return nil, err
@@ -141,10 +147,22 @@ func NewContainer(ctx gocontext.Context, client *containerd.Client, context *cli
 		if context.IsSet("allow-new-privs") {
 			opts = append(opts, oci.WithNewPrivileges)
 		}
+		if context.IsSet("cgroup") {
+			// NOTE: can be set to "" explicitly for disabling cgroup.
+			opts = append(opts, oci.WithCgroup(context.String("cgroup")))
+		}
+		limit := context.Uint64("memory-limit")
+		if limit != 0 {
+			opts = append(opts, oci.WithMemoryLimit(limit))
+		}
+		for _, dev := range context.StringSlice("device") {
+			opts = append(opts, oci.WithLinuxDevice(dev, "rwm"))
+		}
 	}
 
 	cOpts = append(cOpts, containerd.WithRuntime(context.String("runtime"), nil))
 
+	opts = append(opts, oci.WithAnnotations(commands.LabelArgs(context.StringSlice("label"))))
 	var s specs.Spec
 	spec = containerd.WithSpec(&s, opts...)
 

@@ -191,7 +191,23 @@ func (helm *Helm) ListReleases(namespace string) ([]*releaseModel.ReleaseInfoV2,
 		return nil, err
 	}
 
-	releaseCaches, err := helm.releaseCache.GetReleaseCaches(namespace)
+	releaseCaches, err := helm.releaseCache.GetReleaseCaches(namespace, "")
+	if err != nil {
+		klog.Errorf("failed to get release caches with namespace=%s : %s", namespace, err.Error())
+		return nil, err
+	}
+
+	return helm.doListReleases(releaseTasks, releaseCaches)
+}
+
+func (helm *Helm) ListReleasesByFilter(namespace, filter string) ([]*releaseModel.ReleaseInfoV2, error) {
+	releaseTasks, err := helm.releaseCache.GetReleaseTasks(namespace)
+	if err != nil {
+		klog.Errorf("failed to get release tasks with namespace=%s : %s", namespace, err.Error())
+		return nil, err
+	}
+
+	releaseCaches, err := helm.releaseCache.GetReleaseCaches(namespace, filter)
 	if err != nil {
 		klog.Errorf("failed to get release caches with namespace=%s : %s", namespace, err.Error())
 		return nil, err

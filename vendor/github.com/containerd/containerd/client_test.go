@@ -21,13 +21,17 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"testing"
 	"time"
 
+	"github.com/containerd/containerd/defaults"
 	"github.com/containerd/containerd/images"
 	"github.com/containerd/containerd/log"
+	"github.com/containerd/containerd/log/logtest"
 	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/pkg/testutil"
 	"github.com/containerd/containerd/platforms"
@@ -36,11 +40,12 @@ import (
 )
 
 var (
-	address       string
-	noDaemon      bool
-	noCriu        bool
-	supportsCriu  bool
-	testNamespace = "testing"
+	address           string
+	noDaemon          bool
+	noCriu            bool
+	supportsCriu      bool
+	testNamespace     = "testing"
+	ctrdStdioFilePath string
 
 	ctrd = &daemon{}
 )
@@ -52,9 +57,12 @@ func init() {
 	flag.Parse()
 }
 
-func testContext() (context.Context, context.CancelFunc) {
+func testContext(t testing.TB) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
 	ctx = namespaces.WithNamespace(ctx, testNamespace)
+	if t != nil {
+		ctx = logtest.WithT(ctx, t)
+	}
 	return ctx, cancel
 }
 
@@ -69,20 +77,33 @@ func TestMain(m *testing.M) {
 
 	var (
 		buf         = bytes.NewBuffer(nil)
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(nil)
 	)
 	defer cancel()
 
 	if !noDaemon {
 		sys.ForceRemoveAll(defaultRoot)
 
-		err := ctrd.start("containerd", address, []string{
+		stdioFile, err := ioutil.TempFile("", "")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "could not create a new stdio temp file: %s\n", err)
+			os.Exit(1)
+		}
+		defer func() {
+			stdioFile.Close()
+			os.Remove(stdioFile.Name())
+		}()
+		ctrdStdioFilePath = stdioFile.Name()
+		stdioWriter := io.MultiWriter(stdioFile, buf)
+
+		err = ctrd.start("containerd", address, []string{
 			"--root", defaultRoot,
 			"--state", defaultState,
 			"--log-level", "debug",
-		}, buf, buf)
+			"--config", createShimDebugConfig(),
+		}, stdioWriter, stdioWriter)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s: %s", err, buf.String())
+			fmt.Fprintf(os.Stderr, "%s: %s\n", err, buf.String())
 			os.Exit(1)
 		}
 	}
@@ -108,13 +129,15 @@ func TestMain(m *testing.M) {
 	log.G(ctx).WithFields(logrus.Fields{
 		"version":  version.Version,
 		"revision": version.Revision,
+		"runtime":  os.Getenv("TEST_RUNTIME"),
 	}).Info("running tests against containerd")
 
 	// pull a seed image
+	log.G(ctx).Info("start to pull seed image")
 	if _, err = client.Pull(ctx, testImage, WithPullUnpack); err != nil {
-		ctrd.Stop()
-		ctrd.Wait()
 		fmt.Fprintf(os.Stderr, "%s: %s\n", err, buf.String())
+		ctrd.Kill()
+		ctrd.Wait()
 		os.Exit(1)
 	}
 
@@ -137,6 +160,7 @@ func TestMain(m *testing.M) {
 				fmt.Fprintln(os.Stderr, "failed to wait for containerd", err)
 			}
 		}
+
 		if err := sys.ForceRemoveAll(defaultRoot); err != nil {
 			fmt.Fprintln(os.Stderr, "failed to remove test root dir", err)
 			os.Exit(1)
@@ -183,7 +207,7 @@ func TestImagePull(t *testing.T) {
 	}
 	defer client.Close()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 	_, err = client.Pull(ctx, testImage, WithPlatformMatcher(platforms.Default()))
 	if err != nil {
@@ -197,7 +221,7 @@ func TestImagePullAllPlatforms(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 
 	cs := client.ContentStore()
@@ -232,7 +256,7 @@ func TestImagePullSomePlatforms(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer client.Close()
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 
 	cs := client.ContentStore()
@@ -263,8 +287,15 @@ func TestImagePullSomePlatforms(t *testing.T) {
 	count := 0
 	for _, manifest := range manifests {
 		children, err := images.Children(ctx, cs, manifest)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 		found := false
 		for _, matcher := range m {
+			if manifest.Platform == nil {
+				t.Fatal("manifest should have proper platform")
+			}
 			if matcher.Match(*manifest.Platform) {
 				count++
 				found = true
@@ -284,8 +315,6 @@ func TestImagePullSomePlatforms(t *testing.T) {
 				}
 				ra.Close()
 			}
-		} else if !found && err == nil {
-			t.Fatal("manifest should not have pulled children content")
 		}
 	}
 
@@ -301,7 +330,7 @@ func TestImagePullSchema1(t *testing.T) {
 	}
 	defer client.Close()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 	schema1TestImage := "gcr.io/google_containers/pause:3.0@sha256:0d093c962a6c2dd8bb8727b661e2b5f13e9df884af9945b4cc7088d9350cd3ee"
 	_, err = client.Pull(ctx, schema1TestImage, WithPlatform(platforms.DefaultString()), WithSchema1Conversion)
@@ -310,10 +339,27 @@ func TestImagePullSchema1(t *testing.T) {
 	}
 }
 
+func TestImagePullWithConcurrencyLimit(t *testing.T) {
+	client, err := newClient(t, address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	ctx, cancel := testContext(t)
+	defer cancel()
+	_, err = client.Pull(ctx, testImage,
+		WithPlatformMatcher(platforms.Default()),
+		WithMaxConcurrentDownloads(2))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestClientReconnect(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 
 	client, err := newClient(t, address)
@@ -341,5 +387,51 @@ func TestClientReconnect(t *testing.T) {
 	}
 	if err := client.Close(); err != nil {
 		t.Errorf("client closed returned error %v", err)
+	}
+}
+
+func createShimDebugConfig() string {
+	f, err := ioutil.TempFile("", "containerd-config-")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create config file: %s\n", err)
+		os.Exit(1)
+	}
+	defer f.Close()
+	if _, err := f.WriteString("version = 1\n"); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write to config file %s: %s\n", f.Name(), err)
+		os.Exit(1)
+	}
+
+	if _, err := f.WriteString("[plugins.linux]\n\tshim_debug = true\n"); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write to config file %s: %s\n", f.Name(), err)
+		os.Exit(1)
+	}
+
+	return f.Name()
+}
+
+func TestDefaultRuntimeWithNamespaceLabels(t *testing.T) {
+	client, err := newClient(t, address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	ctx, cancel := testContext(t)
+	defer cancel()
+	namespaces := client.NamespaceService()
+	testRuntime := "testRuntime"
+	runtimeLabel := defaults.DefaultRuntimeNSLabel
+	if err := namespaces.SetLabel(ctx, testNamespace, runtimeLabel, testRuntime); err != nil {
+		t.Fatal(err)
+	}
+
+	testClient, err := New(address, WithDefaultNamespace(testNamespace))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer testClient.Close()
+	if testClient.runtime != testRuntime {
+		t.Error("failed to set default runtime from namespace labels")
 	}
 }

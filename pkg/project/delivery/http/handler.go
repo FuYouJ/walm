@@ -1,15 +1,15 @@
 package http
 
 import (
-	"WarpCloud/walm/pkg/project"
-	"github.com/emicklei/go-restful"
+	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/http"
-	"github.com/emicklei/go-restful-openapi"
 	projectModel "WarpCloud/walm/pkg/models/project"
 	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/project"
 	httpUtils "WarpCloud/walm/pkg/util/http"
 	"fmt"
-	errorModel "WarpCloud/walm/pkg/models/error"
+	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-openapi"
 )
 
 const (
@@ -66,6 +66,24 @@ func RegisterProjectHandler(handler *ProjectHandler) *restful.WebService {
 		Param(ws.QueryParameter("timeoutSec", "超时时间").DataType("integer").Required(false)).
 		Reads(projectModel.ProjectParams{}).
 		Returns(200, "OK", nil).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
+	ws.Route(ws.POST("/{namespace}/name/{project}/dryrun").To(handler.DryRunProject).
+		Doc("模拟安装一个Project").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("project", "Project名字").DataType("string")).
+		Reads(projectModel.ProjectParams{}).
+		Returns(200, "OK", []map[string]interface{}{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
+	ws.Route(ws.POST("/{namespace}/name/{project}/dryrun/resources").To(handler.ComputeResourcesByDryRunProject).
+		Doc("模拟计算安装一个Project需要多少资源").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("project", "Project名字").DataType("string")).
+		Reads(projectModel.ProjectParams{}).
+		Returns(200, "OK", []*release.ReleaseResources{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.DELETE("/{namespace}/name/{project}").To(handler.DeleteProject).
@@ -131,17 +149,17 @@ func RegisterProjectHandler(handler *ProjectHandler) *restful.WebService {
 func (handler *ProjectHandler) ListProject(request *restful.Request, response *restful.Response) {
 	projectList, err := handler.usecase.ListProjects("")
 	if err != nil {
-		httpUtils.WriteErrorResponse(response,-1, fmt.Sprintf("failed to list all projects : %s", err.Error()))
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list all projects : %s", err.Error()))
 		return
 	}
 	response.WriteEntity(projectList)
 }
 
-func (handler *ProjectHandler)ListProjectByNamespace(request *restful.Request, response *restful.Response) {
+func (handler *ProjectHandler) ListProjectByNamespace(request *restful.Request, response *restful.Response) {
 	tenantName := request.PathParameter("namespace")
 	projectList, err := handler.usecase.ListProjects(tenantName)
 	if err != nil {
-		httpUtils.WriteErrorResponse(response,-1, fmt.Sprintf("failed to list projects in tenant %s : %s", tenantName, err.Error()))
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list projects in tenant %s : %s", tenantName, err.Error()))
 		return
 	}
 	response.WriteEntity(projectList)
@@ -173,7 +191,7 @@ func (handler *ProjectHandler) CreateProject(request *restful.Request, response 
 		projectParams.CommonValues = make(map[string]interface{})
 	}
 	if projectParams.Releases == nil {
-		httpUtils.WriteErrorResponse(response,-1, "project params releases can not be empty")
+		httpUtils.WriteErrorResponse(response, -1, "project params releases can not be empty")
 		return
 	}
 	for _, releaseInfo := range projectParams.Releases {
@@ -187,12 +205,50 @@ func (handler *ProjectHandler) CreateProject(request *restful.Request, response 
 
 	err = handler.usecase.CreateProject(tenantName, projectName, projectParams, async, timeoutSec)
 	if err != nil {
-		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to create project : %s", err.Error()))
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to create project: %s", err.Error()))
 		return
 	}
 }
 
-func (handler *ProjectHandler)GetProjectInfo(request *restful.Request, response *restful.Response) {
+func (handler *ProjectHandler) DryRunProject(request *restful.Request, response *restful.Response) {
+	projectParams := new(projectModel.ProjectParams)
+	tenantName := request.PathParameter("namespace")
+	projectName := request.PathParameter("project")
+
+	err := request.ReadEntity(&projectParams)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body : %s", err.Error()))
+		return
+	}
+
+	manifests, err := handler.usecase.DryRunProject(tenantName, projectName, projectParams)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to dryrun project : %s", err.Error()))
+		return
+	}
+	response.WriteEntity(manifests)
+}
+
+func (handler *ProjectHandler) ComputeResourcesByDryRunProject(request *restful.Request, response *restful.Response) {
+	projectParams := new(projectModel.ProjectParams)
+	tenantName := request.PathParameter("namespace")
+	projectName := request.PathParameter("project")
+
+	err := request.ReadEntity(&projectParams)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body : %s", err.Error()))
+		return
+	}
+
+	resources, err := handler.usecase.ComputeResourcesByDryRunProject(tenantName, projectName, projectParams)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to compute resources project : %s", err.Error()))
+		return
+	}
+	response.WriteEntity(resources)
+}
+
+func (handler *ProjectHandler) GetProjectInfo(request *restful.Request, response *restful.Response) {
 	tenantName := request.PathParameter("namespace")
 	projectName := request.PathParameter("project")
 	projectInfo, err := handler.usecase.GetProjectInfo(tenantName, projectName)
@@ -207,7 +263,7 @@ func (handler *ProjectHandler)GetProjectInfo(request *restful.Request, response 
 	response.WriteEntity(projectInfo)
 }
 
-func (handler *ProjectHandler)DeleteProject(request *restful.Request, response *restful.Response) {
+func (handler *ProjectHandler) DeleteProject(request *restful.Request, response *restful.Response) {
 	tenantName := request.PathParameter("namespace")
 	projectName := request.PathParameter("project")
 	async, err := httpUtils.GetAsyncQueryParam(request)

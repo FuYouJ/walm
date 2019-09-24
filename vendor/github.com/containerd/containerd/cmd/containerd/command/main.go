@@ -24,8 +24,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"time"
 
+	"github.com/containerd/containerd/errdefs"
 	"github.com/containerd/containerd/log"
 	"github.com/containerd/containerd/mount"
 	"github.com/containerd/containerd/services/server"
@@ -91,6 +93,7 @@ func App() *cli.App {
 			Usage: "containerd state directory",
 		},
 	}
+	app.Flags = append(app.Flags, serviceFlags()...)
 	app.Commands = []cli.Command{
 		configCommand,
 		publishCommand,
@@ -105,18 +108,34 @@ func App() *cli.App {
 			config  = defaultConfig()
 		)
 
+		if err := srvconfig.LoadConfig(context.GlobalString("config"), config); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+
+		// Apply flags to the config
+		if err := applyFlags(context, config); err != nil {
+			return err
+		}
+
+		// Make sure top-level directories are created early.
+		if err := server.CreateTopLevelDirectories(config); err != nil {
+			return err
+		}
+
+		// Stop if we are registering or unregistering against Windows SCM.
+		stop, err := registerUnregisterService(config.Root)
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		if stop {
+			return nil
+		}
+
 		done := handleSignals(ctx, signals, serverC)
 		// start the signal handler as soon as we can to make sure that
 		// we don't miss any signals during boot
 		signal.Notify(signals, handledSignals...)
 
-		if err := srvconfig.LoadConfig(context.GlobalString("config"), config); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		// apply flags to the config
-		if err := applyFlags(context, config); err != nil {
-			return err
-		}
 		// cleanup temp mounts
 		if err := mount.SetTempMountLocation(filepath.Join(config.Root, "tmpmounts")); err != nil {
 			return errors.Wrap(err, "creating temp mount location")
@@ -129,9 +148,12 @@ func App() *cli.App {
 		for _, w := range warnings {
 			log.G(ctx).WithError(w).Warn("cleanup temp mount")
 		}
-		address := config.GRPC.Address
+		var (
+			address      = config.GRPC.Address
+			ttrpcAddress = fmt.Sprintf("%s.ttrpc", config.GRPC.Address)
+		)
 		if address == "" {
-			return errors.New("grpc address cannot be empty")
+			return errors.Wrap(errdefs.ErrInvalidArgument, "grpc address cannot be empty")
 		}
 		log.G(ctx).WithFields(logrus.Fields{
 			"version":  version.Version,
@@ -142,7 +164,14 @@ func App() *cli.App {
 		if err != nil {
 			return err
 		}
+
+		// Launch as a Windows Service if necessary
+		if err := launchService(server, done); err != nil {
+			logrus.Fatal(err)
+		}
+
 		serverC <- server
+
 		if config.Debug.Address != "" {
 			var l net.Listener
 			if filepath.IsAbs(config.Debug.Address) {
@@ -163,7 +192,21 @@ func App() *cli.App {
 			}
 			serve(ctx, l, server.ServeMetrics)
 		}
+		// setup the ttrpc endpoint
+		tl, err := sys.GetLocalListener(ttrpcAddress, config.GRPC.UID, config.GRPC.GID)
+		if err != nil {
+			return errors.Wrapf(err, "failed to get listener for main ttrpc endpoint")
+		}
+		serve(ctx, tl, server.ServeTTRPC)
 
+		if config.GRPC.TCPAddress != "" {
+			l, err := net.Listen("tcp", config.GRPC.TCPAddress)
+			if err != nil {
+				return errors.Wrapf(err, "failed to get listener for TCP grpc endpoint")
+			}
+			serve(ctx, l, server.ServeTCP)
+		}
+		// setup the main grpc endpoint
 		l, err := sys.GetLocalListener(address, config.GRPC.UID, config.GRPC.GID)
 		if err != nil {
 			return errors.Wrapf(err, "failed to get listener for main endpoint")
@@ -215,6 +258,9 @@ func applyFlags(context *cli.Context, config *srvconfig.Config) error {
 			*v.d = s
 		}
 	}
+
+	applyPlatformFlags(context)
+
 	return nil
 }
 
@@ -231,4 +277,31 @@ func setLevel(context *cli.Context, config *srvconfig.Config) error {
 		logrus.SetLevel(lvl)
 	}
 	return nil
+}
+
+func dumpStacks(writeToFile bool) {
+	var (
+		buf       []byte
+		stackSize int
+	)
+	bufferLen := 16384
+	for stackSize == len(buf) {
+		buf = make([]byte, bufferLen)
+		stackSize = runtime.Stack(buf, true)
+		bufferLen *= 2
+	}
+	buf = buf[:stackSize]
+	logrus.Infof("=== BEGIN goroutine stack dump ===\n%s\n=== END goroutine stack dump ===", buf)
+
+	if writeToFile {
+		// Also write to file to aid gathering diagnostics
+		name := filepath.Join(os.TempDir(), fmt.Sprintf("containerd.%d.stacks.log", os.Getpid()))
+		f, err := os.Create(name)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+		f.WriteString(string(buf))
+		logrus.Infof("goroutine stack dump written to %s", name)
+	}
 }

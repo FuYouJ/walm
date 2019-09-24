@@ -33,12 +33,11 @@ type HTTPGetter struct {
 	opts   options
 }
 
-func (g *HTTPGetter) GetClient() *http.Client {
-	return g.client
-}
-
 //Get performs a Get from repo.Getter and returns the body.
-func (g *HTTPGetter) Get(href string) (*bytes.Buffer, error) {
+func (g *HTTPGetter) Get(href string, options ...Option) (*bytes.Buffer, error) {
+	for _, opt := range options {
+		opt(&g.opts)
+	}
 	return g.get(href)
 }
 

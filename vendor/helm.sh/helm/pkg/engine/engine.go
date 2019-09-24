@@ -223,6 +223,10 @@ func (e Engine) renderWithReferences(tpls, referenceTpls map[string]renderable) 
 		if strings.HasPrefix(path.Base(filename), "_") {
 			continue
 		}
+		if strings.HasSuffix(path.Base(filename), transwarpJsonetFileSuffix) {
+			rendered[filename] = tpls[filename].tpl
+			continue
+		}
 		// At render time, add information about the template that is being rendered.
 		vals := tpls[filename].vals
 		vals["Template"] = chartutil.Values{"Name": filename, "BasePath": tpls[filename].basePath}
@@ -234,11 +238,7 @@ func (e Engine) renderWithReferences(tpls, referenceTpls map[string]renderable) 
 		// Work around the issue where Go will emit "<no value>" even if Options(missing=zero)
 		// is set. Since missing=error will never get here, we do not need to handle
 		// the Strict case.
-		f := &chart.File{
-			Name: strings.Replace(filename, "/templates", "/manifests", -1),
-			Data: []byte(strings.Replace(buf.String(), "<no value>", "", -1)),
-		}
-		rendered[filename] = string(f.Data)
+		rendered[filename] = strings.ReplaceAll(buf.String(), "<no value>", "")
 	}
 
 	return rendered, nil

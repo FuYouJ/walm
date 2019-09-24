@@ -8,7 +8,7 @@ const (
 
 type Redis interface {
 	GetFieldValue(key, namespace, name string) (string, error)
-	GetFieldValues(key, namespace string) ([]string, error)
+	GetFieldValues(key, namespace, filter string) ([]string, error)
 	GetFieldValuesByNames(key string, filedNames... string) ([]string, error)
 	SetFieldValues(key string, fieldValues map[string]interface{}) error
 	DeleteField(key, namespace, name string) error

@@ -28,7 +28,7 @@ func (cache *Cache) GetProjectTask(namespace, name string) (projectTask *project
 }
 
 func (cache *Cache) GetProjectTasks(namespace string) (projectTasks []*project.ProjectTask, err error) {
-	projectTaskStrs, err := cache.redis.GetFieldValues(redis.WalmProjectsKey, namespace)
+	projectTaskStrs, err := cache.redis.GetFieldValues(redis.WalmProjectsKey, namespace, "")
 	if err != nil {
 		return nil, err
 	}

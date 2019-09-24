@@ -28,7 +28,7 @@ func (redis *Redis) GetFieldValue(key, namespace, name string) (value string, er
 	return
 }
 
-func (redis *Redis) GetFieldValues(key, namespace string) (values []string, err error) {
+func (redis *Redis) GetFieldValues(key, namespace, filter string) (values []string, err error) {
 	values = []string{}
 	if namespace == "" {
 		releaseCacheMap, err := redis.client.HGetAll(key).Result()
@@ -40,7 +40,7 @@ func (redis *Redis) GetFieldValues(key, namespace string) (values []string, err 
 			values = append(values, releaseCacheStr)
 		}
 	} else {
-		filter := buildHScanFilter(namespace)
+		filter := buildHScanFilter(namespace, filter)
 		// ridiculous logic: scan result contains both key and value
 		scanResult, _, err := redis.client.HScan(key, 0, filter, 10000).Result()
 		if err != nil {

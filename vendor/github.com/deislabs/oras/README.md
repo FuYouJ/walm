@@ -70,22 +70,22 @@ Install `oras` using [GoFish](https://gofi.sh/):
 ```
 gofish install oras
 ==> Installing oras...
-🐠  oras 0.5.0: installed in 65.131245ms
+🐠  oras 0.7.0: installed in 65.131245ms
 ```
 
 or install manually from the latest [release artifacts](https://github.com/deislabs/oras/releases):
 ```
 # Linux
-curl -LO https://github.com/deislabs/oras/releases/download/v0.5.0/oras_0.5.0_linux_amd64.tar.gz
+curl -LO https://github.com/deislabs/oras/releases/download/v0.7.0/oras_0.7.0_linux_amd64.tar.gz
 
 # macOS
-curl -LO https://github.com/deislabs/oras/releases/download/v0.5.0/oras_0.5.0_darwin_amd64.tar.gz
+curl -LO https://github.com/deislabs/oras/releases/download/v0.7.0/oras_0.7.0_darwin_amd64.tar.gz
 
 # unpack, install, dispose
 mkdir -p oras-install/
-tar -zxf oras_0.5.0_*.tar.gz -C oras-install/
+tar -zxf oras_0.7.0_*.tar.gz -C oras-install/
 mv oras-install/oras /usr/local/bin/
-rm -rf oras_0.5.0_*.tar.gz oras-install/
+rm -rf oras_0.7.0_*.tar.gz oras-install/
 ```
 
 Then, to run:
@@ -98,7 +98,7 @@ oras help
 A public Docker image containing the CLI is available on [Docker Hub](https://hub.docker.com/r/orasbot/oras):	
 
 ```	
-docker run -it --rm -v $(pwd):/workspace orasbot/oras:v0.5.0 help
+docker run -it --rm -v $(pwd):/workspace orasbot/oras:v0.7.0 help
 ```	
 
 Note: the default WORKDIR  in the image is `/workspace`.
@@ -137,6 +137,40 @@ You will notice a new entry for `localhost:5000` appear in `~/.docker/config.jso
 To remove the entry from the credentials file, use `oras logout`:
 ```
 oras logout localhost:5000
+```
+
+#### Example using with insecure Docker registry
+
+You want to login the registry without certificate if using the self-signed certificate or unencrypted HTTP connection Docker registry. `oras` support `--insecure` flag to login, it like the Docker daemon `insecure-registries` configuration.
+
+First, create a valid htpasswd file (must use `-B` for bcrypt):
+
+```
+htpasswd -cB -b auth.htpasswd myuser mypass
+```
+
+Next, start a registry using that file for auth and listen the `0.0.0.0` address:
+
+```
+docker run -it --rm -p 8443:443 \
+    -v $(pwd)/auth.htpasswd:/etc/docker/registry/auth.htpasswd \
+    -e REGISTRY_AUTH="{htpasswd: {realm: localhost, path: /etc/docker/registry/auth.htpasswd}}" \
+    -e REGISTRY_HTTP_ADDR=0.0.0.0:443 \
+    registry
+```
+
+In a new window, login with `oras` using the ip address not localhost:
+
+```
+oras login -u myuser -p mypass --insecure <registry-ip>:8443
+```
+
+You will notice a new entry for `<registry-ip>:8443` appear in `~/.docker/config.json`.
+
+To remove the entry from the credentials file, use `oras logout`:
+
+```
+oras logout <registry-ip>:8443
 ```
 
 ### Usage

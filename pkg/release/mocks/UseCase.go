@@ -162,6 +162,29 @@ func (_m *UseCase) ListReleases(namespace string) ([]*release.ReleaseInfoV2, err
 	return r0, r1
 }
 
+// ListReleasesByFilter provides a mock function with given fields: namespace, filter
+func (_m *UseCase) ListReleasesByFilter(namespace, filter string) ([]*release.ReleaseInfoV2, error) {
+	ret := _m.Called(namespace, filter)
+
+	var r0 []*release.ReleaseInfoV2
+	if rf, ok := ret.Get(0).(func(string, string) []*release.ReleaseInfoV2); ok {
+		r0 = rf(namespace, filter)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*release.ReleaseInfoV2)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, filter)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // ListReleasesByLabels provides a mock function with given fields: namespace, labelSelectorStr
 func (_m *UseCase) ListReleasesByLabels(namespace string, labelSelectorStr string) ([]*release.ReleaseInfoV2, error) {
 	ret := _m.Called(namespace, labelSelectorStr)

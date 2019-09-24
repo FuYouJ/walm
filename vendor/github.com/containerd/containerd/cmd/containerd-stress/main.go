@@ -30,6 +30,7 @@ import (
 
 	"github.com/containerd/containerd"
 	"github.com/containerd/containerd/namespaces"
+	"github.com/containerd/containerd/plugin"
 	metrics "github.com/docker/go-metrics"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
@@ -146,7 +147,7 @@ func main() {
 		cli.StringFlag{
 			Name:  "runtime",
 			Usage: "set the runtime to stress test",
-			Value: "io.containerd.runtime.v1.linux",
+			Value: plugin.RuntimeLinuxV1,
 		},
 	}
 	app.Before = func(context *cli.Context) error {
@@ -256,17 +257,19 @@ func test(c config) error {
 	}
 	var exec *execWorker
 	if c.Exec {
-		wg.Add(1)
-		exec = &execWorker{
-			worker: worker{
-				id:     c.Concurrency,
-				wg:     &wg,
-				image:  image,
-				client: client,
-				commit: v.Revision,
-			},
+		for i := c.Concurrency; i < c.Concurrency+c.Concurrency; i++ {
+			wg.Add(1)
+			exec = &execWorker{
+				worker: worker{
+					id:     i,
+					wg:     &wg,
+					image:  image,
+					client: client,
+					commit: v.Revision,
+				},
+			}
+			go exec.exec(ctx, tctx)
 		}
-		go exec.exec(ctx, tctx)
 	}
 
 	// start the timer and run the worker

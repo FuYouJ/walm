@@ -32,13 +32,14 @@ import (
 	// Register the typeurl
 	"github.com/containerd/containerd/cio"
 	"github.com/containerd/containerd/containers"
+	"github.com/containerd/containerd/namespaces"
 	"github.com/containerd/containerd/oci"
+	"github.com/containerd/containerd/platforms"
 	_ "github.com/containerd/containerd/runtime"
 	"github.com/containerd/typeurl"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 
 	"github.com/containerd/containerd/errdefs"
-	"github.com/containerd/containerd/windows/hcsshimtypes"
 	gogotypes "github.com/gogo/protobuf/types"
 )
 
@@ -58,7 +59,7 @@ func TestContainerList(t *testing.T) {
 	}
 	defer client.Close()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 
 	containers, err := client.Containers(ctx)
@@ -80,7 +81,7 @@ func TestNewContainer(t *testing.T) {
 	}
 	defer client.Close()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 
 	container, err := client.NewContainer(ctx, id, WithNewSpec())
@@ -110,7 +111,7 @@ func TestContainerStart(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -136,7 +137,7 @@ func TestContainerStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if pid := task.Pid(); pid <= 0 {
+	if pid := task.Pid(); pid < 1 {
 		t.Errorf("invalid task pid %d", pid)
 	}
 	if err := task.Start(ctx); err != nil {
@@ -173,7 +174,7 @@ func TestContainerOutput(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 		expected    = "kingkoye"
 	)
@@ -242,7 +243,7 @@ func TestContainerExec(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -327,7 +328,7 @@ func TestContainerLargeExecArgs(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -403,7 +404,7 @@ func TestContainerPids(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -435,24 +436,17 @@ func TestContainerPids(t *testing.T) {
 	}
 
 	pid := task.Pid()
-	if pid <= 0 {
+	if pid < 1 {
 		t.Errorf("invalid task pid %d", pid)
 	}
 	processes, err := task.Pids(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
 	switch runtime.GOOS {
 	case "windows":
-		if processes[0].Info == nil {
-			t.Error("expected additional process information but received nil")
-		} else {
-			var details hcsshimtypes.ProcessDetails
-			if err := details.Unmarshal(processes[0].Info.Value); err != nil {
-				t.Errorf("expected Windows info type hcsshimtypes.ProcessDetails %v", err)
-			}
-		}
+		// TODO: This is currently not implemented on windows
 	default:
+		if err != nil {
+			t.Fatal(err)
+		}
 		if l := len(processes); l != 1 {
 			t.Errorf("expected 1 process but received %d", l)
 		}
@@ -480,7 +474,7 @@ func TestContainerCloseIO(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -536,7 +530,7 @@ func TestDeleteRunningContainer(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -591,7 +585,7 @@ func TestContainerKill(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -646,7 +640,7 @@ func TestContainerNoBinaryExists(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -693,7 +687,7 @@ func TestContainerExecNoBinaryExists(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -758,7 +752,7 @@ func TestWaitStoppedTask(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -785,7 +779,7 @@ func TestWaitStoppedTask(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if pid := task.Pid(); pid <= 0 {
+	if pid := task.Pid(); pid < 1 {
 		t.Errorf("invalid task pid %d", pid)
 	}
 	if err := task.Start(ctx); err != nil {
@@ -821,7 +815,7 @@ func TestWaitStoppedProcess(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -909,7 +903,7 @@ func TestTaskForceDelete(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -950,7 +944,7 @@ func TestProcessForceDelete(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -1018,7 +1012,7 @@ func TestContainerHostname(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 		expected    = "myhostname"
 	)
@@ -1087,7 +1081,7 @@ func TestContainerExitedAtSet(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -1147,7 +1141,7 @@ func TestDeleteContainerExecCreated(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -1217,7 +1211,7 @@ func TestContainerMetrics(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -1274,7 +1268,7 @@ func TestDeletedContainerMetrics(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -1319,7 +1313,7 @@ func TestDeletedContainerMetrics(t *testing.T) {
 func TestContainerExtensions(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 	id := t.Name()
 
@@ -1364,7 +1358,7 @@ func TestContainerExtensions(t *testing.T) {
 func TestContainerUpdate(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 	id := t.Name()
 
@@ -1409,7 +1403,7 @@ func TestContainerUpdate(t *testing.T) {
 func TestContainerInfo(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 	id := t.Name()
 
@@ -1437,7 +1431,7 @@ func TestContainerInfo(t *testing.T) {
 func TestContainerLabels(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := testContext()
+	ctx, cancel := testContext(t)
 	defer cancel()
 	id := t.Name()
 
@@ -1482,7 +1476,7 @@ func TestContainerHook(t *testing.T) {
 
 	var (
 		image       Image
-		ctx, cancel = testContext()
+		ctx, cancel = testContext(t)
 		id          = t.Name()
 	)
 	defer cancel()
@@ -1527,4 +1521,60 @@ func TestContainerHook(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer task.Delete(ctx, WithProcessKill)
+}
+
+func TestShimSockLength(t *testing.T) {
+	t.Parallel()
+
+	// Max length of namespace should be 76
+	namespace := strings.Repeat("n", 76)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ctx = namespaces.WithNamespace(ctx, namespace)
+
+	client, err := newClient(t, address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	image, err := client.Pull(ctx, testImage,
+		WithPlatformMatcher(platforms.Default()),
+		WithPullUnpack,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	id := strings.Repeat("c", 64)
+
+	// We don't have limitation with length of container name,
+	// but 64 bytes of sha256 is the common case
+	container, err := client.NewContainer(ctx, id,
+		WithNewSnapshot(id, image),
+		WithNewSpec(oci.WithImageConfig(image), withExitStatus(0)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer container.Delete(ctx, WithSnapshotCleanup)
+
+	task, err := container.NewTask(ctx, empty())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer task.Delete(ctx)
+
+	statusC, err := task.Wait(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := task.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	<-statusC
 }

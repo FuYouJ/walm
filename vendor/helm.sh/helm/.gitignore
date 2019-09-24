@@ -6,4 +6,4 @@
 .vscode/
 _dist/
 bin/
-*.iml
+vendor/

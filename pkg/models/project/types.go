@@ -1,6 +1,7 @@
 package project
 
 import (
+	"WarpCloud/walm/pkg/models/common"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/task"
 )
@@ -15,11 +16,12 @@ type ProjectParams struct {
 }
 
 type ProjectInfo struct {
-	Name      string                   `json:"name" description:"project name"`
-	Namespace string                   `json:"namespace" description:"project namespace"`
-	Releases  []*release.ReleaseInfoV2 `json:"releases" description:"list of release of the project"`
-	Ready     bool                     `json:"ready" description:"whether all the project releases are ready"`
-	Message   string                   `json:"message" description:"why project is not ready"`
+	Name        string                   `json:"name" description:"project name"`
+	Namespace   string                   `json:"namespace" description:"project namespace"`
+	Releases    []*release.ReleaseInfoV2 `json:"releases" description:"list of release of the project"`
+	Ready       bool                     `json:"ready" description:"whether all the project releases are ready"`
+	Message     string                   `json:"message" description:"why project is not ready"`
+	WalmVersion common.WalmVersion       `json:"walmVersion" description:"chart walm version: v1, v2"`
 }
 
 type ProjectInfoList struct {

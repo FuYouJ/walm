@@ -212,38 +212,34 @@
   version = "v0.1.0"
 
 [[projects]]
-  digest = "1:b5f139796b532342966b835fb26fe41b6b488e94b914f1af1aba4cd3a9fee6dc"
+  digest = "1:9d535dbb6316d0227c1335649d12161b0832f6fa60d5754c559a9ba82859fc1e"
   name = "github.com/containerd/containerd"
   packages = [
+    "archive/compression",
     "content",
     "content/local",
     "errdefs",
     "filters",
     "images",
+    "labels",
     "log",
     "platforms",
     "reference",
     "remotes",
     "remotes/docker",
+    "remotes/docker/schema1",
     "sys",
+    "version",
   ]
   pruneopts = "T"
-  revision = "894b81a4b802e4eb2a91d1ce216b8817763c29fb"
-  version = "v1.2.6"
+  revision = "640860a042b93c26c0a33081ee02230def486f81"
+  version = "v1.3.0-beta.2"
 
 [[projects]]
   branch = "master"
   digest = "1:1271f7f8cc5f5b2eb0c683f92c7adf8fca1813b9da5218d6df1c9cf4bdc3f8d5"
   name = "github.com/containerd/continuity"
-  packages = [
-    ".",
-    "devices",
-    "driver",
-    "pathdriver",
-    "proto",
-    "syscallx",
-    "sysx",
-  ]
+  packages = ["pathdriver"]
   pruneopts = "T"
   revision = "004b46473808b3e7a4a3049c20e4376c91eb966d"
 
@@ -264,7 +260,7 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:543d5301a51341bbdaba9ddf14ae52ffcc8302fc5e79b01f1954c31f02a4aac5"
+  digest = "1:8b5f943c7eec36fe9341e1bd9de2b2c0f0bee16374fe461ed0837b4dcdcea711"
   name = "github.com/deislabs/oras"
   packages = [
     "pkg/auth",
@@ -274,8 +270,8 @@
     "pkg/oras",
   ]
   pruneopts = "T"
-  revision = "b285197778e05cd348abb8ff50faf0ef7e3554a2"
-  version = "v0.6.0"
+  revision = "7467008b2683c5eff5fb13fe91c5b17b2eec75a3"
+  version = "v0.7.0"
 
 [[projects]]
   digest = "1:6b014c67cb522566c30ef02116f9acb50cd60954708cf92c6654e2985696db18"
@@ -349,7 +345,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:2f8037a4ad7a58796bc259673d52cb2ae1b21d5c93dcfa7d7e729bdd37a199b3"
+  digest = "1:3d23e50eab6b3aa4ced1b1cc8b5c40534b9c9a54b0f5648a2e76d72599134e4e"
   name = "github.com/docker/docker"
   packages = [
     "api/types",
@@ -923,12 +919,12 @@
   version = "v1.5.2"
 
 [[projects]]
-  digest = "1:c3498d1186a4f84897812aa2dccfbd5d805955846f2cd020aa384bf0b218e9e9"
+  digest = "1:425d221445ea27aaad740ed99e2be7cb463528526e63f6c599ad7d28f7ecea45"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   pruneopts = "T"
-  revision = "8bdbc7bcc01dcbb8ec23dc8a28e332258d25251f"
-  version = "v1.4.1"
+  revision = "839c75faf7f98a33d445d181f3018b5c3409a45e"
+  version = "v1.4.2"
 
 [[projects]]
   digest = "1:674fedb5641490b913f0f01e4f97f3f578f7a1c5f106cd47cfd5394eca8155db"
@@ -960,38 +956,6 @@
   pruneopts = "T"
   revision = "ffdc059bfe9ce6a4e144ba849dbedead332c6053"
   version = "v1.3.0"
-
-[[projects]]
-  digest = "1:46aea6ffe39c3d95c13640c2515236ed3c5cdffc3c78c6c0ed4edec2caf7a0dc"
-  name = "github.com/tidwall/gjson"
-  packages = ["."]
-  pruneopts = "T"
-  revision = "c5e72cdf74dff23857243dd662c465b810891c21"
-  version = "v1.3.2"
-
-[[projects]]
-  digest = "1:8453ddbed197809ee8ca28b06bd04e127bec9912deb4ba451fea7a1eca578328"
-  name = "github.com/tidwall/match"
-  packages = ["."]
-  pruneopts = "T"
-  revision = "33827db735fff6510490d69a8622612558a557ed"
-  version = "v1.0.1"
-
-[[projects]]
-  digest = "1:ddfe0a54e5f9b29536a6d7b2defa376f2cb2b6e4234d676d7ff214d5b097cb50"
-  name = "github.com/tidwall/pretty"
-  packages = ["."]
-  pruneopts = "T"
-  revision = "1166b9ac2b65e46a43d8618d30d1554f4652d49b"
-  version = "v1.0.0"
-
-[[projects]]
-  digest = "1:b70c951ba6fdeecfbd50dabe95aa5e1b973866ae9abbece46ad60348112214f2"
-  name = "github.com/tidwall/sjson"
-  packages = ["."]
-  pruneopts = "T"
-  revision = "25fb082a20e29e83fb7b7ef5f5919166aad1f084"
-  version = "v1.0.4"
 
 [[projects]]
   branch = "master"
@@ -1697,14 +1661,6 @@
   revision = "b4f50308a6168b3e1e8687b3fb46e9bf1a112ee5"
 
 [[projects]]
-  digest = "1:4aa3b7aab754b7eb306129e4052e5c8a9079d59555e69d37d28af1253f2840ee"
-  name = "k8s.io/helm"
-  packages = ["pkg/helm/helmpath"]
-  pruneopts = "T"
-  revision = "0e7f3b6637f7af8fcfddb3d2941fcc7cbebb0085"
-  version = "v2.14.3"
-
-[[projects]]
   digest = "1:7a3ef99d492d30157b8e933624a8f0292b4cee5934c23269f7640c8030eb83cd"
   name = "k8s.io/klog"
   packages = ["."]
@@ -1727,7 +1683,7 @@
 
 [[projects]]
   branch = "release-1.15"
-  digest = "1:2db0978fca69a6d899f88c74df8db781727f9faf527f62577f19cfca9d937cbe"
+  digest = "1:06497e8bfb946cef502730eb1ab10dc4e60bac72123f634eef162aaf44999474"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/api/legacyscheme",
@@ -1874,7 +1830,6 @@
     "github.com/docker/docker/pkg/term",
     "github.com/docker/go-units",
     "github.com/evanphx/json-patch",
-    "github.com/ghodss/yaml",
     "github.com/gobwas/glob",
     "github.com/gosuri/uitable",
     "github.com/mattn/go-shellwords",
@@ -1889,7 +1844,6 @@
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/stretchr/testify/suite",
-    "github.com/tidwall/sjson",
     "github.com/xeipuuv/gojsonschema",
     "golang.org/x/crypto/bcrypt",
     "golang.org/x/crypto/openpgp",
@@ -1907,7 +1861,6 @@
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
-    "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured",
     "k8s.io/apimachinery/pkg/labels",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
@@ -1930,7 +1883,6 @@
     "k8s.io/client-go/tools/clientcmd",
     "k8s.io/client-go/tools/watch",
     "k8s.io/client-go/util/homedir",
-    "k8s.io/helm/pkg/helm/helmpath",
     "k8s.io/klog",
     "k8s.io/kubernetes/pkg/controller/deployment/util",
     "k8s.io/kubernetes/pkg/kubectl/cmd/testing",
