@@ -7,7 +7,7 @@ import (
 
 type Cache interface {
 	GetReleaseCache(namespace, name string)(*release.ReleaseCache, error)
-	GetReleaseCaches(namespace string)([]*release.ReleaseCache, error)
+	GetReleaseCaches(namespace, filter string)([]*release.ReleaseCache, error)
 	GetReleaseCachesByReleaseConfigs(releaseConfigs []*k8s.ReleaseConfig) ([]*release.ReleaseCache, error)
 	CreateOrUpdateReleaseCache(releaseCache *release.ReleaseCache) error
 	DeleteReleaseCache(namespace string, name string) error

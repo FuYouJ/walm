@@ -27,8 +27,8 @@ func (cache *Cache) GetReleaseCache(namespace, name string) (releaseCache *relea
 	return
 }
 
-func (cache *Cache) GetReleaseCaches(namespace string) (releaseCaches []*release.ReleaseCache, err error) {
-	releaseCacheStrs, err := cache.redis.GetFieldValues(redis.WalmReleasesKey, namespace)
+func (cache *Cache) GetReleaseCaches(namespace, filter string) (releaseCaches []*release.ReleaseCache, err error) {
+	releaseCacheStrs, err := cache.redis.GetFieldValues(redis.WalmReleasesKey, namespace, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (cache *Cache) GetReleaseTask(namespace, name string) (releaseTask *release
 }
 
 func (cache *Cache) GetReleaseTasks(namespace string) (releaseTasks []*release.ReleaseTask, err error) {
-	releaseTaskStrs, err := cache.redis.GetFieldValues(redis.WalmReleaseTasksKey, namespace)
+	releaseTaskStrs, err := cache.redis.GetFieldValues(redis.WalmReleaseTasksKey, namespace, "")
 	if err != nil {
 		return nil, err
 	}

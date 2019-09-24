@@ -1,18 +1,19 @@
 package usecase
 
 import (
-	"testing"
-	"github.com/stretchr/testify/assert"
-	"WarpCloud/walm/pkg/project/mocks"
 	helmMocks "WarpCloud/walm/pkg/helm/mocks"
-	taskMocks "WarpCloud/walm/pkg/task/mocks"
-	"github.com/stretchr/testify/mock"
-	"errors"
-	releaseMocks "WarpCloud/walm/pkg/release/mocks"
-	"WarpCloud/walm/pkg/models/project"
-	"WarpCloud/walm/pkg/models/task"
+	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	"WarpCloud/walm/pkg/models/project"
 	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/models/task"
+	"WarpCloud/walm/pkg/project/mocks"
+	releaseMocks "WarpCloud/walm/pkg/release/mocks"
+	taskMocks "WarpCloud/walm/pkg/task/mocks"
+	"errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"testing"
 )
 
 func TestProject_ListProjects(t *testing.T) {
@@ -65,6 +66,7 @@ func TestProject_ListProjects(t *testing.T) {
 						UUID: "test-uuid",
 					}}}, nil)
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -75,9 +77,10 @@ func TestProject_ListProjects(t *testing.T) {
 			projectInfoList: &project.ProjectInfoList{
 				Items: []*project.ProjectInfo{
 					{
-						Namespace: "test-ns",
-						Name:      "test-name",
-						Message:   noReleaseFoundMsg,
+						Namespace:   "test-ns",
+						Name:        "test-name",
+						Message:     noReleaseFoundMsg,
+						WalmVersion: common.WalmVersionV2,
 					},
 				},
 				Num: 1,
@@ -170,13 +173,15 @@ func TestProject_GetProjectInfo(t *testing.T) {
 					Name: "test-name",
 					UUID: "test-uuid",
 				}).Return(mockTaskState, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTaskState.On("IsFinished").Return(true)
 				mockTaskState.On("IsSuccess").Return(true)
 			},
 			projectInfo: &project.ProjectInfo{
-				Namespace: "test-ns",
-				Name:      "test-name",
-				Message:   noReleaseFoundMsg,
+				Namespace:   "test-ns",
+				Name:        "test-name",
+				Message:     noReleaseFoundMsg,
+				WalmVersion: common.WalmVersionV2,
 			},
 			err: nil,
 		},
@@ -249,6 +254,7 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -269,6 +275,7 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -283,9 +290,10 @@ func TestProject_buildProjectInfo(t *testing.T) {
 				},
 			},
 			projectInfo: &project.ProjectInfo{
-				Namespace: "test-ns",
-				Name:      "test-name",
-				Message:   noReleaseFoundMsg,
+				Namespace:   "test-ns",
+				Name:        "test-name",
+				Message:     noReleaseFoundMsg,
+				WalmVersion: common.WalmVersionV2,
 			},
 			err: nil,
 		},
@@ -293,6 +301,7 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -309,9 +318,10 @@ func TestProject_buildProjectInfo(t *testing.T) {
 				},
 			},
 			projectInfo: &project.ProjectInfo{
-				Namespace: "test-ns",
-				Name:      "test-name",
-				Message:   noReleaseFoundMsg,
+				Namespace:   "test-ns",
+				Name:        "test-name",
+				Message:     noReleaseFoundMsg,
+				WalmVersion: common.WalmVersionV2,
 			},
 			err: nil,
 		},
@@ -319,6 +329,7 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -336,9 +347,10 @@ func TestProject_buildProjectInfo(t *testing.T) {
 				},
 			},
 			projectInfo: &project.ProjectInfo{
-				Namespace: "test-ns",
-				Name:      "test-name",
-				Message:   "the project latest task test-name-test-uuid failed : test-err",
+				Namespace:   "test-ns",
+				Name:        "test-name",
+				Message:     "the project latest task test-name-test-uuid failed : test-err",
+				WalmVersion: common.WalmVersionV2,
 			},
 			err: nil,
 		},
@@ -346,6 +358,7 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -361,9 +374,10 @@ func TestProject_buildProjectInfo(t *testing.T) {
 				},
 			},
 			projectInfo: &project.ProjectInfo{
-				Namespace: "test-ns",
-				Name:      "test-name",
-				Message:   "please wait for the project latest task test-name-test-uuid finished",
+				Namespace:   "test-ns",
+				Name:        "test-name",
+				Message:     "please wait for the project latest task test-name-test-uuid finished",
+				WalmVersion: common.WalmVersionV2,
 			},
 			err: nil,
 		},
@@ -1026,7 +1040,7 @@ func TestProject_UpgradeReleaseInProject(t *testing.T) {
 				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(&project.ProjectTask{}, nil)
 				mockTask.On("GetTaskState", mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockReleaseUseCase.On("ListReleasesByLabels", mock.Anything, mock.Anything).Return(nil, nil)
-
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 			},
 			err: errors.New(""),
 		},
@@ -1043,6 +1057,7 @@ func TestProject_UpgradeReleaseInProject(t *testing.T) {
 							},
 						},
 					}}, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(&task.TaskSig{}, nil)
 				mockProjectCache.On("CreateOrUpdateProjectTask", mock.Anything).Return(nil)
@@ -1061,6 +1076,7 @@ func TestProject_UpgradeReleaseInProject(t *testing.T) {
 						},
 					},
 				}}, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},
@@ -1143,7 +1159,7 @@ func TestProject_RemoveReleaseInProject(t *testing.T) {
 				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(&project.ProjectTask{}, nil)
 				mockTask.On("GetTaskState", mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockReleaseUseCase.On("ListReleasesByLabels", mock.Anything, mock.Anything).Return(nil, nil)
-
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 			},
 			err: nil,
 		},
@@ -1160,6 +1176,7 @@ func TestProject_RemoveReleaseInProject(t *testing.T) {
 							},
 						},
 					}}, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(&task.TaskSig{}, nil)
 				mockProjectCache.On("CreateOrUpdateProjectTask", mock.Anything).Return(nil)
@@ -1178,6 +1195,7 @@ func TestProject_RemoveReleaseInProject(t *testing.T) {
 						},
 					},
 				}}, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},
@@ -1503,8 +1521,8 @@ func TestProject_autoUpdateReleaseDependencies(t *testing.T) {
 					{
 						ReleaseInfo: release.ReleaseInfo{
 							ReleaseSpec: release.ReleaseSpec{
-								Name:      "A",
-								ChartName: "chartA",
+								Name:         "A",
+								ChartName:    "chartA",
 								Dependencies: map[string]string{"chartC": "CC"},
 							},
 						},
@@ -1521,8 +1539,8 @@ func TestProject_autoUpdateReleaseDependencies(t *testing.T) {
 			},
 			releaseParams: &release.ReleaseRequestV2{
 				ReleaseRequest: release.ReleaseRequest{
-					Name:      "C",
-					ChartName: "chartC",
+					Name:         "C",
+					ChartName:    "chartC",
 					Dependencies: map[string]string{"chartB": "BB"},
 				},
 			},
@@ -1546,8 +1564,8 @@ func TestProject_autoUpdateReleaseDependencies(t *testing.T) {
 					{
 						ReleaseInfo: release.ReleaseInfo{
 							ReleaseSpec: release.ReleaseSpec{
-								Name:      "A",
-								ChartName: "chartA",
+								Name:         "A",
+								ChartName:    "chartA",
 								Dependencies: map[string]string{"chartB": "B"},
 							},
 						},
@@ -1588,8 +1606,8 @@ func TestProject_autoUpdateReleaseDependencies(t *testing.T) {
 					{
 						ReleaseInfo: release.ReleaseInfo{
 							ReleaseSpec: release.ReleaseSpec{
-								Name:      "A",
-								ChartName: "chartA",
+								Name:         "A",
+								ChartName:    "chartA",
 								Dependencies: map[string]string{"chartB": "B"},
 							},
 						},
@@ -1620,10 +1638,9 @@ func TestProject_autoUpdateReleaseDependencies(t *testing.T) {
 		affectedReleases, err := mockProjectManager.autoUpdateReleaseDependencies(test.projectInfo, test.releaseParams, test.isRemove)
 		assert.IsType(t, test.err, err)
 		assert.ElementsMatch(t, test.affectedReleases, affectedReleases)
-		if !test.isRemove{
+		if !test.isRemove {
 			assert.Equal(t, test.updatedReleaseParams, test.releaseParams)
 		}
-
 
 		mockProjectCache.AssertExpectations(t)
 		mockHelm.AssertExpectations(t)
