@@ -208,7 +208,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	}
 
 	// get all the dependency releases' output configs from ReleaseConfig or dummy service(for compatible)
-	dependencyConfigs, err := helmImpl.GetDependencyOutputConfigs(namespace, dependencies, chartInfo)
+	dependencyConfigs, err := helmImpl.GetDependencyOutputConfigs(namespace, dependencies, chartInfo, true)
 	if err != nil {
 		klog.Errorf("failed to get all the dependency releases' output configs : %s", err.Error())
 		return nil, err

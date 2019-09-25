@@ -1,5 +1,7 @@
 package error
 
+import "github.com/pkg/errors"
+
 type NotFoundError struct {}
 
 func (err NotFoundError) Error() string {
@@ -7,6 +9,6 @@ func (err NotFoundError) Error() string {
 }
 
 func IsNotFoundError(err error) bool {
-	_, ok := err.(NotFoundError)
+	_, ok := errors.Cause(err).(NotFoundError)
 	return ok
 }

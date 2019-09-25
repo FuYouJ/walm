@@ -117,7 +117,7 @@ func TestHelm_ReloadRelease(t *testing.T) {
 				mockK8sCache.On("GetResource", k8s.ReleaseConfigKind, "test-ns", "test-name").Return(&k8s.ReleaseConfig{}, nil)
 
 				mockHelm.On("GetChartDetailInfo", mock.Anything, mock.Anything, mock.Anything).Return(&release.ChartDetailInfo{}, nil)
-				mockHelm.On("GetDependencyOutputConfigs", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
+				mockHelm.On("GetDependencyOutputConfigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},
 			err: errors.New(""),
 		},
@@ -148,7 +148,7 @@ func TestHelm_ReloadRelease(t *testing.T) {
 				mockK8sCache.On("GetResource", k8s.ReleaseConfigKind, "test-ns", "test-name").Return(&k8s.ReleaseConfig{}, nil)
 
 				mockHelm.On("GetChartDetailInfo", mock.Anything, mock.Anything, mock.Anything).Return(&release.ChartDetailInfo{}, nil)
-				mockHelm.On("GetDependencyOutputConfigs", mock.Anything, mock.Anything, mock.Anything).Return(nil , nil)
+				mockHelm.On("GetDependencyOutputConfigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil , nil)
 			},
 			err: nil,
 		},
@@ -179,7 +179,7 @@ func TestHelm_ReloadRelease(t *testing.T) {
 				mockK8sCache.On("GetResource", k8s.ReleaseConfigKind, "test-ns", "test-name").Return(&k8s.ReleaseConfig{}, nil)
 
 				mockHelm.On("GetChartDetailInfo", mock.Anything, mock.Anything, mock.Anything).Return(&release.ChartDetailInfo{}, nil)
-				mockHelm.On("GetDependencyOutputConfigs", mock.Anything, mock.Anything, mock.Anything).Return(map[string]interface{}{"test": "true"} , nil)
+				mockHelm.On("GetDependencyOutputConfigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(map[string]interface{}{"test": "true"} , nil)
 
 			},
 			err: errors.New(""),
@@ -212,7 +212,7 @@ func TestHelm_ReloadRelease(t *testing.T) {
 				mockK8sCache.On("GetResource", k8s.ReleaseConfigKind, "test-ns", "test-name").Return(&k8s.ReleaseConfig{}, nil)
 
 				mockHelm.On("GetChartDetailInfo", mock.Anything, mock.Anything, mock.Anything).Return(&release.ChartDetailInfo{}, nil)
-				mockHelm.On("GetDependencyOutputConfigs", mock.Anything, mock.Anything, mock.Anything).Return(map[string]interface{}{"test": "true"} , nil)
+				mockHelm.On("GetDependencyOutputConfigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(map[string]interface{}{"test": "true"} , nil)
 
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(&task.TaskSig{}, nil)
 				mockReleaseCache.On("CreateOrUpdateReleaseTask", mock.Anything).Return(nil)
