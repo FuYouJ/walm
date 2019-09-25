@@ -39,7 +39,7 @@ func newRootCmd(args []string) *cobra.Command {
 	flags := cmd.PersistentFlags()
 
 	flags.StringVarP(&walmserver, "server", "s", os.Getenv("WALM_HOST"), "walm apiserver address")
-	flags.StringVarP(&namespace, "namespace", "n", "", "kubernates namespace")
+	flags.StringVarP(&namespace, "namespace", "n", "", "kubernetes namespace")
 
 	settings.AddFlags(flags)
 
@@ -55,6 +55,7 @@ func newRootCmd(args []string) *cobra.Command {
 		newPackageCmd(out),
 		newEditCmd(out),
 		newLintCmd(),
+		newComposeCmd(),
 		NewVersionCmd(),
 	)
 
