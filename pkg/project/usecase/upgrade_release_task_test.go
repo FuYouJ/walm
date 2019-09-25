@@ -1,6 +1,8 @@
 package usecase
 
 import (
+	"WarpCloud/walm/pkg/models/project"
+	"WarpCloud/walm/pkg/models/task"
 	"testing"
 	"github.com/stretchr/testify/assert"
 	"WarpCloud/walm/pkg/project/mocks"
@@ -46,6 +48,30 @@ func TestProject_doUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(&project.ProjectTask{
+					Namespace: "test-ns",
+					Name:      "test-name",
+					LatestTaskSignature: &task.TaskSig{
+						Name: "test-name",
+						UUID: "test-uuid",
+					}}, nil)
+				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return([]*release.ReleaseInfoV2{
+					{
+						ReleaseInfo: release.ReleaseInfo{
+							ReleaseSpec: release.ReleaseSpec{
+								Name: "A",
+								ChartName: "chartA",
+							},
+						},
+					},
+				}, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
+				mockTask.On("GetTaskState", &task.TaskSig{
+					Name: "test-name",
+					UUID: "test-uuid",
+				}).Return(mockTaskState, nil)
+				mockTaskState.On("IsFinished").Return(true)
+				mockTaskState.On("IsSuccess").Return(true)
 			},
 			err: nil,
 		},
@@ -53,6 +79,30 @@ func TestProject_doUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
+				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(&project.ProjectTask{
+					Namespace: "test-ns",
+					Name:      "test-name",
+					LatestTaskSignature: &task.TaskSig{
+						Name: "test-name",
+						UUID: "test-uuid",
+					}}, nil)
+				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return([]*release.ReleaseInfoV2{
+					{
+						ReleaseInfo: release.ReleaseInfo{
+							ReleaseSpec: release.ReleaseSpec{
+								Name: "A",
+								ChartName: "chartA",
+							},
+						},
+					},
+				}, nil)
+				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
+				mockTask.On("GetTaskState", &task.TaskSig{
+					Name: "test-name",
+					UUID: "test-uuid",
+				}).Return(mockTaskState, nil)
+				mockTaskState.On("IsFinished").Return(true)
+				mockTaskState.On("IsSuccess").Return(true)
 			},
 			err: errors.New(""),
 		},

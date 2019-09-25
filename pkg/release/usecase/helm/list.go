@@ -34,6 +34,7 @@ func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.Rele
 				Namespace: releaseTask.Namespace,
 				Name:      releaseTask.Name,
 			},
+			RealName: releaseTask.Name,
 		},
 	}
 
@@ -168,6 +169,7 @@ func buildV1ReleasePauseInfo(ConfigValues map[string]interface{}) bool {
 func (helm *Helm) buildReleaseInfo(releaseCache *releaseModel.ReleaseCache) (releaseInfo *releaseModel.ReleaseInfo, err error) {
 	releaseInfo = &releaseModel.ReleaseInfo{}
 	releaseInfo.ReleaseSpec = releaseCache.ReleaseSpec
+	releaseInfo.RealName = releaseCache.Name
 
 	releaseInfo.Status, err = helm.k8sCache.GetResourceSet(releaseCache.ReleaseResourceMetas)
 	if err != nil {

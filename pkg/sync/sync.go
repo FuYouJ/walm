@@ -1,6 +1,16 @@
 package sync
 
 import (
+	"WarpCloud/walm/pkg/models/common"
+	"strings"
+	"time"
+
+	"encoding/json"
+	"github.com/go-redis/redis"
+	"github.com/sirupsen/logrus"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
+
 	"WarpCloud/walm/pkg/helm"
 	"WarpCloud/walm/pkg/k8s"
 	errorModel "WarpCloud/walm/pkg/models/error"
@@ -9,11 +19,6 @@ import (
 	releaseModel "WarpCloud/walm/pkg/models/release"
 	walmRedis "WarpCloud/walm/pkg/redis"
 	"WarpCloud/walm/pkg/task"
-	"encoding/json"
-	"github.com/go-redis/redis"
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
-	"time"
 )
 
 const (
@@ -77,6 +82,11 @@ func (sync *Sync) Resync() {
 			projectTasksFromReleaseConfigs, err := buildProjectTasksFromReleaseConfigs(releaseConfigs)
 			if err != nil {
 				klog.Errorf("failed to build project tasks by release configs : %s", err.Error())
+				return err
+			}
+			err = buildProjectTasksFromReleaseCaches(projectTasksFromReleaseConfigs, releaseCachesFromHelm)
+			if err != nil {
+				klog.Errorf("failed to build project tasks by release names compatible v1 : %s", err.Error())
 				return err
 			}
 			projectTasksInRedis, err := tx.HGetAll(sync.projectTaskKey).Result()
@@ -283,8 +293,9 @@ func buildProjectTasksFromReleaseConfigs(releaseConfigs []*k8sModel.ReleaseConfi
 			_, ok := projectTasksFromReleaseConfigs[walmRedis.BuildFieldName(releaseConfig.Namespace, projectName)]
 			if !ok {
 				projectTaskStr, err := json.Marshal(&project.ProjectTask{
-					Namespace: releaseConfig.Namespace,
-					Name:      projectName,
+					Namespace:   releaseConfig.Namespace,
+					Name:        projectName,
+					WalmVersion: common.WalmVersionV2,
 				})
 				if err != nil {
 					klog.Errorf("failed to marshal project task of %s/%s: %s", releaseConfig.Namespace, projectName, err.Error())
@@ -295,6 +306,28 @@ func buildProjectTasksFromReleaseConfigs(releaseConfigs []*k8sModel.ReleaseConfi
 		}
 	}
 	return projectTasksFromReleaseConfigs, nil
+}
+
+func buildProjectTasksFromReleaseCaches(projectTasks map[string]string, releaseCaches []*releaseModel.ReleaseCache) error {
+	for _, releaseCache := range releaseCaches {
+		projectNameArray := strings.Split(releaseCache.Name, "--")
+		if len(projectNameArray) == 2 {
+			projectName := projectNameArray[0]
+			if _, ok := projectTasks[walmRedis.BuildFieldName(releaseCache.Namespace, projectName)]; !ok {
+				projectCacheStr, err := json.Marshal(&project.ProjectTask{
+					Namespace:   releaseCache.Namespace,
+					Name:        projectName,
+					WalmVersion: common.WalmVersionV1,
+				})
+				if err != nil {
+					logrus.Errorf("failed to marshal project cache of %s/%s: %s", releaseCache.Namespace, projectName, err.Error())
+					return err
+				}
+				projectTasks[walmRedis.BuildFieldName(releaseCache.Namespace, projectName)] = string(projectCacheStr)
+			}
+		}
+	}
+	return nil
 }
 
 func buildReleaseCacheKeysToDel(releaseCacheKeysFromRedis []string, releaseCachesFromHelm map[string]interface{}) []string {

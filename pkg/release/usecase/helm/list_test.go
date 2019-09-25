@@ -1,19 +1,19 @@
 package helm
 
 import (
-	"testing"
-	"WarpCloud/walm/pkg/models/release"
-	"github.com/stretchr/testify/assert"
-	"WarpCloud/walm/pkg/release/mocks"
 	helmMocks "WarpCloud/walm/pkg/helm/mocks"
 	k8sMocks "WarpCloud/walm/pkg/k8s/mocks"
-	taskMocks "WarpCloud/walm/pkg/task/mocks"
-	"github.com/stretchr/testify/mock"
-	"errors"
-	"WarpCloud/walm/pkg/models/task"
+	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/k8s"
-	"WarpCloud/walm/pkg/models/common"
+	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/models/task"
+	"WarpCloud/walm/pkg/release/mocks"
+	taskMocks "WarpCloud/walm/pkg/task/mocks"
+	"errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"testing"
 )
 
 func TestHelm_GetRelease(t *testing.T) {
@@ -75,6 +75,7 @@ func TestHelm_GetRelease(t *testing.T) {
 						Namespace: "test-ns",
 						Name:      "test-name",
 					},
+					RealName: "test-name",
 				},
 			},
 			err: errors.New("failed"),
@@ -97,7 +98,7 @@ func TestHelm_GetRelease(t *testing.T) {
 				}).Return(nil, errors.New("failed"))
 			},
 			releaseInfo: nil,
-			err: errors.New("failed"),
+			err:         errors.New("failed"),
 		},
 		{
 			initMock: func() {
@@ -122,6 +123,7 @@ func TestHelm_GetRelease(t *testing.T) {
 						Namespace: "test-ns",
 						Name:      "test-name",
 					},
+					RealName: "test-name",
 				},
 			},
 			err: nil,
@@ -151,6 +153,7 @@ func TestHelm_GetRelease(t *testing.T) {
 						Namespace: "test-ns",
 						Name:      "test-name",
 					},
+					RealName: "test-name",
 				},
 			},
 			err: nil,
@@ -181,7 +184,8 @@ func TestHelm_GetRelease(t *testing.T) {
 						Namespace: "test-ns",
 						Name:      "test-name",
 					},
-					Message: "the release latest task test-name-test-uuid failed : test-err",
+					RealName: "test-name",
+					Message:  "the release latest task test-name-test-uuid failed : test-err",
 				},
 			},
 			err: nil,
@@ -210,7 +214,8 @@ func TestHelm_GetRelease(t *testing.T) {
 						Namespace: "test-ns",
 						Name:      "test-name",
 					},
-					Message: "please wait for the release latest task test-name-test-uuid finished",
+					RealName: "test-name",
+					Message:  "please wait for the release latest task test-name-test-uuid finished",
 				},
 			},
 			err: nil,
@@ -247,10 +252,11 @@ func TestHelm_GetRelease(t *testing.T) {
 						Namespace: "test-ns",
 						Name:      "test-name",
 					},
-					Ready:  true,
-					Status: k8s.NewResourceSet(),
+					RealName: "test-name",
+					Ready:    true,
+					Status:   k8s.NewResourceSet(),
 				},
-				Plugins: []*release.ReleasePlugin{},
+				Plugins:            []*release.ReleasePlugin{},
 				ReleaseWarmVersion: common.WalmVersionV2,
 			},
 			err: nil,
@@ -478,10 +484,11 @@ func TestHelm_ListReleases(t *testing.T) {
 							Namespace: "test-ns",
 							Name:      "test-name",
 						},
-						Ready:  true,
-						Status: k8s.NewResourceSet(),
+						RealName: "test-name",
+						Ready:    true,
+						Status:   k8s.NewResourceSet(),
 					},
-					Plugins: []*release.ReleasePlugin{},
+					Plugins:            []*release.ReleasePlugin{},
 					ReleaseWarmVersion: common.WalmVersionV2,
 				},
 			},
@@ -671,14 +678,15 @@ func TestHelm_ListReleasesByLabels(t *testing.T) {
 							Namespace: "test-ns",
 							Name:      "test-name",
 						},
-						Ready:  true,
-						Status: k8s.NewResourceSet(),
+						RealName: "test-name",
+						Ready:    true,
+						Status:   k8s.NewResourceSet(),
 					},
-					Plugins: []*release.ReleasePlugin{},
+					Plugins:            []*release.ReleasePlugin{},
 					ReleaseWarmVersion: common.WalmVersionV2,
 				},
 			},
-			err:          nil,
+			err: nil,
 		},
 	}
 

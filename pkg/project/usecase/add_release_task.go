@@ -1,11 +1,14 @@
 package usecase
 
 import (
+	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/project"
 	"WarpCloud/walm/pkg/util"
 	"encoding/json"
+	"fmt"
 	"k8s.io/klog"
+	"strings"
 )
 
 const (
@@ -33,8 +36,8 @@ func (projectImpl *Project) AddReleaseTask(addReleaseTaskArgsStr string) error {
 }
 
 func (projectImpl *Project) doAddRelease(namespace, name string, projectParams *project.ProjectParams) error {
-	projectInfo, err := projectImpl.GetProjectInfo(namespace, name)
 	projectExists := true
+	projectInfo, err := projectImpl.GetProjectInfo(namespace, name)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
 			projectExists = false
@@ -45,6 +48,12 @@ func (projectImpl *Project) doAddRelease(namespace, name string, projectParams *
 	}
 
 	for _, releaseParams := range projectParams.Releases {
+		// compatible
+		if projectExists && projectInfo.WalmVersion == common.WalmVersionV1 {
+			if !strings.HasPrefix(releaseParams.Name, fmt.Sprintf("%s--", projectInfo.Name)) {
+				releaseParams.Name = fmt.Sprintf("%s--%s", projectInfo.Name, releaseParams.Name)
+			}
+		}
 		if releaseParams.ReleaseLabels == nil {
 			releaseParams.ReleaseLabels = map[string]string{}
 		}

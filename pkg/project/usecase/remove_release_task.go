@@ -4,6 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"k8s.io/klog"
+	"strings"
+
+	"WarpCloud/walm/pkg/models/common"
+	errorModel "WarpCloud/walm/pkg/models/error"
 )
 
 const (
@@ -32,10 +36,21 @@ func (projectImpl *Project) RemoveReleaseTask(removeReleaseTaskArgsStr string) e
 }
 
 func (projectImpl *Project) doRemoveRelease(namespace, name, releaseName string, deletePvcs bool) error {
+	projectExists := true
 	projectInfo, err := projectImpl.GetProjectInfo(namespace, name)
 	if err != nil {
-		klog.Errorf("failed to get project info : %s", err.Error())
-		return err
+		if errorModel.IsNotFoundError(err) {
+			projectExists = false
+		} else {
+			klog.Errorf("failed to get project info : %s", err.Error())
+			return err
+		}
+	}
+	// compatible
+	if projectExists && projectInfo.WalmVersion == common.WalmVersionV1 {
+		if !strings.HasPrefix(releaseName, fmt.Sprintf("%s--", projectInfo.Name)) {
+			releaseName = fmt.Sprintf("%s--%s", projectInfo.Name, releaseName)
+		}
 	}
 
 	releaseParams := buildReleaseRequest(projectInfo, releaseName)
