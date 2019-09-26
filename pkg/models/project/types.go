@@ -30,9 +30,10 @@ type ProjectInfoList struct {
 }
 
 type ProjectTask struct {
-	Name                string        `json:"name" description:"project name"`
-	Namespace           string        `json:"namespace" description:"project namespace"`
-	LatestTaskSignature *task.TaskSig `json:"latestTaskSignature" description:"latest task signature"`
+	Name                string             `json:"name" description:"project name"`
+	Namespace           string             `json:"namespace" description:"project namespace"`
+	WalmVersion         common.WalmVersion `json:"walmVersion" description:"chart walm version: v1, v2"`
+	LatestTaskSignature *task.TaskSig      `json:"latestTaskSignature" description:"latest task signature"`
 	// compatible
 	LatestTaskTimeoutSec int64 `json:"latestTaskTimeoutSec" description:"latest task timeout sec"`
 }

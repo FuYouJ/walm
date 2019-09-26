@@ -1,8 +1,8 @@
 package release
 
 import (
-	"WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/common"
+	"WarpCloud/walm/pkg/models/k8s"
 )
 
 type ReleaseInfoList struct {
@@ -12,9 +12,10 @@ type ReleaseInfoList struct {
 
 type ReleaseInfo struct {
 	ReleaseSpec
-	Ready   bool             `json:"ready" description:"whether release is ready"`
-	Message string           `json:"message" description:"why release is not ready"`
-	Status  *k8s.ResourceSet `json:"releaseStatus" description:"status of release"`
+	RealName string           `json:"realName" description:"name of the release"`
+	Ready    bool             `json:"ready" description:"whether release is ready"`
+	Message  string           `json:"message" description:"why release is not ready"`
+	Status   *k8s.ResourceSet `json:"releaseStatus" description:"status of release"`
 }
 
 type ReleaseSpec struct {

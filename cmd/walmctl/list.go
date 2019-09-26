@@ -51,6 +51,7 @@ type listProject struct {
 	CreatedAt string
 	Message   string
 	Namespace string
+	Version   string
 }
 
 func newListCmd(out io.Writer) *cobra.Command {
@@ -173,10 +174,11 @@ func (lc *listCmd) getProjectResult(projects []*project.ProjectInfo) []listProje
 
 	for _, project := range projects {
 		lp := listProject{
-			Name:    project.Name,
-			Ready:   project.Ready,
-			Message: project.Message,
+			Name:      project.Name,
+			Ready:     project.Ready,
+			Message:   project.Message,
 			Namespace: project.Namespace,
+			Version:   string(project.WalmVersion),
 		}
 
 		listProjects = append(listProjects, lp)

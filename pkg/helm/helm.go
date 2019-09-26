@@ -15,14 +15,13 @@ type Helm interface {
 		dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, paused *bool) (*release.ReleaseCache, error)
 	DeleteRelease(namespace string, name string) error
 	ListAllReleases() ([]*release.ReleaseCache, error)
-	GetDependencyOutputConfigs(namespace string, dependencies map[string]string, chartInfo *release.ChartDetailInfo) (dependencyConfigs map[string]interface{}, err error)
+	GetDependencyOutputConfigs(namespace string, dependencies map[string]string, chartInfo *release.ChartDetailInfo, strict bool) (dependencyConfigs map[string]interface{}, err error)
 
 	GetChartDetailInfo(repoName, chartName, chartVersion string) (*release.ChartDetailInfo, error)
 	GetChartList(repoName string) (*release.ChartInfoList, error)
 	GetDetailChartInfoByImage(chartImage string) (*release.ChartDetailInfo, error)
 	GetRepoList() *release.RepoInfoList
 	GetChartAutoDependencies(repoName, chartName, chartVersion string) (subChartNames []string, err error)
-
 }
 
 func BuildReleasePluginsByConfigValues(configValues map[string]interface{}) (releasePlugins []*release.ReleasePlugin, hasPauseReleasePlugin bool, err error){

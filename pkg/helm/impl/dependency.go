@@ -4,6 +4,7 @@ import (
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/common"
 	"fmt"
+	"github.com/pkg/errors"
 	"regexp"
 	"strings"
 	"WarpCloud/walm/pkg/release/utils"
@@ -20,16 +21,23 @@ const (
 
 // release with v1 chart should depend on release with v1 chart
 // release with v2 chart should depend on release with v2 chart
-func (helmImpl *Helm) GetDependencyOutputConfigs(namespace string, dependencies map[string]string, chartInfo *release.ChartDetailInfo) (dependencyConfigs map[string]interface{}, err error) {
+func (helmImpl *Helm) GetDependencyOutputConfigs(
+	namespace string, dependencies map[string]string,
+	chartInfo *release.ChartDetailInfo, strict bool,
+) (dependencyConfigs map[string]interface{}, err error) {
 	if chartInfo.WalmVersion == common.WalmVersionV2 {
-		return helmImpl.getDependencyOutputConfigsForChartV2(namespace, dependencies, chartInfo)
+		return helmImpl.getDependencyOutputConfigsForChartV2(namespace, dependencies, chartInfo, strict)
 	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
-		return helmImpl.getDependencyOutputConfigsForChartV1(namespace, dependencies, chartInfo)
+		return helmImpl.getDependencyOutputConfigsForChartV1(namespace, dependencies, chartInfo, strict)
 	}
 	return nil, nil
 }
 
-func (helmImpl *Helm) getDependencyOutputConfigsForChartV1(namespace string, dependencies map[string]string, chartInfo *release.ChartDetailInfo) (dependencyConfigs map[string]interface{}, err error) {
+func (helmImpl *Helm) getDependencyOutputConfigsForChartV1(
+	namespace string, dependencies map[string]string,
+	chartInfo *release.ChartDetailInfo,
+	strict bool,
+) (dependencyConfigs map[string]interface{}, err error) {
 	dependencyConfigs = map[string]interface{}{}
 
 	// compatible v1 chart
@@ -48,8 +56,12 @@ func (helmImpl *Helm) getDependencyOutputConfigsForChartV1(namespace string, dep
 
 		dependencyMeta, err := helmImpl.getDependencyMetaForChartV1(namespace, dependency)
 		if err != nil {
-			klog.Errorf("failed to get dependency meta : %s", err.Error())
-			return nil, err
+			if errorModel.IsNotFoundError(err) && !strict {
+				klog.Warningf("ignore dependency not found error due to disable strict mode : %s", err.Error())
+			} else {
+				klog.Errorf("failed to get dependency meta : %s", err.Error())
+				return nil, err
+			}
 		}
 		if dependencyMeta == nil {
 			continue
@@ -63,7 +75,10 @@ func (helmImpl *Helm) getDependencyOutputConfigsForChartV1(namespace string, dep
 	return dependencyConfigs, nil
 }
 
-func buildDependencyConfigsForChartV1(dependencyConfigs map[string]interface{}, dependencyRequire map[string]string, dependencyMeta *k8sModel.DependencyMeta) error {
+func buildDependencyConfigsForChartV1(
+	dependencyConfigs map[string]interface{},
+	dependencyRequire map[string]string, dependencyMeta *k8sModel.DependencyMeta,
+) error {
 	cache := make(map[string]interface{})
 	for key, statement := range dependencyRequire {
 		varName, fieldPath, err := splitVarAndFieldPath(statement)
@@ -89,7 +104,7 @@ func buildDependencyConfigsForChartV1(dependencyConfigs map[string]interface{}, 
 	return nil
 }
 
-func (helmImpl *Helm) getDependencyOutputConfigsForChartV2(namespace string, dependencies map[string]string, chartInfo *release.ChartDetailInfo) (dependencyConfigs map[string]interface{}, err error) {
+func (helmImpl *Helm) getDependencyOutputConfigsForChartV2(namespace string, dependencies map[string]string, chartInfo *release.ChartDetailInfo, strict bool) (dependencyConfigs map[string]interface{}, err error) {
 	dependencyConfigs = map[string]interface{}{}
 	dependencyAliasConfigVars := map[string]string{}
 	if chartInfo.MetaInfo == nil {
@@ -110,8 +125,12 @@ func (helmImpl *Helm) getDependencyOutputConfigsForChartV2(namespace string, dep
 
 		outputConfig, err := helmImpl.getOutputConfigValuesForChartV2(namespace, dependency)
 		if err != nil {
-			klog.Errorf("failed to get dependency %s output config value : %s", dependency, err.Error())
-			return nil, err
+			if errorModel.IsNotFoundError(err) && !strict {
+				klog.Warningf("ignore dependency not found error due to disable strict mode : %s", err.Error())
+			} else {
+				klog.Errorf("failed to get dependency %s output config value : %s", dependency, err.Error())
+				return nil, err
+			}
 		}
 
 		if len(outputConfig) > 0 {
@@ -142,8 +161,8 @@ func (helmImpl *Helm) getDependencyMetaForChartV1(namespace string, dependency s
 	dependencyReleaseConfigResource, err := helmImpl.k8sCache.GetResource(k8sModel.ReleaseConfigKind, dependencyNamespace, dependencyName)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
-			klog.Warningf("release config %s/%s is not found", dependencyNamespace, dependencyName)
-			return nil, nil
+			klog.Errorf("release config %s/%s is not found", dependencyNamespace, dependencyName)
+			return nil, errors.Wrapf(err, "release config %s/%s is not found", dependencyNamespace, dependencyName)
 		}
 		klog.Errorf("failed to get release config %s/%s : %s", dependencyNamespace, dependencyName, err.Error())
 		return nil, err
@@ -174,8 +193,8 @@ func (helmImpl *Helm) getOutputConfigValuesForChartV2(namespace string, dependen
 	dependencyReleaseConfigResource, err := helmImpl.k8sCache.GetResource(k8sModel.ReleaseConfigKind, dependencyNamespace, dependencyName)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
-			klog.Warningf("release config %s/%s is not found", dependencyNamespace, dependencyName)
-			return nil, nil
+			klog.Errorf("release config %s/%s is not found", dependencyNamespace, dependencyName)
+			return nil, errors.Wrapf(err, "release config %s/%s is not found", dependencyNamespace, dependencyName)
 		}
 		klog.Errorf("failed to get release config %s/%s : %s", dependencyNamespace, dependencyName, err.Error())
 		return nil, err

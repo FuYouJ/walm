@@ -85,7 +85,7 @@ var _ = Describe("Sync", func() {
 		Expect(rt).To(Equal("{\"name\":\"testnm\",\"namespace\":\"testns\",\"latestReleaseTaskSignature\":null}"))
 		pt, err := redisClient.HGet(testPtKey, "testns/testpj").Result()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(pt).To(Equal("{\"name\":\"testpj\",\"namespace\":\"testns\",\"latestTaskSignature\":null,\"latestTaskTimeoutSec\":0}"))
+		Expect(pt).To(Equal("{\"name\":\"testpj\",\"namespace\":\"testns\",\"walmVersion\":\"v2\",\"latestTaskSignature\":null,\"latestTaskTimeoutSec\":0}"))
 
 		By("a release of a project is updated by helm cli")
 		refreshMocks()
@@ -116,7 +116,7 @@ var _ = Describe("Sync", func() {
 		Expect(rt).To(Equal("{\"name\":\"testnm\",\"namespace\":\"testns\",\"latestReleaseTaskSignature\":null}"))
 		pt, err = redisClient.HGet(testPtKey, "testns/testpj").Result()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(pt).To(Equal("{\"name\":\"testpj\",\"namespace\":\"testns\",\"latestTaskSignature\":null,\"latestTaskTimeoutSec\":0}"))
+		Expect(pt).To(Equal("{\"name\":\"testpj\",\"namespace\":\"testns\",\"walmVersion\":\"v2\",\"latestTaskSignature\":null,\"latestTaskTimeoutSec\":0}"))
 
 		By("a release of a project is deleted by helm cli")
 		refreshMocks()

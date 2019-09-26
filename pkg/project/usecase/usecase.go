@@ -381,6 +381,7 @@ func (projectImpl *Project) buildProjectInfo(task *projectModel.ProjectTask) (pr
 	if err != nil {
 		return nil, err
 	}
+
 	// compatible
 	releaseList, err := projectImpl.releaseUseCase.ListReleasesByFilter(task.Namespace, fmt.Sprintf("%s--", task.Name))
 	if err != nil {
@@ -388,6 +389,9 @@ func (projectImpl *Project) buildProjectInfo(task *projectModel.ProjectTask) (pr
 	}
 	if len(releaseList) > 0 {
 		projectInfo.WalmVersion = common.WalmVersionV1
+		for _, oldRelease := range releaseList {
+			projectInfo.Releases = append(projectInfo.Releases, oldRelease)
+		}
 	}
 
 	taskState, err := projectImpl.task.GetTaskState(task.LatestTaskSignature)
