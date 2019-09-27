@@ -387,13 +387,17 @@ func (informer *Informer) GetResource(kind k8s.ResourceKind, namespace, name str
 func (informer *Informer) start(stopCh <-chan struct{}) {
 	informer.factory.Start(stopCh)
 	informer.releaseConifgFactory.Start(stopCh)
-	informer.instanceFactory.Start(stopCh)
+	if informer.instanceFactory != nil {
+		informer.instanceFactory.Start(stopCh)
+	}
 }
 
 func (informer *Informer) waitForCacheSync(stopCh <-chan struct{}) {
 	informer.factory.WaitForCacheSync(stopCh)
 	informer.releaseConifgFactory.WaitForCacheSync(stopCh)
-	informer.instanceFactory.WaitForCacheSync(stopCh)
+	if informer.instanceFactory != nil {
+		informer.instanceFactory.WaitForCacheSync(stopCh)
+	}
 }
 
 func (informer *Informer) searchEvents(namespace string, objOrRef runtime.Object) (*corev1.EventList, error) {
@@ -420,7 +424,8 @@ func (informer *Informer) getDependencyMetaByInstance(instance *beta1.Applicatio
 	return k8sutils.GetDependencyMetaFromDummyServiceMetaStr(metaString)
 }
 
-func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfigclientset.Clientset, instanceClient *instanceclientset.Clientset, resyncPeriod time.Duration, stopCh <-chan struct{}) (*Informer) {
+func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfigclientset.Clientset,
+	instanceClient *instanceclientset.Clientset, resyncPeriod time.Duration, stopCh <-chan struct{}) (*Informer) {
 	informer := &Informer{}
 	informer.client = client
 	informer.factory = informers.NewSharedInformerFactory(client, resyncPeriod)
@@ -444,8 +449,10 @@ func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfi
 	informer.releaseConifgFactory = releaseconfigexternalversions.NewSharedInformerFactory(releaseConfigClient, resyncPeriod)
 	informer.releaseConfigLister = informer.releaseConifgFactory.Transwarp().V1beta1().ReleaseConfigs().Lister()
 
-	informer.instanceFactory = instanceexternalversions.NewSharedInformerFactory(instanceClient, resyncPeriod)
-	informer.instanceLister = informer.instanceFactory.Transwarp().V1beta1().ApplicationInstances().Lister()
+	if instanceClient != nil {
+		informer.instanceFactory = instanceexternalversions.NewSharedInformerFactory(instanceClient, resyncPeriod)
+		informer.instanceLister = informer.instanceFactory.Transwarp().V1beta1().ApplicationInstances().Lister()
+	}
 
 	informer.start(stopCh)
 	informer.waitForCacheSync(stopCh)

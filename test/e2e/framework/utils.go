@@ -11,7 +11,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	clienthelm "WarpCloud/walm/pkg/k8s/client/helm"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
-	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	"runtime"
 	"WarpCloud/walm/pkg/helm/impl"
 	"helm.sh/helm/pkg/chart/loader"
@@ -20,7 +19,6 @@ import (
 
 var k8sClient *kubernetes.Clientset
 var k8sReleaseConfigClient *releaseconfigclientset.Clientset
-var k8sInstanceClient *instanceclientset.Clientset
 var kubeClients *clienthelm.Client
 
 const (
@@ -139,13 +137,7 @@ func InitFramework() error {
 		return err
 	}
 
-	k8sInstanceClient, err = client.NewInstanceClient("", kubeConfig)
-	if err != nil {
-		logrus.Errorf("failed to create k8s instance client : %s", err.Error())
-		return err
-	}
-
-	kubeClients = clienthelm.NewHelmKubeClient(kubeConfig, kubeContext, k8sInstanceClient)
+	kubeClients = clienthelm.NewHelmKubeClient(kubeConfig, kubeContext, nil)
 
 	return nil
 }

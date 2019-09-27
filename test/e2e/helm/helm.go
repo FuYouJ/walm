@@ -32,7 +32,7 @@ var _ = Describe("HelmRelease", func() {
 		namespace, err = framework.CreateRandomNamespace("helmReleaseTest", nil)
 		Expect(err).NotTo(HaveOccurred())
 		stopChan = make(chan struct{})
-		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), framework.GetK8sInstanceClient(),0, stopChan)
+		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), nil,0, stopChan)
 		registryClient, err := impl.NewRegistryClient(setting.Config.ChartImageConfig)
 		Expect(err).NotTo(HaveOccurred())
 

@@ -58,9 +58,14 @@ type WalmConfig struct {
 	TaskConfig       *TaskConfig       `json:"taskConfig"`
 	JsonnetConfig    *JsonnetConfig    `json:"jsonnetConfig"`
 	ChartImageConfig *ChartImageConfig `json:"chartImageConfig"`
+	CrdConfig        *CrdConfig        `json:"crdConfig"`
 
 	//only for test
 	ChartImageRegistry string `json:"chartImageRegistry"`
+}
+
+type CrdConfig struct {
+	NotNeedInstance bool `json:"notNeedInstance"`
 }
 
 type ChartImageConfig struct {
