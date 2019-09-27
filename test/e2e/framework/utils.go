@@ -145,7 +145,7 @@ func InitFramework() error {
 		return err
 	}
 
-	kubeClients = clienthelm.NewHelmKubeClient(kubeConfig, kubeContext)
+	kubeClients = clienthelm.NewHelmKubeClient(kubeConfig, kubeContext, k8sInstanceClient)
 
 	return nil
 }

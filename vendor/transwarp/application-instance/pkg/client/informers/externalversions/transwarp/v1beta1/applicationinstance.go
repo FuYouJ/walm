@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ package v1beta1
 
 import (
 	time "time"
-	transwarp_v1beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
+	transwarpv1beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
 	versioned "transwarp/application-instance/pkg/client/clientset/versioned"
 	internalinterfaces "transwarp/application-instance/pkg/client/informers/externalversions/internalinterfaces"
 	v1beta1 "transwarp/application-instance/pkg/client/listers/transwarp/v1beta1"
@@ -70,7 +70,7 @@ func NewFilteredApplicationInstanceInformer(client versioned.Interface, namespac
 				return client.TranswarpV1beta1().ApplicationInstances(namespace).Watch(options)
 			},
 		},
-		&transwarp_v1beta1.ApplicationInstance{},
+		&transwarpv1beta1.ApplicationInstance{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,7 +81,7 @@ func (f *applicationInstanceInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *applicationInstanceInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&transwarp_v1beta1.ApplicationInstance{}, f.defaultInformer)
+	return f.factory.InformerFor(&transwarpv1beta1.ApplicationInstance{}, f.defaultInformer)
 }
 
 func (f *applicationInstanceInformer) Lister() v1beta1.ApplicationInstanceLister {

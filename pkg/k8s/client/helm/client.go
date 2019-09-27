@@ -4,12 +4,14 @@ import (
 	"github.com/hashicorp/golang-lru"
 	"helm.sh/helm/pkg/kube"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 )
 
 type Client struct {
 	kubeWrappers *lru.Cache
 	kubeConfig   string
 	context      string
+	k8sInstanceClient *instanceclientset.Clientset
 }
 
 type KubeWrapper struct {
@@ -27,17 +29,18 @@ func (c *Client) GetKubeClient(namespace string) (genericclioptions.RESTClientGe
 		return kw.kubeConfig, kw.kubeClient
 	} else {
 		kubeConfig := kube.GetConfig(c.kubeConfig, c.context, namespace)
-		kubeClient := kube.New(kubeConfig)
+		kubeClient := kube.New(kubeConfig, c.k8sInstanceClient)
 		c.kubeWrappers.Add(namespace, KubeWrapper{kubeConfig: kubeConfig, kubeClient: kubeClient})
 		return kubeConfig, kubeClient
 	}
 }
 
-func NewHelmKubeClient(kubeConfig string, context string) *Client {
+func NewHelmKubeClient(kubeConfig string, context string, k8sInstanceClient *instanceclientset.Clientset) *Client {
 	kubeClients, _ := lru.New(100)
 	return &Client{
 		kubeWrappers: kubeClients,
 		kubeConfig:   kubeConfig,
 		context:      context,
+		k8sInstanceClient: k8sInstanceClient,
 	}
 }

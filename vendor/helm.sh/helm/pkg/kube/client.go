@@ -20,18 +20,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"log"
-	"strings"
-	"time"
-
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/pkg/errors"
+	"io"
 	batch "k8s.io/api/batch/v1"
 	v1 "k8s.io/api/core/v1"
 	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/klog"
+	"log"
+	"strings"
+	"time"
+	"transwarp/application-instance/pkg/apis/transwarp/v1beta1"
+	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,12 +56,14 @@ var ErrNoObjectsVisited = errors.New("no objects visited")
 
 // Client represents a client capable of communicating with the Kubernetes API.
 type Client struct {
-	Factory Factory
-	Log     func(string, ...interface{})
+	Factory           Factory
+	k8sInstanceClient *instanceclientset.Clientset
+	Log               func(string, ...interface{})
+	getter            genericclioptions.RESTClientGetter
 }
 
 // New creates a new Client.
-func New(getter genericclioptions.RESTClientGetter) *Client {
+func New(getter genericclioptions.RESTClientGetter, k8sInstanceClient *instanceclientset.Clientset) *Client {
 	if getter == nil {
 		getter = genericclioptions.NewConfigFlags(true)
 	}
@@ -68,8 +73,10 @@ func New(getter genericclioptions.RESTClientGetter) *Client {
 		panic(err)
 	}
 	return &Client{
-		Factory: cmdutil.NewFactory(getter),
-		Log:     nopLogger,
+		Factory:           cmdutil.NewFactory(getter),
+		Log:               nopLogger,
+		k8sInstanceClient: k8sInstanceClient,
+		getter:            getter,
 	}
 }
 
@@ -140,6 +147,30 @@ func (c *Client) Build(reader io.Reader) (ResourceList, error) {
 func (c *Client) Update(original, target ResourceList, force bool) (*Result, error) {
 	updateErrors := []string{}
 	res := &Result{}
+
+	if instanceInfo := findInstanceInOriginal(original); instanceInfo != nil {
+		c.Log("delete instance and instance modules")
+		// Get Instance
+		if c.k8sInstanceClient == nil {
+			klog.Errorf("get k8sInstanceClient error")
+			return nil, errors.Errorf("get k8sInstanceClient error, k8sInstanceClient is nil")
+		}
+		instance, err := c.k8sInstanceClient.TranswarpV1beta1().ApplicationInstances(instanceInfo.Namespace).Get(instanceInfo.Name, metav1.GetOptions{})
+		if err != nil {
+			klog.Errorf("get instance error: %s", err.Error())
+			return nil, err
+		}
+		// Delete Instance
+		if err := deleteResource(instanceInfo); err != nil {
+			klog.Errorf("delete instance error: %s", err.Error())
+			return nil, err
+		}
+		res.Deleted = append(res.Deleted, instanceInfo)
+		// Delete Instance Modules
+		if err := c.deleteInstanceModules(instance); err != nil {
+			return nil, err
+		}
+	}
 
 	c.Log("checking %d resources for changes", len(target))
 	err := target.Visit(func(info *resource.Info, err error) error {
@@ -533,4 +564,78 @@ func (c *Client) WaitAndGetCompletedPodPhase(name string, timeout time.Duration)
 	}
 
 	return v1.PodUnknown, err
+}
+
+func (c *Client) deleteInstanceModules(instance *v1beta1.ApplicationInstance) error {
+
+	client, err := c.Factory.KubernetesClientSet()
+	if err != nil {
+		klog.Errorf("get kubernetes clientSet err: %s", err.Error())
+		return err
+	}
+
+	for _, module := range instance.Status.Modules {
+		retryCount := 0
+		retryLimit := 3
+		for {
+			err := deleteInstanceModule(client, module)
+			// Handler Error
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					klog.Infof("%s %s not found: %s", module.ResourceRef.Kind, module.ResourceRef.Name, err.Error())
+					break
+				} else if apierrors.IsConflict(err) {
+					if retryCount == retryLimit {
+						klog.Errorf("delete instance module %s %s timeout: %s", module.ResourceRef.Kind, module.ResourceRef.Name, err.Error())
+						return err
+					}
+					time.Sleep(500 * time.Millisecond)
+					retryCount++
+					continue
+				} else {
+					klog.Errorf("delete instance module %s %s error: %s", module.ResourceRef.Kind, module.ResourceRef.Name, err.Error())
+					return err
+				}
+			}
+			break
+		}
+
+	}
+	return nil
+}
+
+func deleteInstanceModule(client *kubernetes.Clientset, module v1beta1.ResourceReference) error {
+	var err error
+	switch module.ResourceRef.Kind {
+	case "ConfigMap":
+		err = client.CoreV1().ConfigMaps(module.ResourceRef.Namespace).Delete(module.ResourceRef.Name, &metav1.DeleteOptions{})
+	case "Service":
+		err = client.CoreV1().Services(module.ResourceRef.Namespace).Delete(module.ResourceRef.Name, &metav1.DeleteOptions{})
+	case "StatefulSet":
+		err = client.AppsV1beta1().StatefulSets(module.ResourceRef.Namespace).Delete(module.ResourceRef.Name, &metav1.DeleteOptions{})
+	case "DaemonSet":
+		err = client.ExtensionsV1beta1().DaemonSets(module.ResourceRef.Namespace).Delete(module.ResourceRef.Name, &metav1.DeleteOptions{})
+	case "Deployment":
+		err = client.ExtensionsV1beta1().Deployments(module.ResourceRef.Namespace).Delete(module.ResourceRef.Name, &metav1.DeleteOptions{})
+	case "Ingress":
+		err = client.ExtensionsV1beta1().Ingresses(module.ResourceRef.Namespace).Delete(module.ResourceRef.Name, &metav1.DeleteOptions{})
+	case "Job":
+		err = client.BatchV1().Jobs(module.ResourceRef.Namespace).Delete(module.ResourceRef.Name, &metav1.DeleteOptions{})
+	case "Secret":
+		err = client.CoreV1().Secrets(module.ResourceRef.Namespace).Delete(module.ResourceRef.Name, &metav1.DeleteOptions{})
+	}
+	if err != nil {
+		return err
+	}
+	klog.Info("instance module %s %s deleted", module.ResourceRef.Kind, module.ResourceRef.Name)
+	return nil
+}
+
+func findInstanceInOriginal(original ResourceList) *resource.Info {
+	for _, info := range original {
+		if info.Object.GetObjectKind().GroupVersionKind().Kind == "ApplicationInstance" {
+			return info
+		}
+	}
+	return nil
 }

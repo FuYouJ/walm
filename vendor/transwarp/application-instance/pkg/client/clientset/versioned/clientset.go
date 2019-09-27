@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ package versioned
 import (
 	transwarpv1beta1 "transwarp/application-instance/pkg/client/clientset/versioned/typed/transwarp/v1beta1"
 
-	glog "github.com/golang/glog"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -30,8 +29,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	TranswarpV1beta1() transwarpv1beta1.TranswarpV1beta1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Transwarp() transwarpv1beta1.TranswarpV1beta1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -43,12 +40,6 @@ type Clientset struct {
 
 // TranswarpV1beta1 retrieves the TranswarpV1beta1Client
 func (c *Clientset) TranswarpV1beta1() transwarpv1beta1.TranswarpV1beta1Interface {
-	return c.transwarpV1beta1
-}
-
-// Deprecated: Transwarp retrieves the default version of TranswarpClient.
-// Please explicitly pick a version.
-func (c *Clientset) Transwarp() transwarpv1beta1.TranswarpV1beta1Interface {
 	return c.transwarpV1beta1
 }
 
@@ -75,7 +66,6 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
-		glog.Errorf("failed to create the DiscoveryClient: %v", err)
 		return nil, err
 	}
 	return &cs, nil

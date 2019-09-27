@@ -319,7 +319,7 @@ func (lint *lintOptions) loadJsonnetAppLib(ch *chart.Chart) error {
 
 func (lint *lintOptions) mockInst() *action.Install {
 	// dry-run using the Kubernetes mock
-	kc := kube.New(kube.GetConfig(lint.kubeconfig, "", ""))
+	kc := kube.New(kube.GetConfig(lint.kubeconfig, "", ""), nil)
 	customConfig := &action.Configuration{
 		// Add mock objects in here so it doesn't use Kube API server
 		Releases:         storage.Init(driver.NewMemory()),

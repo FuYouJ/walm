@@ -1,5 +1,5 @@
 /*
-Copyright 2018 The Kubernetes Authors.
+Copyright The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -63,7 +63,7 @@ func (c *FakeApplicationInstances) List(opts v1.ListOptions) (result *v1beta1.Ap
 	if label == nil {
 		label = labels.Everything()
 	}
-	list := &v1beta1.ApplicationInstanceList{}
+	list := &v1beta1.ApplicationInstanceList{ListMeta: obj.(*v1beta1.ApplicationInstanceList).ListMeta}
 	for _, item := range obj.(*v1beta1.ApplicationInstanceList).Items {
 		if label.Matches(labels.Set(item.Labels)) {
 			list.Items = append(list.Items, item)
@@ -120,7 +120,7 @@ func (c *FakeApplicationInstances) DeleteCollection(options *v1.DeleteOptions, l
 // Patch applies the patch and returns the patched applicationInstance.
 func (c *FakeApplicationInstances) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v1beta1.ApplicationInstance, err error) {
 	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(applicationinstancesResource, c.ns, name, data, subresources...), &v1beta1.ApplicationInstance{})
+		Invokes(testing.NewPatchSubresourceAction(applicationinstancesResource, c.ns, name, pt, data, subresources...), &v1beta1.ApplicationInstance{})
 
 	if obj == nil {
 		return nil, err

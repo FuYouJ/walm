@@ -89,7 +89,7 @@ func main() {
 }
 
 func initActionConfig(actionConfig *action.Configuration, allNamespaces bool) {
-	kc := kube.New(kubeConfig())
+	kc := kube.New(kubeConfig(), nil)
 	kc.Log = debug
 
 	clientset, err := kc.Factory.KubernetesClientSet()

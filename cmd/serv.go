@@ -138,7 +138,7 @@ func (sc *ServCmd) run() error {
 		klog.Errorf("failed to create registry client : %s", err.Error())
 		return err
 	}
-	kubeClients := k8sHelm.NewHelmKubeClient(kubeConfig, kubeContest)
+	kubeClients := k8sHelm.NewHelmKubeClient(kubeConfig, kubeContest, k8sInstanceClient)
 	helm, err := helmImpl.NewHelm(config.RepoList, registryClient, k8sCache, kubeClients)
 	if err != nil {
 		klog.Errorf("failed to create helm manager: %s", err.Error())
