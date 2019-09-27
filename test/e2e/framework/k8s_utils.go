@@ -10,7 +10,6 @@ import(
 	appsv1 "k8s.io/api/apps/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
-	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -30,10 +29,6 @@ func GetK8sClient() *kubernetes.Clientset {
 
 func GetK8sReleaseConfigClient() *releaseconfigclientset.Clientset {
 	return k8sReleaseConfigClient
-}
-
-func GetK8sInstanceClient() *instanceclientset.Clientset {
-	return k8sInstanceClient
 }
 
 func CreateRandomNamespace(base string, labels map[string]string) (string, error) {

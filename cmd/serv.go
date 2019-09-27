@@ -45,6 +45,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 )
 
 const servDesc = `
@@ -115,11 +116,16 @@ func (sc *ServCmd) run() error {
 		klog.Errorf("failed to create k8s release config client : %s", err.Error())
 		return err
 	}
-	k8sInstanceClient, err := client.NewInstanceClient("", kubeConfig)
-	if err != nil {
-		klog.Errorf("failed to create k8s instance client : %s", err.Error())
-		return err
+	var k8sInstanceClient *instanceclientset.Clientset
+	if config.CrdConfig == nil || !config.CrdConfig.NotNeedInstance {
+		klog.Info("CRD ApplicationInstance should be installed in the k8s")
+		k8sInstanceClient, err = client.NewInstanceClient("", kubeConfig)
+		if err != nil {
+			klog.Errorf("failed to create k8s instance client : %s", err.Error())
+			return err
+		}
 	}
+
 	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, k8sInstanceClient,0, stopChan)
 
 	if config.TaskConfig == nil {

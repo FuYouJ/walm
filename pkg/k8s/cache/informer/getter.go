@@ -224,11 +224,15 @@ func (informer *Informer) getStorageClass(namespace, name string) (k8s.Resource,
 }
 
 func (informer *Informer) getInstance(namespace, name string) (k8s.Resource, error) {
+	notFoundResource := &k8s.ApplicationInstance{
+		Meta: k8s.NewNotFoundMeta(k8s.InstanceKind, namespace, name),
+	}
+	if informer.instanceLister == nil {
+		return notFoundResource , errorModel.NotFoundError{}
+	}
 	resource, err := informer.instanceLister.ApplicationInstances(namespace).Get(name)
 	if err != nil {
-		return convertResourceError(err, &k8s.ApplicationInstance{
-			Meta: k8s.NewNotFoundMeta(k8s.InstanceKind, namespace, name),
-		})
+		return convertResourceError(err, notFoundResource)
 	}
 
 	resourceMetas := convertInstanceModulesToResourceMetas(resource.Status.Modules)
