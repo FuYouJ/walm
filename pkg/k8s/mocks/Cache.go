@@ -17,6 +17,11 @@ func (_m *Cache) AddReleaseConfigHandler(OnAdd func(interface{}), OnUpdate func(
 	_m.Called(OnAdd, OnUpdate, OnDelete)
 }
 
+// AddServiceHandler provides a mock function with given fields: OnAdd, OnUpdate, OnDelete
+func (_m *Cache) AddServiceHandler(OnAdd func(interface{}), OnUpdate func(interface{}, interface{}), OnDelete func(interface{})) {
+	_m.Called(OnAdd, OnUpdate, OnDelete)
+}
+
 // GetNodes provides a mock function with given fields: labelSelector
 func (_m *Cache) GetNodes(labelSelector string) ([]*modelsk8s.Node, error) {
 	ret := _m.Called(labelSelector)

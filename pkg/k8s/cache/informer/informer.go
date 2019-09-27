@@ -30,7 +30,7 @@ import (
 	instanceexternalversions "transwarp/application-instance/pkg/client/informers/externalversions"
 	beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
 	"fmt"
-	"encoding/json"
+	k8sutils "WarpCloud/walm/pkg/k8s/utils"
 )
 
 type Informer struct {
@@ -281,6 +281,15 @@ func (informer *Informer) AddReleaseConfigHandler(OnAdd func(obj interface{}), O
 	informer.releaseConifgFactory.Transwarp().V1beta1().ReleaseConfigs().Informer().AddEventHandler(handlerFuncs)
 }
 
+func (informer *Informer) AddServiceHandler(OnAdd func(obj interface{}), OnUpdate func(oldObj, newObj interface{}), OnDelete func(obj interface{})) {
+	handlerFuncs := &cache.ResourceEventHandlerFuncs{
+		AddFunc:    OnAdd,
+		UpdateFunc: OnUpdate,
+		DeleteFunc: OnDelete,
+	}
+	informer.factory.Core().V1().Services().Informer().AddEventHandler(handlerFuncs)
+}
+
 func (informer *Informer) ListPersistentVolumeClaims(namespace string, labelSelectorStr string) ([]*k8s.PersistentVolumeClaim, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
@@ -407,12 +416,8 @@ func (informer *Informer) getDependencyMetaByInstance(instance *beta1.Applicatio
 	if !found {
 		return nil, nil
 	}
-	meta := &k8s.DependencyMeta{}
-	if err := json.Unmarshal([]byte(metaString), meta); err != nil {
-		klog.Errorf("Fail to unmarshal dependency meta, error %v", err)
-		return nil, err
-	}
-	return meta, nil
+
+	return k8sutils.GetDependencyMetaFromDummyServiceMetaStr(metaString)
 }
 
 func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfigclientset.Clientset, instanceClient *instanceclientset.Clientset, resyncPeriod time.Duration, stopCh <-chan struct{}) (*Informer) {

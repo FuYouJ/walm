@@ -17,6 +17,8 @@ import (
 	"strings"
 	"time"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
+	"k8s.io/api/core/v1"
+	k8sutils "WarpCloud/walm/pkg/k8s/utils"
 )
 
 // 动态依赖管理核心需求：
@@ -88,11 +90,18 @@ func (controller *ReleaseConfigController) Start(stopChan <-chan struct{}) {
 		go wait.Until(controller.reloadDependingReleaseWorker, time.Second, stopChan)
 	}
 
-	AddFunc := func(obj interface{}) {
+	controller.k8sCache.AddReleaseConfigHandler(controller.getReleaseConfigEventHandlerFuncs())
+	controller.k8sCache.AddServiceHandler(controller.getServiceEventHandlerFuncs())
+	<-stopChan
+}
+
+func (controller *ReleaseConfigController) getReleaseConfigEventHandlerFuncs()(
+	AddFunc func(obj interface{}), UpdateFunc  func(old, cur interface{}), DeleteFunc func(obj interface{})){
+	AddFunc = func(obj interface{}) {
 		controller.enqueueReleaseConfig(obj)
 		controller.enqueueKafka(obj)
 	}
-	UpdateFunc := func(old, cur interface{}) {
+	UpdateFunc = func(old, cur interface{}) {
 		oldReleaseConfig, ok := old.(*v1beta1.ReleaseConfig)
 		if !ok {
 			klog.Error("old object is not release config")
@@ -110,12 +119,58 @@ func (controller *ReleaseConfigController) Start(stopChan <-chan struct{}) {
 			controller.enqueueKafka(cur)
 		}
 	}
-	DeleteFunc := func(obj interface{}) {
+	DeleteFunc = func(obj interface{}) {
 		controller.enqueueKafka(obj)
 	}
-	controller.k8sCache.AddReleaseConfigHandler(AddFunc, UpdateFunc, DeleteFunc)
+	return
+}
 
-	<-stopChan
+func (controller *ReleaseConfigController) getServiceEventHandlerFuncs()(
+	AddFunc func(obj interface{}), UpdateFunc  func(old, cur interface{}), DeleteFunc func(obj interface{})){
+	AddFunc = func(obj interface{}) {
+		svc, ok := obj.(*v1.Service)
+		if !ok {
+			klog.Error("obj is not service")
+			return
+		}
+		if k8sutils.IsDummyService(svc) {
+			controller.enqueueV1Release(svc)
+		}
+		//controller.enqueueKafka(obj)
+	}
+	UpdateFunc = func(old, cur interface{}) {
+		oldSvc, ok := old.(*v1.Service)
+		if !ok {
+			klog.Error("old object is not service")
+			return
+		}
+		curSvc, ok := cur.(*v1.Service)
+		if !ok {
+			klog.Error("cur object is not service")
+			return
+		}
+		if k8sutils.IsDummyService(oldSvc) && k8sutils.IsDummyService(curSvc) {
+			oldDependencyMeta, err := k8sutils.GetDependencyMetaFromDummyServiceMetaStr(oldSvc.Annotations["transwarp.meta"])
+			if err != nil {
+				return
+			}
+			curDependencyMeta, err := k8sutils.GetDependencyMetaFromDummyServiceMetaStr(curSvc.Annotations["transwarp.meta"])
+			if err != nil {
+				return
+			}
+			if !reflect.DeepEqual(oldDependencyMeta, curDependencyMeta) {
+				controller.enqueueV1Release(curSvc)
+			}
+		}
+
+		//if !reflect.DeepEqual(oldReleaseConfig.Spec, curReleaseConfig.Spec) {
+		//	controller.enqueueKafka(cur)
+		//}
+	}
+	DeleteFunc = func(obj interface{}) {
+		//controller.enqueueKafka(obj)
+	}
+	return
 }
 
 func (controller *ReleaseConfigController) enqueueReleaseConfig(obj interface{}) {
@@ -125,6 +180,15 @@ func (controller *ReleaseConfigController) enqueueReleaseConfig(obj interface{})
 		return
 	}
 	controller.workingQueue.Add(key)
+}
+
+func (controller *ReleaseConfigController) enqueueV1Release(dummySvc *v1.Service) {
+	releaseName := k8sutils.GetReleaseNameFromDummyService(dummySvc)
+	if releaseName != "" {
+		controller.workingQueue.Add(dummySvc.Namespace + "/" + releaseName)
+	} else {
+		klog.Warningf("can not get release name from dummy svc %s/%s", dummySvc.Namespace, dummySvc.Name)
+	}
 }
 
 func (controller *ReleaseConfigController) enqueueKafka(obj interface{}) {
