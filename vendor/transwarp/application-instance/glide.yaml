@@ -1,102 +1,44 @@
 package: transwarp/application-instance
 import:
-- package: github.com/PuerkitoBio/purell
-  version: 8a290539e2e8629dbc4e6bad948158f790ec31f4
-- package: github.com/PuerkitoBio/urlesc
-  version: 5bd2802263f21d8788851d5305584c82a5c75d7e
-- package: github.com/emicklei/go-restful
-  version: ff4f55a206334ef123e4f79bbf348980da81ca46
-  subpackages:
-  - log
-- package: github.com/go-openapi/jsonpointer
-  version: 46af16f9f7b149af66e5d1bd010e3574dc06de98
-- package: github.com/go-openapi/jsonreference
-  version: 13c6e3589ad90f49bd3e3bbe2c2cb3d7a4142272
-- package: github.com/go-openapi/spec
-  version: 1de3e0542de65ad8d75452a595886fdd0befb363
-- package: github.com/go-openapi/swag
-  version: f3f9494671f93fcff853e3c6e9e948b3eb71e590
+- package: github.com/BurntSushi/xgb
+  version: 27f122750802
 - package: github.com/gogo/protobuf
-  version: c0656edd0d9eab7c66d1eb0c568f9039345796f7
-  subpackages:
-  - gogoproto
-  - plugin/compare
-  - plugin/defaultcheck
-  - plugin/description
-  - plugin/embedcheck
-  - plugin/enumstringer
-  - plugin/equal
-  - plugin/face
-  - plugin/gostring
-  - plugin/marshalto
-  - plugin/oneofcheck
-  - plugin/populate
-  - plugin/size
-  - plugin/stringer
-  - plugin/testgen
-  - plugin/union
-  - plugin/unmarshal
-  - proto
-  - protoc-gen-gogo/descriptor
-  - protoc-gen-gogo/generator
-  - protoc-gen-gogo/grpc
-  - protoc-gen-gogo/plugin
-  - sortkeys
-  - vanity
-  - vanity/command
-- package: github.com/golang/glog
-  version: 44145f04b68cf362d9c4df2182967c2275eaefed
-- package: github.com/mailru/easyjson
-  version: 2f5df55504ebc322e4d52d34df6a1f5b503bf26d
-  subpackages:
-  - buffer
-  - jlexer
-  - jwriter
+  version: 342cbe0a0415
+- package: github.com/remyoudompheng/bigfft
+  version: 52369c62f446
 - package: github.com/spf13/pflag
-  version: 583c0c0531f06d5278b7d917446061adc344b5cd
-- package: golang.org/x/net
-  version: 1c05540f6879653db88113bc4a2b70aec4bd491f
-  subpackages:
-  - idna
+  version: v1.0.1
+- package: golang.org/x/exp
+  version: 4b39c73a6495
+- package: golang.org/x/image
+  version: 0694c2d4d067
+- package: golang.org/x/mobile
+  version: d3739f865fa6
+- package: golang.org/x/sys
+  version: 3b5209105503
 - package: golang.org/x/text
-  version: b19bf474d317b857955b12035d2c5acb57ce8b01
-  subpackages:
-  - cases
-  - internal
-  - internal/tag
-  - language
-  - runes
-  - secure/bidirule
-  - secure/precis
-  - transform
-  - unicode/bidi
-  - unicode/norm
-  - width
+  version: v0.3.0
 - package: golang.org/x/tools
-  version: 2382e3994d48b1d22acc2c86bcad0a2aff028e32
-  subpackages:
-  - go/ast/astutil
-  - imports
-- package: gopkg.in/yaml.v2
-  version: 670d4cfef0544295bc27a114dbac37980d83185a
+  version: aa82965741a9
+- package: gonum.org/v1/gonum
+  version: 3d26580ed485
+- package: gonum.org/v1/netlib
+  version: 76723241ea4e
 - package: k8s.io/gengo
-  version: 01a732e01d00cb9a81bb0ca050d3e6d2b947927b
-  subpackages:
-  - args
-  - examples/deepcopy-gen/generators
-  - examples/defaulter-gen/generators
-  - examples/import-boss/generators
-  - examples/set-gen/generators
-  - examples/set-gen/sets
-  - generator
-  - namer
-  - parser
-  - types
-- package: k8s.io/kube-openapi
-  version: 39cb288412c48cb533ba4be5d6c28620b9a0c1b4
-  subpackages:
-  - pkg/common
-  - pkg/generators
+  version: f8a0810f38af
+- package: k8s.io/klog
+  version: v0.3.1
+- package: modernc.org/cc
+  version: v1.0.0
+- package: modernc.org/golex
+  version: v1.0.0
+- package: modernc.org/mathutil
+  version: v1.0.0
+- package: modernc.org/strutil
+  version: v1.0.0
+- package: modernc.org/xc
+  version: v1.0.0
+- package: github.com/mohae/deepcopy
 - package: k8s.io/api
   subpackages:
   - core/v1
@@ -109,6 +51,7 @@ import:
   - pkg/runtime/schema
   - pkg/runtime/serializer
   - pkg/types
+  - pkg/util/runtime
   - pkg/watch
 - package: k8s.io/client-go
   subpackages:

@@ -2,7 +2,7 @@ package: WarpCloud/walm
 import:
 - package: transwarp/application-instance
   repo: ssh://git@172.16.1.41:10022/k8s/application-instance.git
-  version: release-1.10
+  version: release-1.15
 - package: helm.sh/helm
   repo: ssh://git@172.16.1.41:10022/k8s/helm.git
   version: github-dev3
@@ -60,8 +60,6 @@ import:
 - package: github.com/rcrowley/go-metrics
 - package: github.com/RichardKnop/machinery
   version: v1.4.5
-- package: github.com/imdario/mergo
-  version: 0.3.6
 - package: github.com/google/go-jsonnet
   version: v0.13.0
 - package: github.com/go-resty/resty
