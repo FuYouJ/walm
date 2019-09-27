@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
-	"k8s.io/api/core/v1"
+	k8sutils "WarpCloud/walm/pkg/k8s/utils"
 )
 
 const (
@@ -62,7 +62,7 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 				klog.Infof("failed to build service : %s", err.Error())
 				return err
 			}
-			if isDummyService(service) {
+			if k8sutils.IsDummyService(service) {
 				releaseConfig = &v1beta1.ReleaseConfig{}
 				err := json.Unmarshal([]byte(service.Annotations["transwarp.meta"]), &releaseConfig.Spec.OutputConfig)
 				if err != nil {
@@ -107,11 +107,6 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 
 	context.Resources = newResource
 	return nil
-}
-
-func isDummyService(service *v1.Service) bool {
-	return service.Labels != nil && service.Labels["transwarp.meta"] == "true" && service.Labels["transwarp.install"] != "" &&
-		service.Annotations != nil && service.Annotations["transwarp.meta"] != ""
 }
 
 func buildReleaseConfig(resource *unstructured.Unstructured) (*v1beta1.ReleaseConfig, error) {

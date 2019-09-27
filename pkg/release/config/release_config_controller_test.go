@@ -34,6 +34,7 @@ func TestReleaseConfigController_enqueueReleaseConfig(t *testing.T) {
 	mockReleaseConfigController = NewReleaseConfigController(mockK8sCache, mockReleaseUseCase, mockKafka, 1)
 	refreshMocks()
 	mockK8sCache.On("AddReleaseConfigHandler", mock.Anything, mock.Anything, mock.Anything).Return()
+	mockK8sCache.On("AddServiceHandler", mock.Anything, mock.Anything, mock.Anything).Return()
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
@@ -136,6 +137,7 @@ func TestReleaseConfigController_enqueueKafka(t *testing.T) {
 	mockReleaseConfigController = NewReleaseConfigController(mockK8sCache, mockReleaseUseCase, mockKafka, 1)
 	refreshMocks()
 	mockK8sCache.On("AddReleaseConfigHandler", mock.Anything, mock.Anything, mock.Anything).Return()
+	mockK8sCache.On("AddServiceHandler", mock.Anything, mock.Anything, mock.Anything).Return()
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)

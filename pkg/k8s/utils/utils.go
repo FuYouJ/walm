@@ -214,3 +214,24 @@ func ConvertDependencyMetaToOutputConfig(dependencyMeta *k8s.DependencyMeta)  ma
 
 	return res
 }
+
+func IsDummyService(service *v1.Service) bool {
+	return service.Labels != nil && service.Labels["transwarp.meta"] == "true" && service.Labels["transwarp.install"] != "" &&
+		service.Annotations != nil && service.Annotations["transwarp.meta"] != ""
+}
+
+func GetDependencyMetaFromDummyServiceMetaStr(metaString string) (*k8s.DependencyMeta, error) {
+	meta := &k8s.DependencyMeta{}
+	if err := json.Unmarshal([]byte(metaString), meta); err != nil {
+		klog.Errorf("Fail to unmarshal dependency meta, error %v", err)
+		return nil, err
+	}
+	return meta, nil
+}
+
+func GetReleaseNameFromDummyService(service *v1.Service) string {
+	if service.Labels != nil {
+		return service.Labels["release"]
+	}
+	return ""
+}
