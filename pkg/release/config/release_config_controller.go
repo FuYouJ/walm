@@ -19,6 +19,7 @@ import (
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 	"k8s.io/api/core/v1"
 	k8sutils "WarpCloud/walm/pkg/k8s/utils"
+	"WarpCloud/walm/pkg/models/common"
 )
 
 // 动态依赖管理核心需求：
@@ -134,9 +135,9 @@ func (controller *ReleaseConfigController) getServiceEventHandlerFuncs()(
 			return
 		}
 		if k8sutils.IsDummyService(svc) {
-			controller.enqueueV1Release(svc)
+			controller.enqueueV1Release(svc, controller.workingQueue)
+			controller.enqueueV1Release(svc, controller.kafkaWorkingQueue)
 		}
-		//controller.enqueueKafka(obj)
 	}
 	UpdateFunc = func(old, cur interface{}) {
 		oldSvc, ok := old.(*v1.Service)
@@ -159,16 +160,20 @@ func (controller *ReleaseConfigController) getServiceEventHandlerFuncs()(
 				return
 			}
 			if !reflect.DeepEqual(oldDependencyMeta, curDependencyMeta) {
-				controller.enqueueV1Release(curSvc)
+				controller.enqueueV1Release(curSvc, controller.workingQueue)
+				controller.enqueueV1Release(curSvc, controller.kafkaWorkingQueue)
 			}
 		}
-
-		//if !reflect.DeepEqual(oldReleaseConfig.Spec, curReleaseConfig.Spec) {
-		//	controller.enqueueKafka(cur)
-		//}
 	}
 	DeleteFunc = func(obj interface{}) {
-		//controller.enqueueKafka(obj)
+		svc, ok := obj.(*v1.Service)
+		if !ok {
+			klog.Error("obj is not service")
+			return
+		}
+		if k8sutils.IsDummyService(svc) {
+			controller.enqueueV1Release(svc, controller.kafkaWorkingQueue)
+		}
 	}
 	return
 }
@@ -181,11 +186,11 @@ func (controller *ReleaseConfigController) enqueueReleaseConfig(obj interface{})
 	}
 	controller.workingQueue.Add(key)
 }
-
-func (controller *ReleaseConfigController) enqueueV1Release(dummySvc *v1.Service) {
+// for compatible
+func (controller *ReleaseConfigController) enqueueV1Release(dummySvc *v1.Service, queue workqueue.DelayingInterface) {
 	releaseName := k8sutils.GetReleaseNameFromDummyService(dummySvc)
 	if releaseName != "" {
-		controller.workingQueue.Add(dummySvc.Namespace + "/" + releaseName)
+		queue.Add(dummySvc.Namespace + "/" + releaseName)
 	} else {
 		klog.Warningf("can not get release name from dummy svc %s/%s", dummySvc.Namespace, dummySvc.Name)
 	}
@@ -243,22 +248,42 @@ func (controller *ReleaseConfigController) publishToKafka(releaseKey string) err
 
 	event := releaseModel.ReleaseConfigDeltaEvent{}
 
+	var releaseVersion common.WalmVersion
+	resourceFound := false
 	resource, err := controller.k8sCache.GetResource(k8sModel.ReleaseConfigKind, namespace, name)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
-			event.Type = releaseModel.Delete
-			event.Data = &k8sModel.ReleaseConfig{
-				Meta: k8sModel.Meta{
-					Namespace: namespace,
-					Name:      name,
-				},
+			resource, err = controller.k8sCache.GetResource(k8sModel.InstanceKind, namespace, name)
+			if err != nil {
+				if errorModel.IsNotFoundError(err) {
+					event.Type = releaseModel.Delete
+					event.Data = &releaseModel.ReleaseConfigData{
+						ReleaseConfig: k8sModel.ReleaseConfig{
+							Meta: k8sModel.Meta{
+								Namespace: namespace,
+								Name:      name,
+							},
+						},
+					}
+				}else {
+					klog.Errorf("failed to get instance of %s", releaseKey)
+					return err
+				}
+			} else {
+				resourceFound = true
+				releaseVersion = common.WalmVersionV1
 			}
 		} else {
 			klog.Errorf("failed to get release config of %s", releaseKey)
 			return err
 		}
 	} else {
-		_, err = controller.releaseUseCase.GetRelease(namespace, name)
+		resourceFound = true
+		releaseVersion = common.WalmVersionV2
+	}
+
+	if resourceFound {
+		release, err := controller.releaseUseCase.GetRelease(namespace, name)
 		if err != nil {
 			if errorModel.IsNotFoundError(err) {
 				klog.Warningf("release %s is not found， ignore to publish release config to kafka", releaseKey)
@@ -268,7 +293,14 @@ func (controller *ReleaseConfigController) publishToKafka(releaseKey string) err
 			return err
 		}
 		event.Type = releaseModel.CreateOrUpdate
-		event.Data = resource.(*k8sModel.ReleaseConfig)
+		event.Data = &releaseModel.ReleaseConfigData{
+			ReleaseWalmVersion: releaseVersion,
+		}
+		if releaseVersion == common.WalmVersionV2 {
+			event.Data.ReleaseConfig = *resource.(*k8sModel.ReleaseConfig)
+		} else if releaseVersion == common.WalmVersionV1 {
+			event.Data.ReleaseConfig = buildEventDataFromRelease(release)
+		}
 	}
 
 	eventMsg, err := json.Marshal(event)
@@ -284,6 +316,22 @@ func (controller *ReleaseConfigController) publishToKafka(releaseKey string) err
 	}
 
 	return nil
+}
+
+func buildEventDataFromRelease(release *releaseModel.ReleaseInfoV2) k8sModel.ReleaseConfig {
+	return k8sModel.ReleaseConfig{
+		Meta:                     k8sModel.NewMeta(k8sModel.ReleaseConfigKind, release.Namespace, release.Name, k8sModel.NewState("Ready", "", "")),
+		Labels:                   release.ReleaseLabels,
+		OutputConfig:             release.OutputConfigValues,
+		ChartImage:               release.ChartImage,
+		ChartName:                release.ChartName,
+		ConfigValues:             release.ConfigValues,
+		Dependencies:             release.Dependencies,
+		ChartVersion:             release.ChartVersion,
+		ChartAppVersion:          release.ChartAppVersion,
+		Repo:                     release.RepoName,
+		DependenciesConfigValues: release.DependenciesConfigValues,
+	}
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.
