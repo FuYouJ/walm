@@ -279,10 +279,7 @@ func (u *Upgrade) failRelease(rel *release.Release, err error) (*release.Release
 
 	rel.Info.Status = release.StatusFailed
 	rel.Info.Description = msg
-	err = u.cfg.recordRelease(rel)
-	if err != nil {
-		return nil, err
-	}
+	u.cfg.recordRelease(rel)
 	if u.Atomic {
 		u.cfg.Log("Upgrade failed and atomic is set, rolling back to last successful release")
 

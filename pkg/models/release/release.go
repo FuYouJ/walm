@@ -64,7 +64,12 @@ const (
 
 type ReleaseConfigDeltaEvent struct {
 	Type ReleaseConfigDeltaEventType `json:"type" description:"delta type: CreateOrUpdate, Delete"`
-	Data *k8s.ReleaseConfig          `json:"data" description:"release config data"`
+	Data *ReleaseConfigData          `json:"data" description:"release config data"`
+}
+
+type ReleaseConfigData struct {
+	k8s.ReleaseConfig
+	ReleaseWalmVersion common.WalmVersion `json:"releaseWalmVersion" description:"release walm version"`
 }
 
 type ReleaseInfoV2 struct {
