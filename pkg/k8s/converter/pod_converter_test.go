@@ -106,6 +106,115 @@ func TestConvertPodFromK8s(t *testing.T) {
 			err: nil,
 		},
 		{
+			oriPod: &corev1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "Pod",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod2",
+					Namespace: "test-namespace",
+					Labels: map[string]string{"test1": "test1"},
+					Annotations: map[string]string{"test2": "test2"},
+					CreationTimestamp: testCreationTimestamp,
+				},
+				Spec:       corev1.PodSpec{},
+				Status:     corev1.PodStatus{
+					Phase: "Running",
+					Conditions: []corev1.PodCondition{
+						{
+							Type: "Ready",
+							Status: "False",
+							Reason: "ContainersNotReady",
+							Message: "containers with unready status",
+						},
+					},
+					ContainerStatuses: nil,
+					InitContainerStatuses: nil,
+				},
+			},
+			pod: &k8s.Pod{
+				Meta:           k8s.Meta{
+					Name: "test-pod2",
+					Namespace: "test-namespace",
+					Kind: "Pod",
+					State: k8s.State{
+						Status:  "Running",
+						Reason:  "ContainersNotReady",
+						Message: "containers with unready status",
+					},
+				},
+				Labels: map[string]string{"test1": "test1"},
+				Annotations: map[string]string{"test2": "test2"},
+				Age: duration.ShortHumanDuration(time.Since(testCreationTimestamp.Time)),
+				Containers:  []k8s.Container{},
+				InitContainers: []k8s.Container{},
+			},
+			err: nil,
+		},
+		{
+			oriPod: &corev1.Pod{
+				TypeMeta:   metav1.TypeMeta{
+					Kind: "Pod",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-pod3",
+					Namespace: "test-namespace",
+					Labels: map[string]string{"test1": "test1"},
+					Annotations: map[string]string{"test2": "test2"},
+					CreationTimestamp: testCreationTimestamp,
+				},
+				Spec:       corev1.PodSpec{},
+				Status:     corev1.PodStatus{
+					Phase: "Failed",
+					ContainerStatuses: []corev1.ContainerStatus{
+						{
+							Name: "walm",
+							Ready: false,
+							Image: "docker.io/warpcloud/walm:dev",
+							RestartCount: 2,
+							State: corev1.ContainerState{
+								Terminated: &corev1.ContainerStateTerminated{
+									ExitCode: 1,
+									Reason: "Unknown",
+									Message: "Unknown",
+								},
+							},
+						},
+					},
+					InitContainerStatuses: nil,
+				},
+			},
+			pod: &k8s.Pod{
+				Meta:           k8s.Meta{
+					Name: "test-pod3",
+					Namespace: "test-namespace",
+					Kind: "Pod",
+					State: k8s.State{
+						Status:  "Failed",
+						Reason:  "Unknown",
+						Message: "Unknown",
+					},
+				},
+				Labels: map[string]string{"test1": "test1"},
+				Annotations: map[string]string{"test2": "test2"},
+				Age: duration.ShortHumanDuration(time.Since(testCreationTimestamp.Time)),
+				Containers:  []k8s.Container{
+					{
+						Name: "walm",
+						Image: "docker.io/warpcloud/walm:dev",
+						Ready: false,
+						RestartCount: 2,
+						State: k8s.State{
+							Status: "Terminated",
+							Reason: "Unknown",
+							Message: "Unknown",
+						},
+					},
+				},
+				InitContainers: []k8s.Container{},
+			},
+		},
+		{
 			oriPod: nil,
 			pod:    nil,
 			err:    nil,
