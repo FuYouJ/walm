@@ -30,7 +30,7 @@ func (redis *Redis) GetFieldValue(key, namespace, name string) (value string, er
 
 func (redis *Redis) GetFieldValues(key, namespace, filter string) (values []string, err error) {
 	values = []string{}
-	if namespace == "" {
+	if namespace == "" && filter == ""{
 		releaseCacheMap, err := redis.client.HGetAll(key).Result()
 		if err != nil {
 			klog.Errorf("failed to get all the fields of key %s from redis: %s", key, err.Error())

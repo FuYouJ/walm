@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"k8s.io/klog"
 	"sync"
+	"strings"
 )
 
 const (
@@ -156,6 +157,13 @@ func (projectImpl *Project) CreateProject(namespace string, project string, proj
 		return err
 	}
 
+	for _, releaseParams := range projectParams.Releases {
+		// compatible
+		if isV1Project(oldProjectTask) {
+			releaseParams.Name = processProjectReleaseName(project, releaseParams.Name)
+		}
+	}
+
 	createProjectTaskArgs := &CreateProjectTaskArgs{
 		Name:          project,
 		Namespace:     namespace,
@@ -232,21 +240,31 @@ func (projectImpl *Project) DeleteProject(namespace string, project string, asyn
 
 	return nil
 }
+
 func (projectImpl *Project) AddReleasesInProject(namespace string, projectName string,
-	projectParams *projectModel.ProjectParams, async bool, timeoutSec int64) error {
+	projectParams *projectModel.ProjectParams, async bool, timeoutSec int64) ([]string, error) {
 
 	if len(projectParams.Releases) == 0 {
-		return errors.New("project releases can not be empty")
+		return nil, errors.New("project releases can not be empty")
 	}
 
 	oldProjectTask, err := projectImpl.validateProjectTask(namespace, projectName, true)
 	if err != nil {
 		klog.Errorf("failed to validate project job : %s", err.Error())
-		return err
+		return nil, err
 	}
 
 	if timeoutSec == 0 {
 		timeoutSec = defaultTimeoutSec
+	}
+
+	releaseNames := []string{}
+	for _, releaseParams := range projectParams.Releases {
+		// compatible
+		if isV1Project(oldProjectTask) {
+			releaseParams.Name = processProjectReleaseName(projectName, releaseParams.Name)
+		}
+		releaseNames = append(releaseNames, releaseParams.Name)
 	}
 
 	taskArgs := &AddReleaseTaskArgs{
@@ -258,11 +276,25 @@ func (projectImpl *Project) AddReleasesInProject(namespace string, projectName s
 	err = projectImpl.sendProjectTask(namespace, projectName, addReleaseTaskName, taskArgs, oldProjectTask, timeoutSec, async)
 	if err != nil {
 		klog.Errorf("failed to send project task %s of %s/%s : %s", addReleaseTaskName, namespace, projectName, err.Error())
-		return err
+		return nil, err
 	}
 	klog.Infof("succeed to add releases in project %s/%s", namespace, projectName)
 
-	return nil
+	return releaseNames, nil
+}
+
+func processProjectReleaseName(projName, oriRelName string) string {
+	if !strings.HasPrefix(oriRelName, fmt.Sprintf("%s--", projName)) {
+		return fmt.Sprintf("%s--%s", projName, oriRelName)
+	}
+	return oriRelName
+}
+
+func isV1Project(oldProjectTask *projectModel.ProjectTask) bool {
+	if oldProjectTask != nil && oldProjectTask.WalmVersion == common.WalmVersionV1 {
+		return true
+	}
+	return false
 }
 
 func (projectImpl *Project) UpgradeReleaseInProject(namespace string, projectName string,
@@ -318,7 +350,7 @@ func (projectImpl *Project) UpgradeReleaseInProject(namespace string, projectNam
 }
 
 func (projectImpl *Project) RemoveReleaseInProject(namespace, projectName,
-	releaseName string, async bool, timeoutSec int64, deletePvcs bool) error {
+releaseName string, async bool, timeoutSec int64, deletePvcs bool) error {
 	oldProjectTask, err := projectImpl.validateProjectTask(namespace, projectName, false)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
@@ -377,20 +409,20 @@ func (projectImpl *Project) buildProjectInfo(task *projectModel.ProjectTask) (pr
 		WalmVersion: common.WalmVersionV2,
 	}
 
-	projectInfo.Releases, err = projectImpl.releaseUseCase.ListReleasesByLabels(task.Namespace, projectModel.ProjectNameLabelKey+"="+task.Name)
-	if err != nil {
-		return nil, err
+	if task.WalmVersion != "" {
+		projectInfo.WalmVersion = task.WalmVersion
 	}
 
-	// compatible
-	releaseList, err := projectImpl.releaseUseCase.ListReleasesByFilter(task.Namespace, fmt.Sprintf("%s--", task.Name))
-	if err != nil {
-		return nil, err
-	}
-	if len(releaseList) > 0 {
-		projectInfo.WalmVersion = common.WalmVersionV1
-		for _, oldRelease := range releaseList {
-			projectInfo.Releases = append(projectInfo.Releases, oldRelease)
+	if projectInfo.WalmVersion == common.WalmVersionV2 {
+		projectInfo.Releases, err = projectImpl.releaseUseCase.ListReleasesByLabels(task.Namespace, projectModel.ProjectNameLabelKey+"="+task.Name)
+		if err != nil {
+			return nil, err
+		}
+	} else if projectInfo.WalmVersion == common.WalmVersionV1 {
+		// compatible
+		projectInfo.Releases, err = projectImpl.releaseUseCase.ListReleases(task.Namespace, fmt.Sprintf("%s--*", task.Name))
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -452,7 +484,12 @@ func (projectImpl *Project) sendProjectTask(namespace, projectName, taskName str
 	projectTask := &projectModel.ProjectTask{
 		Namespace:           namespace,
 		Name:                projectName,
+		WalmVersion:         common.WalmVersionV2,
 		LatestTaskSignature: taskSig,
+	}
+
+	if isV1Project(oldProjectTask) {
+		projectTask.WalmVersion = common.WalmVersionV1
 	}
 
 	err = projectImpl.cache.CreateOrUpdateProjectTask(projectTask)
@@ -537,13 +574,20 @@ func (projectImpl *Project) autoUpdateReleaseDependencies(projectInfo *projectMo
 	var g dag.AcyclicGraph
 	affectReleases := make([]*releaseModel.ReleaseRequestV2, 0)
 
+	prjReleases := []*releaseModel.ReleaseInfoV2{}
+	for _, release := range projectInfo.Releases {
+		if release.ChartName != "" {
+			prjReleases = append(prjReleases, release)
+		}
+ 	}
+
 	// init node
-	for _, helmRelease := range projectInfo.Releases {
+	for _, helmRelease := range prjReleases {
 		g.Add(helmRelease.Name)
 	}
 
 	// init edge
-	for _, helmRelease := range projectInfo.Releases {
+	for _, helmRelease := range prjReleases {
 		for _, v := range helmRelease.Dependencies {
 			g.Connect(dag.BasicEdge(helmRelease.Name, v))
 		}
@@ -551,7 +595,7 @@ func (projectImpl *Project) autoUpdateReleaseDependencies(projectInfo *projectMo
 
 	if !isRemove {
 		g.Add(releaseParams.Name)
-		for _, helmRelease := range projectInfo.Releases {
+		for _, helmRelease := range prjReleases {
 			subCharts, err := projectImpl.helm.GetChartAutoDependencies(helmRelease.RepoName, helmRelease.ChartName, helmRelease.ChartVersion)
 			if err != nil {
 				return nil, err
@@ -572,7 +616,7 @@ func (projectImpl *Project) autoUpdateReleaseDependencies(projectInfo *projectMo
 			if ok {
 				continue
 			}
-			for _, helmRelease := range projectInfo.Releases {
+			for _, helmRelease := range prjReleases {
 				if releaseSubChart == helmRelease.ChartName {
 					g.Connect(dag.BasicEdge(releaseParams.Name, helmRelease.Name))
 				}

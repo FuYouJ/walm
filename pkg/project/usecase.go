@@ -12,7 +12,7 @@ type UseCase interface {
 	DryRunProject(namespace, projectName string, projectParams *project.ProjectParams) ([]map[string]interface{}, error)
 	ComputeResourcesByDryRunProject(namespace, projectName string, projectParams *project.ProjectParams) ([]*release.ReleaseResources, error)
 	DeleteProject(namespace string, project string, async bool, timeoutSec int64, deletePvcs bool) error
-	AddReleasesInProject(namespace string, projectName string, projectParams *project.ProjectParams, async bool, timeoutSec int64) error
+	AddReleasesInProject(namespace string, projectName string, projectParams *project.ProjectParams, async bool, timeoutSec int64) ([]string, error)
 	UpgradeReleaseInProject(namespace string, projectName string, releaseParams *release.ReleaseRequestV2, async bool, timeoutSec int64) error
 	RemoveReleaseInProject(namespace, projectName, releaseName string, async bool, timeoutSec int64, deletePvcs bool) error
 }

@@ -66,7 +66,6 @@ func TestProject_ListProjects(t *testing.T) {
 						UUID: "test-uuid",
 					}}}, nil)
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -173,7 +172,6 @@ func TestProject_GetProjectInfo(t *testing.T) {
 					Name: "test-name",
 					UUID: "test-uuid",
 				}).Return(mockTaskState, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTaskState.On("IsFinished").Return(true)
 				mockTaskState.On("IsSuccess").Return(true)
 			},
@@ -254,7 +252,6 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -275,7 +272,6 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -301,7 +297,6 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -329,7 +324,6 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -358,7 +352,6 @@ func TestProject_buildProjectInfo(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseUseCase.On("ListReleasesByLabels", "test-ns", project.ProjectNameLabelKey+"=test-name").Return(nil, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",
@@ -969,7 +962,7 @@ func TestProject_AddReleasesInProject(t *testing.T) {
 
 	for _, test := range tests {
 		test.initMock()
-		err := mockProjectManager.AddReleasesInProject("test-ns", "test-nm", test.projectParams, false, 0)
+		_, err := mockProjectManager.AddReleasesInProject("test-ns", "test-nm", test.projectParams, false, 0)
 		assert.IsType(t, test.err, err)
 
 		mockProjectCache.AssertExpectations(t)
@@ -1040,7 +1033,6 @@ func TestProject_UpgradeReleaseInProject(t *testing.T) {
 				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(&project.ProjectTask{}, nil)
 				mockTask.On("GetTaskState", mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockReleaseUseCase.On("ListReleasesByLabels", mock.Anything, mock.Anything).Return(nil, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 			},
 			err: errors.New(""),
 		},
@@ -1057,7 +1049,6 @@ func TestProject_UpgradeReleaseInProject(t *testing.T) {
 							},
 						},
 					}}, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(&task.TaskSig{}, nil)
 				mockProjectCache.On("CreateOrUpdateProjectTask", mock.Anything).Return(nil)
@@ -1076,7 +1067,6 @@ func TestProject_UpgradeReleaseInProject(t *testing.T) {
 						},
 					},
 				}}, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},
@@ -1159,7 +1149,6 @@ func TestProject_RemoveReleaseInProject(t *testing.T) {
 				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(&project.ProjectTask{}, nil)
 				mockTask.On("GetTaskState", mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockReleaseUseCase.On("ListReleasesByLabels", mock.Anything, mock.Anything).Return(nil, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 			},
 			err: nil,
 		},
@@ -1176,7 +1165,6 @@ func TestProject_RemoveReleaseInProject(t *testing.T) {
 							},
 						},
 					}}, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(&task.TaskSig{}, nil)
 				mockProjectCache.On("CreateOrUpdateProjectTask", mock.Anything).Return(nil)
@@ -1195,7 +1183,6 @@ func TestProject_RemoveReleaseInProject(t *testing.T) {
 						},
 					},
 				}}, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockTask.On("SendTask", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},

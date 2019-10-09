@@ -2,13 +2,8 @@ package usecase
 
 import (
 	"encoding/json"
-	"fmt"
 	"k8s.io/klog"
-	"strings"
-
-	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
-	"WarpCloud/walm/pkg/models/project"
 	"WarpCloud/walm/pkg/models/release"
 )
 
@@ -47,17 +42,8 @@ func (projectImpl *Project) upgradeRelease(namespace, projectName string, releas
 			return err
 		}
 	}
-	// compatible
-	if projectExists && projectInfo.WalmVersion == common.WalmVersionV1 {
-		if !strings.HasPrefix(releaseParams.Name, fmt.Sprintf("%s--", projectInfo.Name)) {
-			releaseParams.Name = fmt.Sprintf("%s--%s", projectInfo.Name, releaseParams.Name)
-		}
-	}
 
-	if releaseParams.ReleaseLabels == nil {
-		releaseParams.ReleaseLabels = map[string]string{}
-	}
-	releaseParams.ReleaseLabels[project.ProjectNameLabelKey] = projectName
+	setPrjLabelToReleaseParams(projectExists, projectInfo, releaseParams, projectName)
 
 	err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams, nil, false, 0, nil)
 	if err != nil {

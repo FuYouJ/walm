@@ -11,6 +11,7 @@ import (
 	releaseMocks "WarpCloud/walm/pkg/release/mocks"
 	"WarpCloud/walm/pkg/models/project"
 	"WarpCloud/walm/pkg/models/release"
+	errorModel "WarpCloud/walm/pkg/models/error"
 )
 
 func TestProject_doCreateProject(t *testing.T) {
@@ -47,6 +48,7 @@ func TestProject_doCreateProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMocks()
+				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockHelm.On("GetChartAutoDependencies", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},
 			projectParams: &project.ProjectParams{
@@ -70,6 +72,7 @@ func TestProject_doCreateProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMocks()
+				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockHelm.On("GetChartAutoDependencies", mock.Anything, mock.Anything, mock.Anything).Return(func(repo, chart, version string) (result []string) {
 					if chart == "chartA" {
 						result = append(result, "chartB")
@@ -99,6 +102,7 @@ func TestProject_doCreateProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMocks()
+				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockHelm.On("GetChartAutoDependencies", mock.Anything, mock.Anything, mock.Anything).Return(func(repo, chart, version string) (result []string) {
 					if chart == "chartA" {
 						result = append(result, "chartB")

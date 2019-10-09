@@ -156,7 +156,6 @@ func TestProject_doAddRelease(t *testing.T) {
 						},
 					},
 				}, nil)
-				mockReleaseUseCase.On("ListReleasesByFilter", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
 				mockTask.On("GetTaskState", &task.TaskSig{
 					Name: "test-name",
 					UUID: "test-uuid",

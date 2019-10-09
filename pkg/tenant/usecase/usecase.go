@@ -158,7 +158,7 @@ func (tenantImpl *Tenant) DeleteTenant(tenantName string) error {
 		}
 	}
 
-	releases, err := tenantImpl.releaseUseCase.ListReleases(tenantName)
+	releases, err := tenantImpl.releaseUseCase.ListReleases(tenantName, "")
 	if err != nil {
 		klog.Errorf("failed to get releases in tenant %s : %s", tenantName, err.Error())
 		return err

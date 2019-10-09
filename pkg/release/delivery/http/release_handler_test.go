@@ -543,14 +543,14 @@ func TestReleaseHandler_ListRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("ListReleases", "").Return(nil, errors.New(""))
+				mockUseCase.On("ListReleases", "", "").Return(nil, errors.New(""))
 			},
 			statusCode: 500,
 		},
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("ListReleases", "").Return(nil, nil)
+				mockUseCase.On("ListReleases", "", "").Return(nil, nil)
 			},
 			statusCode: 200,
 		},
@@ -603,14 +603,14 @@ func TestReleaseHandler_ListReleaseByNamespace(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("ListReleases", "testns").Return(nil, errors.New(""))
+				mockUseCase.On("ListReleases", "testns", "").Return(nil, errors.New(""))
 			},
 			statusCode: 500,
 		},
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("ListReleases", "testns").Return(nil, nil)
+				mockUseCase.On("ListReleases", "testns", "").Return(nil, nil)
 			},
 			statusCode: 200,
 		},
