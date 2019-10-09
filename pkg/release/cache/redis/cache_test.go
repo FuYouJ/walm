@@ -346,7 +346,7 @@ func TestCache_GetReleaseTasks(t *testing.T) {
 
 	for _, test := range tests {
 		test.initMock()
-		_, err := mockCache.GetReleaseTasks("testns")
+		_, err := mockCache.GetReleaseTasks("testns", "")
 		assert.IsType(t, test.err, err)
 
 		mockRedis.AssertExpectations(t)

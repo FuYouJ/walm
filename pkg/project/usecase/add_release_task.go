@@ -6,9 +6,8 @@ import (
 	"WarpCloud/walm/pkg/models/project"
 	"WarpCloud/walm/pkg/util"
 	"encoding/json"
-	"fmt"
 	"k8s.io/klog"
-	"strings"
+	"WarpCloud/walm/pkg/models/release"
 )
 
 const (
@@ -48,18 +47,10 @@ func (projectImpl *Project) doAddRelease(namespace, name string, projectParams *
 	}
 
 	for _, releaseParams := range projectParams.Releases {
-		// compatible
-		if projectExists && projectInfo.WalmVersion == common.WalmVersionV1 {
-			if !strings.HasPrefix(releaseParams.Name, fmt.Sprintf("%s--", projectInfo.Name)) {
-				releaseParams.Name = fmt.Sprintf("%s--%s", projectInfo.Name, releaseParams.Name)
-			}
-		}
-		if releaseParams.ReleaseLabels == nil {
-			releaseParams.ReleaseLabels = map[string]string{}
-		}
-		releaseParams.ReleaseLabels[project.ProjectNameLabelKey] = name
+		setPrjLabelToReleaseParams(projectExists, projectInfo, releaseParams, name)
 		releaseParams.ConfigValues = util.MergeValues(releaseParams.ConfigValues, projectParams.CommonValues, false)
 	}
+
 	releaseList, err := projectImpl.autoCreateReleaseDependencies(projectParams)
 	if err != nil {
 		klog.Errorf("failed to parse project charts dependency relation  : %s", err.Error())
@@ -96,4 +87,13 @@ func (projectImpl *Project) doAddRelease(namespace, name string, projectParams *
 	}
 
 	return nil
+}
+
+func setPrjLabelToReleaseParams(projectExists bool, projectInfo *project.ProjectInfo, releaseParams *release.ReleaseRequestV2, prjName string) {
+	if !projectExists || projectInfo.WalmVersion == common.WalmVersionV2 {
+		if releaseParams.ReleaseLabels == nil {
+			releaseParams.ReleaseLabels = map[string]string{}
+		}
+		releaseParams.ReleaseLabels[project.ProjectNameLabelKey] = prjName
+	}
 }

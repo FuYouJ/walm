@@ -464,7 +464,7 @@ func (handler *ReleaseHandler) ListReleaseByNamespace(request *restful.Request, 
 	var infos []*releaseModel.ReleaseInfoV2
 	var err error
 	if labelSelectorStr == "" {
-		infos, err = handler.usecase.ListReleases(namespace)
+		infos, err = handler.usecase.ListReleases(namespace, "")
 		if err != nil {
 			httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release: %s", err.Error()))
 			return
@@ -485,7 +485,7 @@ func (handler *ReleaseHandler) ListRelease(request *restful.Request, response *r
 	var infos []*releaseModel.ReleaseInfoV2
 	var err error
 	if labelSelectorStr == "" {
-		infos, err = handler.usecase.ListReleases("")
+		infos, err = handler.usecase.ListReleases("", "")
 		if err != nil {
 			httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release: %s", err.Error()))
 			return

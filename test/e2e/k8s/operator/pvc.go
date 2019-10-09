@@ -80,7 +80,7 @@ var _ = Describe("K8sOperatorPvc", func() {
 		walmStatefulSet, err := converter.ConvertStatefulSetFromK8s(statefulSet, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		err = k8sOperator.DeleteStatefulSetPvcs([]*k8s.StatefulSet{walmStatefulSet})
+		err = k8sOperator.DeletePvcs(walmStatefulSet.Namespace, walmStatefulSet.Selector)
 		Expect(err).To(HaveOccurred())
 
 		err = framework.DeleteStatefulSet(namespace, "test-sts")

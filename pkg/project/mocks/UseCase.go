@@ -13,49 +13,21 @@ type UseCase struct {
 }
 
 // AddReleasesInProject provides a mock function with given fields: namespace, projectName, projectParams, async, timeoutSec
-func (_m *UseCase) AddReleasesInProject(namespace string, projectName string, projectParams *project.ProjectParams, async bool, timeoutSec int64) error {
+func (_m *UseCase) AddReleasesInProject(namespace string, projectName string, projectParams *project.ProjectParams, async bool, timeoutSec int64) ([]string, error) {
 	ret := _m.Called(namespace, projectName, projectParams, async, timeoutSec)
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, *project.ProjectParams, bool, int64) error); ok {
+	var r0 []string
+	if rf, ok := ret.Get(0).(func(string, string, *project.ProjectParams, bool, int64) []string); ok {
 		r0 = rf(namespace, projectName, projectParams, async, timeoutSec)
 	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// CreateProject provides a mock function with given fields: namespace, _a1, projectParams, async, timeoutSec
-func (_m *UseCase) CreateProject(namespace string, _a1 string, projectParams *project.ProjectParams, async bool, timeoutSec int64) error {
-	ret := _m.Called(namespace, _a1, projectParams, async, timeoutSec)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, *project.ProjectParams, bool, int64) error); ok {
-		r0 = rf(namespace, _a1, projectParams, async, timeoutSec)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// DryRunProject provides a mock function with given fields: namespace, project, projectParams
-func (_m *UseCase) DryRunProject(namespace, projectName string, projectParams *project.ProjectParams) ([]map[string]interface{}, error) {
-	ret := _m.Called(namespace, projectName, projectParams)
-
-	var r0 []map[string]interface{}
-	if rf, ok := ret.Get(0).(func(string, string, *project.ProjectParams) []map[string]interface{}); ok {
-		r0 = rf(namespace, projectName, projectParams)
-	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]map[string]interface{})
+			r0 = ret.Get(0).([]string)
 		}
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string, *project.ProjectParams) error); ok {
-		r1 = rf(namespace, projectName, projectParams)
+	if rf, ok := ret.Get(1).(func(string, string, *project.ProjectParams, bool, int64) error); ok {
+		r1 = rf(namespace, projectName, projectParams, async, timeoutSec)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -63,8 +35,8 @@ func (_m *UseCase) DryRunProject(namespace, projectName string, projectParams *p
 	return r0, r1
 }
 
-// ComputeResourcesByDryRunProject provides a mock function with given fields: namespace, project, projectParams
-func (_m *UseCase) ComputeResourcesByDryRunProject(namespace, projectName string, projectParams *project.ProjectParams) ([]*release.ReleaseResources, error) {
+// ComputeResourcesByDryRunProject provides a mock function with given fields: namespace, projectName, projectParams
+func (_m *UseCase) ComputeResourcesByDryRunProject(namespace string, projectName string, projectParams *project.ProjectParams) ([]*release.ReleaseResources, error) {
 	ret := _m.Called(namespace, projectName, projectParams)
 
 	var r0 []*release.ReleaseResources
@@ -86,6 +58,20 @@ func (_m *UseCase) ComputeResourcesByDryRunProject(namespace, projectName string
 	return r0, r1
 }
 
+// CreateProject provides a mock function with given fields: namespace, _a1, projectParams, async, timeoutSec
+func (_m *UseCase) CreateProject(namespace string, _a1 string, projectParams *project.ProjectParams, async bool, timeoutSec int64) error {
+	ret := _m.Called(namespace, _a1, projectParams, async, timeoutSec)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string, *project.ProjectParams, bool, int64) error); ok {
+		r0 = rf(namespace, _a1, projectParams, async, timeoutSec)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeleteProject provides a mock function with given fields: namespace, _a1, async, timeoutSec, deletePvcs
 func (_m *UseCase) DeleteProject(namespace string, _a1 string, async bool, timeoutSec int64, deletePvcs bool) error {
 	ret := _m.Called(namespace, _a1, async, timeoutSec, deletePvcs)
@@ -98,6 +84,29 @@ func (_m *UseCase) DeleteProject(namespace string, _a1 string, async bool, timeo
 	}
 
 	return r0
+}
+
+// DryRunProject provides a mock function with given fields: namespace, projectName, projectParams
+func (_m *UseCase) DryRunProject(namespace string, projectName string, projectParams *project.ProjectParams) ([]map[string]interface{}, error) {
+	ret := _m.Called(namespace, projectName, projectParams)
+
+	var r0 []map[string]interface{}
+	if rf, ok := ret.Get(0).(func(string, string, *project.ProjectParams) []map[string]interface{}); ok {
+		r0 = rf(namespace, projectName, projectParams)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]map[string]interface{})
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string, *project.ProjectParams) error); ok {
+		r1 = rf(namespace, projectName, projectParams)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // GetProjectInfo provides a mock function with given fields: namespace, projectName

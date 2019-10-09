@@ -245,7 +245,7 @@ func TestTenant_DeleteTenant(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockK8sCache.On("GetTenant", mock.Anything).Return(nil, nil)
-				mockReleaseUseCase.On("ListReleases", mock.Anything).Return(nil, errors.New("failed"))
+				mockReleaseUseCase.On("ListReleases", mock.Anything, mock.Anything).Return(nil, errors.New("failed"))
 			},
 			err: errors.New("failed"),
 		},
@@ -253,7 +253,7 @@ func TestTenant_DeleteTenant(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockK8sCache.On("GetTenant", mock.Anything).Return(nil, nil)
-				mockReleaseUseCase.On("ListReleases", mock.Anything).Return([]*release.ReleaseInfoV2{
+				mockReleaseUseCase.On("ListReleases", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{
 					{
 						ReleaseInfo: release.ReleaseInfo{
 							ReleaseSpec: release.ReleaseSpec{
@@ -273,7 +273,7 @@ func TestTenant_DeleteTenant(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockK8sCache.On("GetTenant", mock.Anything).Return(nil, nil)
-				mockReleaseUseCase.On("ListReleases", mock.Anything).Return([]*release.ReleaseInfoV2{
+				mockReleaseUseCase.On("ListReleases", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{
 					{
 						ReleaseInfo: release.ReleaseInfo{
 							ReleaseSpec: release.ReleaseSpec{
@@ -294,7 +294,7 @@ func TestTenant_DeleteTenant(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockK8sCache.On("GetTenant", mock.Anything).Return(nil, nil)
-				mockReleaseUseCase.On("ListReleases", mock.Anything).Return([]*release.ReleaseInfoV2{
+				mockReleaseUseCase.On("ListReleases", mock.Anything, mock.Anything).Return([]*release.ReleaseInfoV2{
 					{
 						ReleaseInfo: release.ReleaseInfo{
 							ReleaseSpec: release.ReleaseSpec{

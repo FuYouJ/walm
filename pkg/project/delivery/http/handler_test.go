@@ -367,7 +367,7 @@ func TestProjectHandler_AddReleaseInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("AddReleasesInProject", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
+				mockUseCase.On("AddReleasesInProject", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},
 			body:       &release.ReleaseRequestV2{},
 			statusCode: 500,
@@ -375,7 +375,7 @@ func TestProjectHandler_AddReleaseInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("AddReleasesInProject", "testns", "testnm", mock.Anything, false, int64(0)).Return(nil)
+				mockUseCase.On("AddReleasesInProject", "testns", "testnm", mock.Anything, false, int64(0)).Return([]string{"test"}, nil)
 			},
 			body:       &release.ReleaseRequestV2{},
 			statusCode: 200,
@@ -383,7 +383,7 @@ func TestProjectHandler_AddReleaseInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("AddReleasesInProject", "testns", "testnm", mock.Anything, true, int64(60)).Return(nil)
+				mockUseCase.On("AddReleasesInProject", "testns", "testnm", mock.Anything, true, int64(60)).Return([]string{"test"}, nil)
 			},
 			body:       &release.ReleaseRequestV2{},
 			queryUrl:   "?async=true&timeoutSec=60",
@@ -531,7 +531,7 @@ func TestProjectHandler_AddReleasesInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("AddReleasesInProject", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
+				mockUseCase.On("AddReleasesInProject", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},
 			body:       &project.ProjectParams{},
 			statusCode: 500,
@@ -539,7 +539,7 @@ func TestProjectHandler_AddReleasesInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("AddReleasesInProject", "testns", "testnm", mock.Anything, false, int64(0)).Return(nil)
+				mockUseCase.On("AddReleasesInProject", "testns", "testnm", mock.Anything, false, int64(0)).Return([]string{"test"}, nil)
 			},
 			body:       &project.ProjectParams{},
 			statusCode: 200,
@@ -547,7 +547,7 @@ func TestProjectHandler_AddReleasesInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("AddReleasesInProject", "testns", "testnm", mock.Anything, true, int64(60)).Return(nil)
+				mockUseCase.On("AddReleasesInProject", "testns", "testnm", mock.Anything, true, int64(60)).Return([]string{"test"}, nil)
 			},
 			body:       &project.ProjectParams{},
 			queryUrl:   "?async=true&timeoutSec=60",

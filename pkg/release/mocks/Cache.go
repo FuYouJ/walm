@@ -91,9 +91,9 @@ func (_m *Cache) GetReleaseCache(namespace string, name string) (*release.Releas
 	return r0, r1
 }
 
-// GetReleaseCaches provides a mock function with given fields: namespace
-func (_m *Cache) GetReleaseCaches(namespace, filter string) ([]*release.ReleaseCache, error) {
-	ret := _m.Called(namespace)
+// GetReleaseCaches provides a mock function with given fields: namespace, filter
+func (_m *Cache) GetReleaseCaches(namespace string, filter string) ([]*release.ReleaseCache, error) {
+	ret := _m.Called(namespace, filter)
 
 	var r0 []*release.ReleaseCache
 	if rf, ok := ret.Get(0).(func(string, string) []*release.ReleaseCache); ok {
@@ -160,13 +160,13 @@ func (_m *Cache) GetReleaseTask(namespace string, name string) (*release.Release
 	return r0, r1
 }
 
-// GetReleaseTasks provides a mock function with given fields: namespace
-func (_m *Cache) GetReleaseTasks(namespace string) ([]*release.ReleaseTask, error) {
-	ret := _m.Called(namespace)
+// GetReleaseTasks provides a mock function with given fields: namespace, filter
+func (_m *Cache) GetReleaseTasks(namespace string, filter string) ([]*release.ReleaseTask, error) {
+	ret := _m.Called(namespace, filter)
 
 	var r0 []*release.ReleaseTask
-	if rf, ok := ret.Get(0).(func(string) []*release.ReleaseTask); ok {
-		r0 = rf(namespace)
+	if rf, ok := ret.Get(0).(func(string, string) []*release.ReleaseTask); ok {
+		r0 = rf(namespace, filter)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*release.ReleaseTask)
@@ -174,8 +174,8 @@ func (_m *Cache) GetReleaseTasks(namespace string) ([]*release.ReleaseTask, erro
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(namespace)
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, filter)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -498,7 +498,7 @@ func TestHelm_ListReleases(t *testing.T) {
 
 	for _, test := range tests {
 		test.initMock()
-		releaseInfos, err := mockReleaseManager.ListReleases("test-ns")
+		releaseInfos, err := mockReleaseManager.ListReleases("test-ns", "")
 		assert.IsType(t, test.err, err)
 		assert.Equal(t, test.releaseInfos, releaseInfos)
 

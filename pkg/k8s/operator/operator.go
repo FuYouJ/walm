@@ -37,10 +37,16 @@ type Operator struct {
 
 func (op *Operator) DeleteStatefulSetPvcs(statefulSets []*k8sModel.StatefulSet) error {
 	for _, statefulSet := range statefulSets {
-		err := op.DeletePvcs(statefulSet.Namespace, statefulSet.Selector)
+		pvcs, err := op.k8sCache.ListPersistentVolumeClaims(statefulSet.Namespace, statefulSet.Selector)
 		if err != nil {
-			klog.Errorf("failed to delete pvcs related to stateful set %s/%s : %s", statefulSet.Namespace, statefulSet.Name, err.Error())
+			klog.Errorf("failed to list pvcs : %s", err.Error())
 			return err
+		}
+		for _, pvc := range pvcs {
+			err := op.doDeletePvc(pvc, true)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -590,11 +596,11 @@ func (op *Operator) DeletePvc(namespace string, name string) error {
 		return err
 	}
 
-	return op.doDeletePvc(resource.(*k8sModel.PersistentVolumeClaim))
+	return op.doDeletePvc(resource.(*k8sModel.PersistentVolumeClaim), false)
 }
 
-func (op *Operator) doDeletePvc(pvc *k8sModel.PersistentVolumeClaim) error {
-	if len(pvc.Labels) > 0 {
+func (op *Operator) doDeletePvc(pvc *k8sModel.PersistentVolumeClaim, force bool) error {
+	if !force && len(pvc.Labels) > 0 {
 		selector := &metav1.LabelSelector{
 			MatchLabels: pvc.Labels,
 		}
@@ -639,7 +645,7 @@ func (op *Operator) DeletePvcs(namespace string, labelSeletorStr string) error {
 		return err
 	}
 	for _, pvc := range pvcs {
-		err := op.doDeletePvc(pvc)
+		err := op.doDeletePvc(pvc, false)
 		if err != nil {
 			return err
 		}

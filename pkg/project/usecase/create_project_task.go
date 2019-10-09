@@ -5,6 +5,7 @@ import (
 	"WarpCloud/walm/pkg/util"
 	"encoding/json"
 	"k8s.io/klog"
+	errorModel "WarpCloud/walm/pkg/models/error"
 )
 
 const (
@@ -37,15 +38,23 @@ func (projectImpl *Project) CreateProjectTask(createProjectTaskArgsStr string) e
 }
 
 func (projectImpl *Project) doCreateProject(namespace string, name string, projectParams *project.ProjectParams) error {
+	projectExists := true
+	projectInfo, err := projectImpl.GetProjectInfo(namespace, name)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			projectExists = false
+		} else {
+			klog.Errorf("failed to get project info : %s", err.Error())
+			return err
+		}
+	}
+
 	rawValsBase := map[string]interface{}{}
 	rawValsBase = util.MergeValues(rawValsBase, projectParams.CommonValues, false)
 
 	for _, releaseParams := range projectParams.Releases {
 		releaseParams.ConfigValues = util.MergeValues(releaseParams.ConfigValues, rawValsBase, false)
-		if releaseParams.ReleaseLabels == nil {
-			releaseParams.ReleaseLabels = map[string]string{}
-		}
-		releaseParams.ReleaseLabels[project.ProjectNameLabelKey] = name
+		setPrjLabelToReleaseParams(projectExists, projectInfo, releaseParams, name)
 	}
 
 	releaseList, err := projectImpl.autoCreateReleaseDependencies(projectParams)

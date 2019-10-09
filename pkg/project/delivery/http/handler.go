@@ -105,7 +105,7 @@ func RegisterProjectHandler(handler *ProjectHandler) *restful.WebService {
 		Param(ws.QueryParameter("async", "异步与否").DataType("boolean").Required(false)).
 		Param(ws.QueryParameter("timeoutSec", "超时时间").DataType("integer").Required(false)).
 		Reads(release.ReleaseRequestV2{}).
-		Returns(200, "OK", nil).
+		Returns(200, "OK", projectModel.AddReleaseInProjectResponse{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.PUT("/{namespace}/name/{project}/instance").To(handler.UpgradeReleaseInProject).
@@ -127,7 +127,7 @@ func RegisterProjectHandler(handler *ProjectHandler) *restful.WebService {
 		Param(ws.QueryParameter("async", "异步与否").DataType("boolean").Required(false)).
 		Param(ws.QueryParameter("timeoutSec", "超时时间").DataType("integer").Required(false)).
 		Reads(projectModel.ProjectParams{}).
-		Returns(200, "OK", nil).
+		Returns(200, "OK", projectModel.AddReleasesInProjectResponse{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.DELETE("/{namespace}/name/{project}/instance/{release}").To(handler.DeleteReleaseInProject).
@@ -307,11 +307,20 @@ func (handler *ProjectHandler) AddReleaseInProject(request *restful.Request, res
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	err = handler.usecase.AddReleasesInProject(tenantName, projectName, &projectModel.ProjectParams{Releases: []*release.ReleaseRequestV2{releaseRequest}}, async, timeoutSec)
+	releaseNames, err := handler.usecase.AddReleasesInProject(tenantName, projectName, &projectModel.ProjectParams{Releases: []*release.ReleaseRequestV2{releaseRequest}}, async, timeoutSec)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to add release in project : %s", err.Error()))
 		return
 	}
+	if len(releaseNames) == 0 {
+		httpUtils.WriteErrorResponse(response, -1, "internal error")
+		return
+	}
+	respBody := projectModel.AddReleaseInProjectResponse{
+		ReleaseName: releaseNames[0],
+	}
+	response.WriteEntity(respBody)
+
 }
 
 func (handler *ProjectHandler) UpgradeReleaseInProject(request *restful.Request, response *restful.Response) {
@@ -359,11 +368,13 @@ func (handler *ProjectHandler) AddReleasesInProject(request *restful.Request, re
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	err = handler.usecase.AddReleasesInProject(tenantName, projectName, projectParams, async, timeoutSec)
+	respBody := projectModel.AddReleasesInProjectResponse{}
+	respBody.ReleaseNames, err = handler.usecase.AddReleasesInProject(tenantName, projectName, projectParams, async, timeoutSec)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to add releases in project : %s", err.Error()))
 		return
 	}
+	response.WriteEntity(respBody)
 }
 
 func (handler *ProjectHandler) DeleteReleaseInProject(request *restful.Request, response *restful.Response) {
