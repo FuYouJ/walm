@@ -1,9 +1,5 @@
 package tenant
 
-import (
-	"k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
 const (
 	MultiTenantLabelKey = "multi-tenant"
 )
@@ -15,7 +11,7 @@ type TenantInfoList struct {
 //Tenant Info
 type TenantInfo struct {
 	TenantName            string                  `json:"tenantName" description:"name of the tenant"`
-	TenantCreationTime    v1.Time                  `json:"tenantCreationTime" description:"create time of the tenant"`
+	TenantCreationTime    string                  `json:"tenantCreationTime" description:"create time of the tenant"`
 	TenantLabels          map[string]string       `json:"tenantLabels"  description:"labels of the tenant"`
 	TenantAnnotitions     map[string]string       `json:"tenantAnnotations"  description:"annotations of the tenant"`
 	TenantStatus          string                  `json:"tenantStatus" description:"status of the tenant"`

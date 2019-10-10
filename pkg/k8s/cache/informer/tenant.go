@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/klog"
+	"time"
 )
 
 func (informer *Informer) ListTenants(labelSelectorStr string) (*tenant.TenantInfoList, error) {
@@ -71,12 +72,16 @@ func (informer *Informer) buildTenantInfo(namespace *corev1.Namespace) (*tenant.
 func buildBasicTenantInfo(namespace *corev1.Namespace) *tenant.TenantInfo {
 	tenantInfo := &tenant.TenantInfo{
 		TenantName:            namespace.Name,
-		TenantCreationTime:    namespace.CreationTimestamp,
+		TenantCreationTime:    namespace.CreationTimestamp.String(),
 		TenantLabels:          namespace.Labels,
 		TenantAnnotitions:     namespace.Annotations,
 		TenantStatus:          namespace.Status.String(),
 		TenantQuotas:          []*tenant.TenantQuota{},
 		UnifyUnitTenantQuotas: []*tenant.UnifyUnitTenantQuota{},
+	}
+	tenantCreationTime, err := parseTimestampCompatible(namespace.CreationTimestamp.String())
+	if err == nil {
+		tenantInfo.TenantCreationTime = tenantCreationTime
 	}
 	if tenantInfo.TenantLabels == nil {
 		tenantInfo.TenantLabels = map[string]string{}
@@ -91,6 +96,16 @@ func buildBasicTenantInfo(namespace *corev1.Namespace) *tenant.TenantInfo {
 		tenantInfo.Ready = true
 	}
 	return tenantInfo
+}
+
+func parseTimestampCompatible(tenantCreationTime string) (string, error) {
+	layout := "2006-01-02 15:04:05 -0700 MST"
+	createTimeStamp, err := time.Parse(layout, tenantCreationTime)
+	if err != nil {
+		klog.Warningf("parse Timestamp compatible with v1 failed: %s", err.Error())
+		return "", err
+	}
+	return createTimeStamp.UTC().Format(time.RFC3339), nil
 }
 
 func buildTenantQuotas(resourceQuotas []*corev1.ResourceQuota) ([]*tenant.TenantQuota, []*tenant.UnifyUnitTenantQuota, error) {
