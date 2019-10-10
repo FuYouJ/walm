@@ -315,7 +315,7 @@ func (i *Install) failRelease(rel *release.Release, err error) (*release.Release
 		}
 		return rel, errors.Wrapf(err, "release %s failed, and has been uninstalled due to atomic being set", i.ReleaseName)
 	}
-	i.recordRelease(rel) // Ignore the error, since we have another error to deal with.
+	err = i.recordRelease(rel) // Ignore the error, since we have another error to deal with.
 	return rel, err
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
 )
 
 const (
@@ -119,6 +120,26 @@ func NewInstanceClient(apiserverHost string, kubeConfig string) (*instanceclient
 	klog.Infof("Creating API application instance client for %s", cfg.Host)
 
 	client, err := instanceclientset.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+// k8s client to deal with application instance, only for k8s 1.9+
+func NewMigrationClient(apiserverHost string, kubeConfig string) (*migrationclientset.Clientset, error) {
+	cfg, err := clientcmd.BuildConfigFromFlags(apiserverHost, kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.QPS = defaultQPS
+	cfg.Burst = defaultBurst
+
+	klog.Infof("Creating API application migration client for %s", cfg.Host)
+
+	client, err := migrationclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

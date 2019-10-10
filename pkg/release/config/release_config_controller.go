@@ -2,13 +2,16 @@ package config
 
 import (
 	"WarpCloud/walm/pkg/k8s"
+	k8sutils "WarpCloud/walm/pkg/k8s/utils"
 	"WarpCloud/walm/pkg/kafka"
+	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	releaseModel "WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/release"
 	"WarpCloud/walm/pkg/release/utils"
 	"encoding/json"
+	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -17,9 +20,6 @@ import (
 	"strings"
 	"time"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
-	"k8s.io/api/core/v1"
-	k8sutils "WarpCloud/walm/pkg/k8s/utils"
-	"WarpCloud/walm/pkg/models/common"
 )
 
 // 动态依赖管理核心需求：
@@ -96,8 +96,8 @@ func (controller *ReleaseConfigController) Start(stopChan <-chan struct{}) {
 	<-stopChan
 }
 
-func (controller *ReleaseConfigController) getReleaseConfigEventHandlerFuncs()(
-	AddFunc func(obj interface{}), UpdateFunc  func(old, cur interface{}), DeleteFunc func(obj interface{})){
+func (controller *ReleaseConfigController) getReleaseConfigEventHandlerFuncs() (
+	AddFunc func(obj interface{}), UpdateFunc func(old, cur interface{}), DeleteFunc func(obj interface{})) {
 	AddFunc = func(obj interface{}) {
 		controller.enqueueReleaseConfig(obj)
 		controller.enqueueKafka(obj)
@@ -126,8 +126,8 @@ func (controller *ReleaseConfigController) getReleaseConfigEventHandlerFuncs()(
 	return
 }
 
-func (controller *ReleaseConfigController) getServiceEventHandlerFuncs()(
-	AddFunc func(obj interface{}), UpdateFunc  func(old, cur interface{}), DeleteFunc func(obj interface{})){
+func (controller *ReleaseConfigController) getServiceEventHandlerFuncs() (
+	AddFunc func(obj interface{}), UpdateFunc func(old, cur interface{}), DeleteFunc func(obj interface{})) {
 	AddFunc = func(obj interface{}) {
 		svc, ok := obj.(*v1.Service)
 		if !ok {
@@ -186,6 +186,7 @@ func (controller *ReleaseConfigController) enqueueReleaseConfig(obj interface{})
 	}
 	controller.workingQueue.Add(key)
 }
+
 // for compatible
 func (controller *ReleaseConfigController) enqueueV1Release(dummySvc *v1.Service, queue workqueue.DelayingInterface) {
 	releaseName := k8sutils.GetReleaseNameFromDummyService(dummySvc)
@@ -265,7 +266,7 @@ func (controller *ReleaseConfigController) publishToKafka(releaseKey string) err
 							},
 						},
 					}
-				}else {
+				} else {
 					klog.Errorf("failed to get instance of %s", releaseKey)
 					return err
 				}
