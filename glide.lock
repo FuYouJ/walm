@@ -1,5 +1,5 @@
 hash: 54edb496d381853c231fef6d06caaab2d805c8720eae0d4aaf2a3b8299c97d90
-updated: 2019-10-10T17:31:04.886949411+08:00
+updated: 2019-10-10T18:29:17.232046219+08:00
 imports:
 - name: github.com/aokoli/goutils
   version: 3391d3790d23d03408670993e957e8f408993c34
@@ -622,7 +622,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: f221b8435cfb71e54062f6c6e99e9ade30b124d5
 - name: helm.sh/helm
-  version: d7952ddd6e20a8043e2a5cd27b9250988df9a171
+  version: 2c18d48d7cf7b0d922a3a29ed97e4edc6862b89d
   repo: ssh://git@172.16.1.41:10022/k8s/helm.git
   subpackages:
   - internal/experimental/registry

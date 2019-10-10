@@ -223,10 +223,6 @@ func (e Engine) renderWithReferences(tpls, referenceTpls map[string]renderable) 
 		if strings.HasPrefix(path.Base(filename), "_") {
 			continue
 		}
-		if strings.HasSuffix(path.Base(filename), transwarpJsonetFileSuffix) {
-			rendered[filename] = tpls[filename].tpl
-			continue
-		}
 		// At render time, add information about the template that is being rendered.
 		vals := tpls[filename].vals
 		vals["Template"] = chartutil.Values{"Name": filename, "BasePath": tpls[filename].basePath}
