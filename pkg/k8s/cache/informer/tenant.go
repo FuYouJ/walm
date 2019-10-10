@@ -71,7 +71,7 @@ func (informer *Informer) buildTenantInfo(namespace *corev1.Namespace) (*tenant.
 func buildBasicTenantInfo(namespace *corev1.Namespace) *tenant.TenantInfo {
 	tenantInfo := &tenant.TenantInfo{
 		TenantName:            namespace.Name,
-		TenantCreationTime:    namespace.CreationTimestamp.String(),
+		TenantCreationTime:    namespace.CreationTimestamp,
 		TenantLabels:          namespace.Labels,
 		TenantAnnotitions:     namespace.Annotations,
 		TenantStatus:          namespace.Status.String(),
