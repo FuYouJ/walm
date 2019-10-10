@@ -1,5 +1,5 @@
-hash: e1ff5219fa6bba432ca42afa6c32f3b67014f5d898a499e2b4ca21811286ca2e
-updated: 2019-09-27T12:43:45.192997416+08:00
+hash: 8d993639c26428f84b493b800a74e3b58d181ff7ccab46cfeb0a71316fed8bd6
+updated: 2019-10-10T13:16:09.421310091+08:00
 imports:
 - name: github.com/aokoli/goutils
   version: 3391d3790d23d03408670993e957e8f408993c34
@@ -95,7 +95,7 @@ imports:
 - name: github.com/dgrijalva/jwt-go
   version: 06ea1031745cb8b3dab3f6a236daf2b0aa468b7e
 - name: github.com/docker/cli
-  version: 754388324470af6b5007f141a9205e0bd2f7f8fc
+  version: 3e07fa728a3025cf4205e3dd071da703c34cf45f
   subpackages:
   - cli/config
   - cli/config/configfile
@@ -343,6 +343,15 @@ imports:
   - internal/schema2
   - internal/timeout
   - internal/wclayer
+- name: github.com/migration/pkg
+  version: 08d36360b0bdcb73f857bef647fb35e5b2e2ea36
+  repo: ssh://git@172.16.1.41:10022/app/migration-client-subpkg.git
+  subpackages:
+  - apis/tos
+  - apis/tos/v1beta1
+  - client/clientset/versioned
+  - client/clientset/versioned/scheme
+  - client/clientset/versioned/typed/tos/v1beta1
 - name: github.com/mitchellh/go-wordwrap
   version: ad45545899c7b13c020ea92b2072220eefad42b8
 - name: github.com/modern-go/concurrent
@@ -395,7 +404,7 @@ imports:
   - specs-go
   - specs-go/v1
 - name: github.com/opencontainers/runc
-  version: 84373aaa560b3f14cfda210b2f34ca14fd4b1fce
+  version: c1485a1e88f853e9c2cd3d51eac6d410fed24df4
   subpackages:
   - libcontainer/system
   - libcontainer/user
@@ -493,7 +502,7 @@ imports:
 - name: github.com/xeipuuv/gojsonreference
   version: bd5ef7bd5415a7ac448318e64f11a24cd21e594b
 - name: github.com/xeipuuv/gojsonschema
-  version: 6a016cf16650f6be7151db7c3be6fc90a2c4d9b1
+  version: 66521ed8df07c4f32aa6e40c4e919cbd4c2d267f
 - name: golang.org/x/crypto
   version: e84da0312774c21d64ee2317962ef669b27ffb41
   subpackages:
@@ -540,7 +549,7 @@ imports:
   - unix
   - windows
 - name: golang.org/x/text
-  version: e6919f6577db79269a6443b9dc46d18f2238fb5d
+  version: f21a4dfb5e38f5895301dc265a8def02365cc3d0
   subpackages:
   - encoding
   - encoding/charmap
@@ -552,8 +561,6 @@ imports:
   - encoding/simplifiedchinese
   - encoding/traditionalchinese
   - encoding/unicode
-  - internal/language
-  - internal/language/compact
   - internal/tag
   - internal/utf8internal
   - language
@@ -610,9 +617,9 @@ imports:
 - name: gopkg.in/tomb.v1
   version: dd632973f1e7218eb1089048e0798ec9ae7dceb8
 - name: gopkg.in/yaml.v2
-  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+  version: f221b8435cfb71e54062f6c6e99e9ade30b124d5
 - name: helm.sh/helm
-  version: 73a7297128af7465aba55f956679dc9e89e0fec9
+  version: d7952ddd6e20a8043e2a5cd27b9250988df9a171
   repo: ssh://git@172.16.1.41:10022/k8s/helm.git
   subpackages:
   - internal/experimental/registry
@@ -690,13 +697,13 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 3652de39ca8ccf74d9126c1f0b5cb3679449c18b
+  version: 38012382f145eb7c979daa39b6ed77cd0a79296c
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
   - pkg/features
 - name: k8s.io/apimachinery
-  version: f2f3a405f61d6c2cdc0d00687c1b5d90de91e9f0
+  version: 31ade1b30762be61c32b2e8db2a11aa8b0b8960e
   subpackages:
   - pkg/api/equality
   - pkg/api/errors
@@ -751,7 +758,7 @@ imports:
   - third_party/forked/golang/netutil
   - third_party/forked/golang/reflect
 - name: k8s.io/apiserver
-  version: c4b31550a3f471d3e01ade158db0b698a57429f8
+  version: e383d20f5094e27e8726e1b6e31a36bc883876f1
   subpackages:
   - pkg/authentication/authenticator
   - pkg/authentication/serviceaccount
@@ -759,7 +766,7 @@ imports:
   - pkg/features
   - pkg/util/feature
 - name: k8s.io/cli-runtime
-  version: b0706c510efadce72964d4519a14a192c2e3cf3c
+  version: cb4016b5ceb7a3ca63779ce26a8328c1a2c7208c
   subpackages:
   - pkg/genericclioptions
   - pkg/kustomize
@@ -946,7 +953,7 @@ imports:
   - util/retry
   - util/workqueue
 - name: k8s.io/component-base
-  version: dd0e01d5790f2ab5b9e4420e86d49e7a16ebaed2
+  version: d5138742ad7284332509137038a2aa5292800d2b
   subpackages:
   - featuregate
 - name: k8s.io/klog
@@ -958,7 +965,7 @@ imports:
   - pkg/util/proto
   - pkg/util/proto/validation
 - name: k8s.io/kubernetes
-  version: db4dd7e22b8eeca306d3c6c29f8879e51fe7aedb
+  version: eae0bfe8c80300a9191d95d8b2f22cb2a8f13a0f
   subpackages:
   - pkg/api/legacyscheme
   - pkg/api/service
