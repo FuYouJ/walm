@@ -1,6 +1,6 @@
 # libjsonnet
 
-# Remember to update Bazel and Makefile builds when updating this list! 
+# Remember to update Bazel and Makefile builds when updating this list!
 set(LIBJSONNET_HEADERS
     ast.h
     desugarer.h
@@ -30,12 +30,18 @@ set(LIBJSONNET_SOURCE
 
 add_library(libjsonnet SHARED ${LIBJSONNET_HEADERS} ${LIBJSONNET_SOURCE})
 add_dependencies(libjsonnet md5 stdlib)
-target_link_libraries(libjsonnet md5)
+target_link_libraries(libjsonnet md5 nlohmann_json::nlohmann_json)
+
+file(STRINGS ${CMAKE_SOURCE_DIR}/include/libjsonnet.h JSONNET_VERSION_DEF
+     REGEX "[#]define[ \t]+LIB_JSONNET_VERSION[ \t]+")
+string(REGEX REPLACE ".*\"v([^\"]+)\".*" "\\1" JSONNET_VERSION ${JSONNET_VERSION_DEF})
+message("Extracted Jsonnet version: " ${JSONNET_VERSION})
+
 
 # CMake prepends CMAKE_SHARED_LIBRARY_PREFIX to shared libraries, so without
 # this step the output would be |liblibjsonnet|.
 set_target_properties(libjsonnet PROPERTIES OUTPUT_NAME jsonnet
-	VERSION     "0.12.1"
+	VERSION     "${JSONNET_VERSION}"
 	SOVERSION   "0"
 	PUBLIC_HEADER "${LIB_HEADER}")
 install(TARGETS libjsonnet
@@ -43,12 +49,20 @@ install(TARGETS libjsonnet
 	ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
 	PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
-# Static library for jsonnet command-line tool.
-add_library(libjsonnet_static STATIC ${LIBJSONNET_SOURCE})
-add_dependencies(libjsonnet_static md5 stdlib)
-target_link_libraries(libjsonnet_static md5)
-set_target_properties(libjsonnet_static PROPERTIES OUTPUT_NAME jsonnet)
-install(TARGETS libjsonnet_static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+if (BUILD_STATIC_LIBS)
+    # Static library for jsonnet command-line tool.
+    add_library(libjsonnet_static STATIC ${LIBJSONNET_SOURCE})
+    add_dependencies(libjsonnet_static md5 stdlib)
+    target_link_libraries(libjsonnet_static md5 nlohmann_json::nlohmann_json)
+    set_target_properties(libjsonnet_static PROPERTIES OUTPUT_NAME jsonnet)
+    install(TARGETS libjsonnet_static DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+endif()
+
+if (BUILD_SHARED_BINARIES OR NOT BUILD_STATIC_LIBS)
+    add_library(libjsonnet_for_binaries ALIAS libjsonnet)
+else()
+    add_library(libjsonnet_for_binaries ALIAS libjsonnet_static)
+endif()
 
 # Tests
 
@@ -60,9 +74,9 @@ function(add_test_executable test_name)
     endif()
     add_executable(${test_name} ${test_name}.${TEST_EXT})
 
-    add_dependencies(${test_name} libjsonnet_static gtest_main)
+    add_dependencies(${test_name} libjsonnet_for_binaries GTest::Main)
     target_link_libraries(
-        ${test_name} gtest gtest_main libjsonnet_static)
+        ${test_name} GTest::GTest GTest::Main libjsonnet_for_binaries)
 endfunction()
 
 if (BUILD_TESTS)

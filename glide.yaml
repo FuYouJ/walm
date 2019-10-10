@@ -64,7 +64,7 @@ import:
 - package: github.com/RichardKnop/machinery
   version: v1.4.5
 - package: github.com/google/go-jsonnet
-  version: v0.13.0
+  version: v0.14.0
 - package: github.com/go-resty/resty
   version: 1.11.0
 - package: github.com/spf13/viper
