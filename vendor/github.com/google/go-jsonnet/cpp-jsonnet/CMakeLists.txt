@@ -1,5 +1,7 @@
 # Travis CI runs CMake 2.8.7 so we are pinned to that verison.
 cmake_minimum_required(VERSION 2.8.7)
+project(jsonnet C CXX)
+
 include(ExternalProject)
 include(GNUInstallDirs)
 
@@ -7,11 +9,12 @@ include(GNUInstallDirs)
 option(BUILD_JSONNET "Build jsonnet command-line tool." ON)
 option(BUILD_JSONNETFMT "Build jsonnetfmt command-line tool." ON)
 option(BUILD_TESTS "Build and run jsonnet tests." ON)
+option(BUILD_STATIC_LIBS "Build a static libjsonnet." ON)
+option(BUILD_SHARED_BINARIES "Link binaries to the shared libjsonnet instead of the static one." OFF)
 option(USE_SYSTEM_GTEST "Use system-provided gtest library" OFF)
+option(USE_SYSTEM_JSON "Use the system-provided json library" OFF)
 set(GLOBAL_OUTPUT_PATH_SUFFIX "" CACHE STRING
     "Output artifacts directory.")
-
-project(jsonnet C CXX)
 
 # Discourage in-source builds because they overwrite the hand-written Makefile.
 # Use `cmake . -B<dir>` or the CMake GUI to do an out-of-source build.
@@ -70,9 +73,19 @@ if (BUILD_TESTS AND NOT USE_SYSTEM_GTEST)
     # Include googletest headers.
     include_directories("${gtest_SOURCE_DIR}/include")
 
+	# Alias the targets to their namespaced versions.
+	add_library(GTest::GTest ALIAS gtest)
+	add_library(GTest::Main ALIAS gtest_main)
+
 elseif (BUILD_TESTS AND USE_SYSTEM_GTEST)
 	enable_testing()
-	add_subdirectory(/usr/src/googletest ${GLOBAL_OUTPUT_PATH}/googletest-build)
+	find_package(GTest REQUIRED)
+endif()
+
+if(USE_SYSTEM_JSON)
+    find_package(nlohmann_json 3.6.1 REQUIRED)
+else()
+    add_subdirectory(third_party/json)
 endif()
 
 # Compiler flags.
@@ -94,8 +107,8 @@ link_directories(${GLOBAL_OUTPUT_PATH})
 include_directories(
     include
     third_party/md5
-    third_party/json
-    core)
+    core
+    cpp)
 
 if (BUILD_TESTS)
     # Set JSONNET_BIN variable required for regression tests.
@@ -106,6 +119,7 @@ add_subdirectory(include)
 add_subdirectory(stdlib)
 add_subdirectory(third_party/md5)
 add_subdirectory(core)
+add_subdirectory(cpp)
 add_subdirectory(cmd)
 add_subdirectory(test_suite)
 
@@ -114,7 +128,7 @@ if (BUILD_TESTS)
     # target runs tests without building them.
     add_custom_target(run_tests COMMAND ${CMAKE_CTEST_COMMAND}
         DEPENDS libjsonnet_test libjsonnet_test_file libjsonnet_test_snippet
-                jsonnet parser_test lexer_test
+                jsonnet parser_test lexer_test libjsonnet++_test
     )
 
 endif()

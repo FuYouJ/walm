@@ -14,41 +14,38 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
-	"github.com/google/go-jsonnet"
-	"github.com/google/go-jsonnet/dump"
+	"github.com/google/go-jsonnet/internal/dump"
+	"github.com/google/go-jsonnet/internal/program"
 )
 
 func main() {
-	filename := "ast/stdast.go"
-
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		panic(err)
+	if len(os.Args) != 2 {
+		fmt.Fprintf(os.Stderr, "usage: %s <file>\n", filepath.Base(os.Args[0]))
+		os.Exit(2)
 	}
-	defer file.Close()
-
-	buf, err := ioutil.ReadFile("cpp-jsonnet/stdlib/std.jsonnet")
+	buf, err := ioutil.ReadFile(os.Args[1])
 	if err != nil {
 		panic(err)
 	}
 
-	node, err := jsonnet.SnippetToAST("<std>", string(buf))
+	node, err := program.SnippetToAST("<std>", string(buf))
 	if err != nil {
 		panic(err)
 	}
 
 	dump.Config.HidePrivateFields = false
-	dump.Config.StripPackageNames = true
 	dump.Config.VariableName = "StdAst"
 	dump.Config.VariableDescription = "StdAst is the AST for the standard library."
 	ast := dump.Sdump(node)
 
-	file.WriteString(header)
-	file.WriteString(ast)
-	file.Close()
+	dst := os.Stdout
+	dst.WriteString(header)
+	dst.WriteString(ast)
 }
 
 var header = `
@@ -59,6 +56,10 @@ var header = `
 // --------------- DO NOT EDIT BY HAND! ---------------  //
 ///////////////////////////////////////////////////////////
 
-package ast
+package astgen
+
+import (
+	"github.com/google/go-jsonnet/ast"
+)
 
 `[1:]

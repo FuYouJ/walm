@@ -1,5 +1,5 @@
-hash: 8d993639c26428f84b493b800a74e3b58d181ff7ccab46cfeb0a71316fed8bd6
-updated: 2019-10-10T13:16:09.421310091+08:00
+hash: 54edb496d381853c231fef6d06caaab2d805c8720eae0d4aaf2a3b8299c97d90
+updated: 2019-10-10T17:31:04.886949411+08:00
 imports:
 - name: github.com/aokoli/goutils
   version: 3391d3790d23d03408670993e957e8f408993c34
@@ -246,10 +246,13 @@ imports:
   - cmp/internal/function
   - cmp/internal/value
 - name: github.com/google/go-jsonnet
-  version: 0d560aff58806e4abfbada4b2879b7ac8a35ffc3
+  version: fbde25be2182caa4345b03f1532450911ac7d1f3
   subpackages:
   - ast
-  - parser
+  - astgen
+  - internal/errors
+  - internal/parser
+  - internal/program
 - name: github.com/google/gofuzz
   version: 24818f796faf91cd76ec7bddd72458fbced7a6c1
 - name: github.com/google/uuid
@@ -965,7 +968,7 @@ imports:
   - pkg/util/proto
   - pkg/util/proto/validation
 - name: k8s.io/kubernetes
-  version: eae0bfe8c80300a9191d95d8b2f22cb2a8f13a0f
+  version: 825e07d4723be6ebfc96d92ba1d3bc82f06cd307
   subpackages:
   - pkg/api/legacyscheme
   - pkg/api/service
