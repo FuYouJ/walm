@@ -46,6 +46,7 @@ import (
 	"syscall"
 	"time"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
 )
 
 const servDesc = `
@@ -125,8 +126,17 @@ func (sc *ServCmd) run() error {
 			return err
 		}
 	}
+	var k8sMigrationClient *migrationclientset.Clientset
+	if config.CrdConfig != nil && config.CrdConfig.EnableMigrationCRD {
+		klog.Info("CRD ApplicationInstance should be installed in the k8s")
+		k8sMigrationClient, err = client.NewMigrationClient("", kubeConfig)
+		if err != nil {
+			klog.Errorf("failed to create k8s instance client : %s", err.Error())
+			return err
+		}
+	}
 
-	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, k8sInstanceClient,0, stopChan)
+	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, k8sInstanceClient, k8sMigrationClient, 0, stopChan)
 
 	if config.TaskConfig == nil {
 		err = errors.New("task config can not be empty")

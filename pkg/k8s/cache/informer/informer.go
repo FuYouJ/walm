@@ -28,6 +28,7 @@ import (
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	instancev1beta1 "transwarp/application-instance/pkg/client/listers/transwarp/v1beta1"
 	instanceexternalversions "transwarp/application-instance/pkg/client/informers/externalversions"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
 	beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
 	"fmt"
 	k8sutils "WarpCloud/walm/pkg/k8s/utils"
@@ -424,8 +425,13 @@ func (informer *Informer) getDependencyMetaByInstance(instance *beta1.Applicatio
 	return k8sutils.GetDependencyMetaFromDummyServiceMetaStr(metaString)
 }
 
-func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfigclientset.Clientset,
-	instanceClient *instanceclientset.Clientset, resyncPeriod time.Duration, stopCh <-chan struct{}) (*Informer) {
+func NewInformer(
+	client *kubernetes.Clientset,
+	releaseConfigClient *releaseconfigclientset.Clientset,
+	instanceClient *instanceclientset.Clientset,
+	migrationClient *migrationclientset.Clientset,
+	resyncPeriod time.Duration, stopCh <-chan struct{},
+) (*Informer) {
 	informer := &Informer{}
 	informer.client = client
 	informer.factory = informers.NewSharedInformerFactory(client, resyncPeriod)
@@ -452,6 +458,10 @@ func NewInformer(client *kubernetes.Clientset, releaseConfigClient *releaseconfi
 	if instanceClient != nil {
 		informer.instanceFactory = instanceexternalversions.NewSharedInformerFactory(instanceClient, resyncPeriod)
 		informer.instanceLister = informer.instanceFactory.Transwarp().V1beta1().ApplicationInstances().Lister()
+	}
+
+	if migrationClient != nil {
+		klog.Warning("ToDo Implement migration client")
 	}
 
 	informer.start(stopCh)

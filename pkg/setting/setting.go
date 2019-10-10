@@ -65,7 +65,8 @@ type WalmConfig struct {
 }
 
 type CrdConfig struct {
-	NotNeedInstance bool `json:"notNeedInstance"`
+	NotNeedInstance    bool `json:"notNeedInstance"`
+	EnableMigrationCRD bool `json:"enableMigrationCRD"`
 }
 
 type ChartImageConfig struct {
