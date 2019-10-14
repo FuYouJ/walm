@@ -1,5 +1,5 @@
 package tos
 
 const (
-	GroupName = "apiextensions.tos.io"
+	GroupName = "tos.transwarp"
 )
