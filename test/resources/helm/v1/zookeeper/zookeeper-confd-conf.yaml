@@ -1,0 +1,228 @@
+apiVersion: v1
+data:
+  jaas.conf.tmpl: |
+    {{- if eq (getv "/security/auth_type") "kerberos" }}
+    Server {
+      com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/keytabs/keytab"
+      storeKey=true
+      useTicketCache=false
+      principal="{{ getv "/security/guardian_principal_user" "zookeeper" }}/{{ getv "/security/guardian_principal_host" "tos" }}@{{ getv "/security/guardian_client_config/realm" "TDH" }}";
+    };
+    Client {
+      com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=false
+      useTicketCache=true;
+    };
+    {{- end }}
+  log4j.properties.raw: |
+    # Define some default values that can be overridden by system properties
+    zookeeper.root.logger=INFO, CONSOLE
+    zookeeper.console.threshold=INFO
+    zookeeper.log.dir=.
+    zookeeper.log.file=zookeeper.log
+    zookeeper.log.threshold=DEBUG
+    zookeeper.tracelog.dir=.
+    zookeeper.tracelog.file=zookeeper_trace.log
+
+    #
+    # ZooKeeper Logging Configuration
+    #
+
+    # Format is "<default threshold> (, <appender>)+
+
+    # DEFAULT: console appender only
+    log4j.rootLogger=${zookeeper.root.logger}
+
+    # Example with rolling log file
+    #log4j.rootLogger=DEBUG, CONSOLE, ROLLINGFILE
+
+    # Example with rolling log file and tracing
+    #log4j.rootLogger=TRACE, CONSOLE, ROLLINGFILE, TRACEFILE
+
+    #
+    # Log INFO level and above messages to the console
+    #
+    log4j.appender.CONSOLE=org.apache.log4j.ConsoleAppender
+    log4j.appender.CONSOLE.Threshold=${zookeeper.log.threshold}
+    log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout
+    log4j.appender.CONSOLE.layout.ConversionPattern=%d{ISO8601} %-5p %c: [myid:%X{myid}] - [%t:%C{1}@%L] - %m%n
+
+    #
+    # Add ROLLINGFILE to rootLogger to get log file output
+    #    Log DEBUG level and above messages to a log file
+    log4j.appender.ROLLINGFILE=org.apache.log4j.RollingFileAppender
+    log4j.appender.ROLLINGFILE.Threshold=${zookeeper.log.threshold}
+    log4j.appender.ROLLINGFILE.File=${zookeeper.log.dir}/${zookeeper.log.file}
+
+    # Max log file size of 10MB
+    log4j.appender.ROLLINGFILE.MaxFileSize=64MB
+    # uncomment the next line to limit number of backup files
+    log4j.appender.ROLLINGFILE.MaxBackupIndex=4
+
+    log4j.appender.ROLLINGFILE.layout=org.apache.log4j.PatternLayout
+    log4j.appender.ROLLINGFILE.layout.ConversionPattern=%d{ISO8601} %-5p %c: [myid:%X{myid}] - [%t:%C{1}@%L] - %m%n
+
+
+    #
+    # Add TRACEFILE to rootLogger to get log file output
+    #    Log DEBUG level and above messages to a log file
+    log4j.appender.TRACEFILE=org.apache.log4j.FileAppender
+    log4j.appender.TRACEFILE.Threshold=TRACE
+    log4j.appender.TRACEFILE.File=${zookeeper.tracelog.dir}/${zookeeper.tracelog.file}
+
+    log4j.appender.TRACEFILE.layout=org.apache.log4j.PatternLayout
+    ### Notice we are including log4j's NDC here (%x)
+    log4j.appender.TRACEFILE.layout.ConversionPattern=%d{ISO8601} %-5p %c: [myid:%X{myid}] - [%t:%C{1}@%L][%x] - %m%n
+  myid.tmpl: '{{ getenv "MYID" }}'
+  tdh-env.sh.tmpl: |
+    #!/bin/bash
+    set -x
+
+    setup_keytab() {
+      echo "setup_keytab"
+    {{ if eq (getv "/security/auth_type") "kerberos" }}
+      # link_keytab
+      export KRB_MOUNTED_CONF_PATH=${KRB_MOUNTED_CONF_PATH:-/var/run/secrets/transwarp.io/tosvolume/keytab/krb5.conf}
+      export KRB_MOUNTED_KEYTAB=${KRB_MOUNTED_KEYTAB:-/var/run/secrets/transwarp.io/tosvolume/keytab/keytab}
+      if [ ! -f $KRB_MOUNTED_CONF_PATH ]; then
+        echo "Expect krb5.conf at $KRB_MOUNTED_CONF_PATH but not found!"
+        exit 1
+      fi
+      if [ ! -f $KRB_MOUNTED_KEYTAB ]; then
+        echo "Expect keytab file at $KRB_MOUNTED_KEYTAB but not found!"
+        exit 1
+      fi
+      ln -svf $KRB_MOUNTED_CONF_PATH /etc/krb5.conf
+      [ -d /etc/keytabs ] || mkdir -p /etc/keytabs
+      ln -svf $KRB_MOUNTED_KEYTAB /etc/keytabs/keytab
+    {{ end }}
+    }
+  tdh-env.toml: |-
+    [[template]]
+    src = "tdh-env.sh.tmpl"
+    dest = "/etc/tdh-env.sh"
+    check_cmd = "/bin/true"
+    reload_cmd = "/bin/true"
+    keys = [ "/" ]
+  zoo.cfg.tmpl: |
+    # the directory where the snapshot is stored.
+    dataDir=/var/transwarp/data
+
+    # the port at which the clients will connect
+    clientPort={{ getv "/zookeeper/zookeeper.client.port" }}
+
+    {{- range $index, $_ := seq 0 (sub (atoi (getenv "QUORUM_SIZE")) 1) }}
+    server.{{ $index }}={{ getenv "SERVICE_NAME" }}-{{ $index }}.{{ getenv "SERVICE_NAMESPACE" }}.pod:{{ getv "/zookeeper/zookeeper.peer.communicate.port" }}:{{ getv "/zookeeper/zookeeper.leader.elect.port" }}
+    {{- end }}
+
+    {{- if eq (getv "/security/auth_type") "kerberos" }}
+    authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider
+    jaasLoginRenew=3600000
+    kerberos.removeHostFromPrincipal=true
+    kerberos.removeRealmFromPrincipal=true
+    {{- end }}
+
+    {{- range gets "/zoo_cfg/*" }}
+    {{base .Key}}={{.Value}}
+    {{- end }}
+  zookeeper-confd.conf: |-
+    {
+      "Ingress": {
+
+      },
+      "Transwarp_Auto_Injected_Volumes": [
+
+      ],
+      "msl_plugin_config": {
+        "config": {
+
+        },
+        "enable": false
+      },
+      "security": {
+        "auth_type": "none",
+        "guardian_client_config": {
+
+        },
+        "guardian_principal_host": "tos",
+        "guardian_principal_user": "zookeeper"
+      },
+      "zoo_cfg": {
+        "autopurge.purgeInterval": 1,
+        "autopurge.snapRetainCount": 10,
+        "initLimit": 10,
+        "maxClientCnxns": 0,
+        "syncLimit": 5,
+        "tickTime": 9000
+      },
+      "zookeeper": {
+        "zookeeper.client.port": 2181,
+        "zookeeper.jmxremote.port": 9911,
+        "zookeeper.leader.elect.port": 3888,
+        "zookeeper.peer.communicate.port": 2888
+      }
+    }
+  zookeeper-env.sh.tmpl: |
+    export ZOOKEEPER_LOG_DIR=/var/transwarp/data/log
+
+    export SERVER_JVMFLAGS="-Dcom.sun.management.jmxremote.port={{getv "/zookeeper/zookeeper.jmxremote.port"}} -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false"
+    export SERVER_JVMFLAGS="-Dsun.net.inetaddr.ttl=60 -Dsun.net.inetaddr.negative.ttl=60 -Dzookeeper.refreshPeer=1 -Dzookeeper.log.dir=${ZOOKEEPER_LOG_DIR} -Dzookeeper.root.logger=INFO,CONSOLE,ROLLINGFILE $SERVER_JVMFLAGS"
+
+    {{ if eq (getv "/security/auth_type") "kerberos" }}
+    export SERVER_JVMFLAGS="-Djava.security.auth.login.config=/etc/zookeeper/conf/jaas.conf ${SERVER_JVMFLAGS}"
+    export ZOOKEEPER_PRICIPAL={{ getv "/security/guardian_principal_user" "zookeeper" }}/{{ getv "/security/guardian_principal_host" "tos" }}@{{ getv "/security/guardian_client_config/realm" "TDH" }}
+    {{ end }}
+  zookeeper.toml: |-
+    [[template]]
+    src = "zoo.cfg.tmpl"
+    dest = "/etc/zookeeper/conf/zoo.cfg"
+    check_cmd = "/bin/true"
+    reload_cmd = "/bin/true"
+    keys = [ "/" ]
+
+    [[template]]
+    src = "jaas.conf.tmpl"
+    dest = "/etc/zookeeper/conf/jaas.conf"
+    check_cmd = "/bin/true"
+    reload_cmd = "/bin/true"
+    keys = [ "/" ]
+
+    [[template]]
+    src = "log4j.properties.raw"
+    dest = "/etc/zookeeper/conf/log4j.properties"
+    check_cmd = "/bin/true"
+    reload_cmd = "/bin/true"
+    keys = [ "/" ]
+
+    [[template]]
+    src = "zookeeper-env.sh.tmpl"
+    dest = "/etc/zookeeper/conf/zookeeper-env.sh"
+    check_cmd = "/bin/true"
+    reload_cmd = "/bin/true"
+    keys = [ "/" ]
+
+    [[template]]
+    src = "myid.tmpl"
+    dest = "/var/transwarp/data/myid"
+    check_cmd = "/bin/true"
+    reload_cmd = "/bin/true"
+    keys = [ "/" ]
+kind: ConfigMap
+metadata:
+  creationTimestamp: 2019-10-11T07:01:37Z
+  labels:
+    release: helmreleasetest-zk
+    transwarp.install: dw22g
+    transwarp.name: zookeeper-confd-conf
+  name: zookeeper-confd-conf-dw22g
+  namespace: helmreleasetest-t2295
+  ownerReferences:
+    - apiVersion: apiextensions.transwarp.io/v1beta1
+      controller: true
+      kind: ApplicationInstance
+      name: helmreleasetest-zk
+      uid: f7d286a1-ebf4-11e9-99f8-d61387db2e94
+  selfLink: /api/v1/namespaces/helmreleasetest-t2295/configmaps/zookeeper-confd-conf-dw22g
+  uid: f7e4f797-ebf4-11e9-8827-36063b5bc7f6

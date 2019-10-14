@@ -1,21 +1,23 @@
 package helm
 
 import (
-	. "github.com/onsi/gomega"
-	. "github.com/onsi/ginkgo"
-	"WarpCloud/walm/test/e2e/framework"
-	"WarpCloud/walm/pkg/k8s/cache/informer"
 	"WarpCloud/walm/pkg/helm/impl"
-	"WarpCloud/walm/pkg/setting"
-	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/k8s/cache/informer"
 	"WarpCloud/walm/pkg/models/common"
-	"github.com/ghodss/yaml"
-	"errors"
+	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/setting"
 	"WarpCloud/walm/pkg/util"
+	"WarpCloud/walm/test/e2e/framework"
+	"errors"
 	"fmt"
+	"github.com/ghodss/yaml"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+
+	"WarpCloud/walm/pkg/helm/impl/plugins"
 	"path/filepath"
 	"strings"
-	"WarpCloud/walm/pkg/helm/impl/plugins"
 )
 
 var _ = Describe("HelmRelease", func() {
@@ -659,6 +661,150 @@ var _ = Describe("HelmRelease", func() {
 
 		})
 
+		Describe("test install v1 release", func() {
+			var (
+				zookeeperChartFiles       []*common.BufferedFile
+				zookeeperV2ChartFiles     []*common.BufferedFile
+				zookeeperComputedValues   map[string]interface{}
+				zookeeperV2ComputedValues map[string]interface{}
+			)
+
+			BeforeEach(func() {
+				zookeeperChartPath, err := framework.GetLocalV1ZookeeperChartPath()
+				Expect(err).NotTo(HaveOccurred())
+				zookeeperV2Chartpath, err := framework.GetLocalV2ZookeeperChartPath()
+				Expect(err).NotTo(HaveOccurred())
+
+				zookeeperChartFiles, err = framework.LoadChartArchive(zookeeperChartPath)
+				Expect(err).NotTo(HaveOccurred())
+				zookeeperV2ChartFiles, err = framework.LoadChartArchive(zookeeperV2Chartpath)
+				Expect(err).NotTo(HaveOccurred())
+
+				defaultValues, err := getChartDefaultValues(zookeeperChartFiles)
+				Expect(err).NotTo(HaveOccurred())
+				defaultV2Values, err := getChartDefaultValues(zookeeperV2ChartFiles)
+				Expect(err).NotTo(HaveOccurred())
+
+				zookeeperComputedValues = map[string]interface{}{}
+				zookeeperComputedValues = util.MergeValues(zookeeperComputedValues, defaultValues, false)
+				zookeeperComputedValues = util.MergeValues(zookeeperComputedValues, map[string]interface{}{
+					plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
+						{
+							Name: plugins.ValidateReleaseConfigPluginName,
+						},
+					},
+				}, false)
+
+				zookeeperV2ComputedValues = map[string]interface{}{}
+				zookeeperV2ComputedValues = util.MergeValues(zookeeperV2ComputedValues, defaultV2Values, false)
+				zookeeperV2ComputedValues = util.MergeValues(zookeeperV2ComputedValues, map[string]interface{}{
+					plugins.WalmPluginConfigKey: []*release.ReleasePlugin{
+						{
+							Name: plugins.ValidateReleaseConfigPluginName,
+						},
+					},
+				}, false)
+
+			})
+
+			It("test install v2 release with local v1 chart", func() {
+				By("install v2 release with local v1 chart")
+				releaseRequest := &release.ReleaseRequestV2{
+					ReleaseRequest: release.ReleaseRequest{
+						Name: "zookeeper-test",
+					},
+				}
+
+				releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, zookeeperChartFiles, false, false, nil, nil)
+				Expect(err).NotTo(HaveOccurred())
+				assertReleaseCacheBasic(releaseCache, namespace, "zookeeper-test", "", "zookeeper",
+					"5.2.0", "5.2", 1)
+
+				transwarpInstallID := fmt.Sprintf("%v", releaseCache.ConfigValues["Transwarp_Install_ID"])
+				zookeeperComputedValues["Transwarp_Install_ID"] = transwarpInstallID
+				Expect(releaseCache.ComputedValues).To(Equal(zookeeperComputedValues))
+
+				manifest := strings.Replace("\n---\napiVersion: v1\ndata:\n  jaas.conf.tmpl: |\n    {{- if eq (getv \"/security/auth_type\") \"kerberos\" }}\n    Server {\n      com.sun.security.auth.module.Krb5LoginModule required\n      useKeyTab=true\n      keyTab=\"/etc/keytabs/keytab\"\n      storeKey=true\n      useTicketCache=false\n      principal=\"{{ getv \"/security/guardian_principal_user\" \"zookeeper\" }}/{{ getv \"/security/guardian_principal_host\" \"tos\" }}@{{ getv \"/security/guardian_client_config/realm\" \"TDH\" }}\";\n    };\n    Client {\n      com.sun.security.auth.module.Krb5LoginModule required\n      useKeyTab=false\n      useTicketCache=true;\n    };\n    {{- end }}\n  log4j.properties.raw: |\n    # Define some default values that can be overridden by system properties\n    zookeeper.root.logger=INFO, CONSOLE\n    zookeeper.console.threshold=INFO\n    zookeeper.log.dir=.\n    zookeeper.log.file=zookeeper.log\n    zookeeper.log.threshold=DEBUG\n    zookeeper.tracelog.dir=.\n    zookeeper.tracelog.file=zookeeper_trace.log\n\n    #\n    # ZooKeeper Logging Configuration\n    #\n\n    # Format is \"<default threshold> (, <appender>)+\n\n    # DEFAULT: console appender only\n    log4j.rootLogger=${zookeeper.root.logger}\n\n    # Example with rolling log file\n    #log4j.rootLogger=DEBUG, CONSOLE, ROLLINGFILE\n\n    # Example with rolling log file and tracing\n    #log4j.rootLogger=TRACE, CONSOLE, ROLLINGFILE, TRACEFILE\n\n    #\n    # Log INFO level and above messages to the console\n    #\n    log4j.appender.CONSOLE=org.apache.log4j.ConsoleAppender\n    log4j.appender.CONSOLE.Threshold=${zookeeper.log.threshold}\n    log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout\n    log4j.appender.CONSOLE.layout.ConversionPattern=%d{ISO8601} %-5p %c: [myid:%X{myid}] - [%t:%C{1}@%L] - %m%n\n\n    #\n    # Add ROLLINGFILE to rootLogger to get log file output\n    #    Log DEBUG level and above messages to a log file\n    log4j.appender.ROLLINGFILE=org.apache.log4j.RollingFileAppender\n    log4j.appender.ROLLINGFILE.Threshold=${zookeeper.log.threshold}\n    log4j.appender.ROLLINGFILE.File=${zookeeper.log.dir}/${zookeeper.log.file}\n\n    # Max log file size of 10MB\n    log4j.appender.ROLLINGFILE.MaxFileSize=64MB\n    # uncomment the next line to limit number of backup files\n    log4j.appender.ROLLINGFILE.MaxBackupIndex=4\n\n    log4j.appender.ROLLINGFILE.layout=org.apache.log4j.PatternLayout\n    log4j.appender.ROLLINGFILE.layout.ConversionPattern=%d{ISO8601} %-5p %c: [myid:%X{myid}] - [%t:%C{1}@%L] - %m%n\n\n\n    #\n    # Add TRACEFILE to rootLogger to get log file output\n    #    Log DEBUG level and above messages to a log file\n    log4j.appender.TRACEFILE=org.apache.log4j.FileAppender\n    log4j.appender.TRACEFILE.Threshold=TRACE\n    log4j.appender.TRACEFILE.File=${zookeeper.tracelog.dir}/${zookeeper.tracelog.file}\n\n    log4j.appender.TRACEFILE.layout=org.apache.log4j.PatternLayout\n    ### Notice we are including log4j's NDC here (%x)\n    log4j.appender.TRACEFILE.layout.ConversionPattern=%d{ISO8601} %-5p %c: [myid:%X{myid}] - [%t:%C{1}@%L][%x] - %m%n\n  myid.tmpl: '{{ getenv \"MYID\" }}'\n  tdh-env.sh.tmpl: |\n    #!/bin/bash\n    set -x\n\n    setup_keytab() {\n      echo \"setup_keytab\"\n    {{ if eq (getv \"/security/auth_type\") \"kerberos\" }}\n      # link_keytab\n      export KRB_MOUNTED_CONF_PATH=${KRB_MOUNTED_CONF_PATH:-/var/run/secrets/transwarp.io/tosvolume/keytab/krb5.conf}\n      export KRB_MOUNTED_KEYTAB=${KRB_MOUNTED_KEYTAB:-/var/run/secrets/transwarp.io/tosvolume/keytab/keytab}\n      if [ ! -f $KRB_MOUNTED_CONF_PATH ]; then\n        echo \"Expect krb5.conf at $KRB_MOUNTED_CONF_PATH but not found!\"\n        exit 1\n      fi\n      if [ ! -f $KRB_MOUNTED_KEYTAB ]; then\n        echo \"Expect keytab file at $KRB_MOUNTED_KEYTAB but not found!\"\n        exit 1\n      fi\n      ln -svf $KRB_MOUNTED_CONF_PATH /etc/krb5.conf\n      [ -d /etc/keytabs ] || mkdir -p /etc/keytabs\n      ln -svf $KRB_MOUNTED_KEYTAB /etc/keytabs/keytab\n    {{ end }}\n    }\n  tdh-env.toml: |-\n    [[template]]\n    src = \"tdh-env.sh.tmpl\"\n    dest = \"/etc/tdh-env.sh\"\n    check_cmd = \"/bin/true\"\n    reload_cmd = \"/bin/true\"\n    keys = [ \"/\" ]\n  zoo.cfg.tmpl: |\n    # the directory where the snapshot is stored.\n    dataDir=/var/transwarp/data\n\n    # the port at which the clients will connect\n    clientPort={{ getv \"/zookeeper/zookeeper.client.port\" }}\n\n    {{- range $index, $_ := seq 0 (sub (atoi (getenv \"QUORUM_SIZE\")) 1) }}\n    server.{{ $index }}={{ getenv \"SERVICE_NAME\" }}-{{ $index }}.{{ getenv \"SERVICE_NAMESPACE\" }}.pod:{{ getv \"/zookeeper/zookeeper.peer.communicate.port\" }}:{{ getv \"/zookeeper/zookeeper.leader.elect.port\" }}\n    {{- end }}\n\n    {{- if eq (getv \"/security/auth_type\") \"kerberos\" }}\n    authProvider.1=org.apache.zookeeper.server.auth.SASLAuthenticationProvider\n    jaasLoginRenew=3600000\n    kerberos.removeHostFromPrincipal=true\n    kerberos.removeRealmFromPrincipal=true\n    {{- end }}\n\n    {{- range gets \"/zoo_cfg/*\" }}\n    {{base .Key}}={{.Value}}\n    {{- end }}\n  zookeeper-confd.conf: |-\n    {\n      \"Ingress\": {\n\n      },\n      \"Transwarp_Auto_Injected_Volumes\": [\n\n      ],\n      \"msl_plugin_config\": {\n        \"config\": {\n\n        },\n        \"enable\": false\n      },\n      \"security\": {\n        \"auth_type\": \"none\",\n        \"guardian_client_config\": {\n\n        },\n        \"guardian_principal_host\": \"tos\",\n        \"guardian_principal_user\": \"zookeeper\"\n      },\n      \"zoo_cfg\": {\n        \"autopurge.purgeInterval\": 1,\n        \"autopurge.snapRetainCount\": 10,\n        \"initLimit\": 10,\n        \"maxClientCnxns\": 0,\n        \"syncLimit\": 5,\n        \"tickTime\": 9000\n      },\n      \"zookeeper\": {\n        \"zookeeper.client.port\": 2181,\n        \"zookeeper.jmxremote.port\": 9911,\n        \"zookeeper.leader.elect.port\": 3888,\n        \"zookeeper.peer.communicate.port\": 2888\n      }\n    }\n  zookeeper-env.sh.tmpl: |\n    export ZOOKEEPER_LOG_DIR=/var/transwarp/data/log\n\n    export SERVER_JVMFLAGS=\"-Dcom.sun.management.jmxremote.port={{getv \"/zookeeper/zookeeper.jmxremote.port\"}} -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false\"\n    export SERVER_JVMFLAGS=\"-Dsun.net.inetaddr.ttl=60 -Dsun.net.inetaddr.negative.ttl=60 -Dzookeeper.refreshPeer=1 -Dzookeeper.log.dir=${ZOOKEEPER_LOG_DIR} -Dzookeeper.root.logger=INFO,CONSOLE,ROLLINGFILE $SERVER_JVMFLAGS\"\n\n    {{ if eq (getv \"/security/auth_type\") \"kerberos\" }}\n    export SERVER_JVMFLAGS=\"-Djava.security.auth.login.config=/etc/zookeeper/conf/jaas.conf ${SERVER_JVMFLAGS}\"\n    export ZOOKEEPER_PRICIPAL={{ getv \"/security/guardian_principal_user\" \"zookeeper\" }}/{{ getv \"/security/guardian_principal_host\" \"tos\" }}@{{ getv \"/security/guardian_client_config/realm\" \"TDH\" }}\n    {{ end }}\n  zookeeper.toml: |-\n    [[template]]\n    src = \"zoo.cfg.tmpl\"\n    dest = \"/etc/zookeeper/conf/zoo.cfg\"\n    check_cmd = \"/bin/true\"\n    reload_cmd = \"/bin/true\"\n    keys = [ \"/\" ]\n\n    [[template]]\n    src = \"jaas.conf.tmpl\"\n    dest = \"/etc/zookeeper/conf/jaas.conf\"\n    check_cmd = \"/bin/true\"\n    reload_cmd = \"/bin/true\"\n    keys = [ \"/\" ]\n\n    [[template]]\n    src = \"log4j.properties.raw\"\n    dest = \"/etc/zookeeper/conf/log4j.properties\"\n    check_cmd = \"/bin/true\"\n    reload_cmd = \"/bin/true\"\n    keys = [ \"/\" ]\n\n    [[template]]\n    src = \"zookeeper-env.sh.tmpl\"\n    dest = \"/etc/zookeeper/conf/zookeeper-env.sh\"\n    check_cmd = \"/bin/true\"\n    reload_cmd = \"/bin/true\"\n    keys = [ \"/\" ]\n\n    [[template]]\n    src = \"myid.tmpl\"\n    dest = \"/var/transwarp/data/myid\"\n    check_cmd = \"/bin/true\"\n    reload_cmd = \"/bin/true\"\n    keys = [ \"/\" ]\nkind: ConfigMap\nmetadata:\n  annotations: {}\n  labels:\n    release: zookeeper-test\n    transwarp.install: 96nhl\n    transwarp.name: zookeeper-confd-conf\n  name: zookeeper-confd-conf-96nhl\n  namespace: helmreleasetest-t2295\n\n---\napiVersion: v1\ndata:\n  entrypoint.sh: |\n    #!/bin/bash\n    set -ex\n\n    export ZOOKEEPER_CONF_DIR=/etc/zookeeper/conf\n    export ZOOKEEPER_DATA_DIR=/var/transwarp\n    export ZOOKEEPER_DATA=$ZOOKEEPER_DATA_DIR/data\n    export ZOOKEEPER_CFG=$ZOOKEEPER_CONF_DIR/zoo.cfg\n\n    mkdir -p ${ZOOKEEPER_CONF_DIR}\n    mkdir -p $ZOOKEEPER_DATA\n\n    confd -onetime -backend file -prefix / -file /etc/confd/zookeeper-confd.conf\n\n    ZOOKEEPER_ENV=$ZOOKEEPER_CONF_DIR/zookeeper-env.sh\n\n    [ -f $ZOOKEEPER_ENV ] && {\n      source $ZOOKEEPER_ENV\n    }\n    [ -f /etc/tdh-env.sh ] && {\n      source /etc/tdh-env.sh\n      setup_keytab\n    }\n    # ZOOKEEPER_LOG is defined in $ZOOKEEPER_ENV\n    mkdir -p $ZOOKEEPER_LOG_DIR\n    chown -R zookeeper:zookeeper $ZOOKEEPER_LOG_DIR\n    chown -R zookeeper:zookeeper $ZOOKEEPER_DATA\n\n    echo \"Starting zookeeper service with config:\"\n    cat ${ZOOKEEPER_CFG}\n\n    sudo -u zookeeper java $SERVER_JVMFLAGS \\\n        $JAVAAGENT_OPTS \\\n        -cp $ZOOKEEPER_HOME/zookeeper-3.4.5-transwarp-with-dependencies.jar:$ZOOKEEPER_CONF_DIR \\\n        org.apache.zookeeper.server.quorum.QuorumPeerMain $ZOOKEEPER_CFG\nkind: ConfigMap\nmetadata:\n  annotations: {}\n  labels:\n    release: zookeeper-test\n    transwarp.install: 96nhl\n    transwarp.name: zookeeper-entrypoint\n  name: zookeeper-entrypoint-96nhl\n  namespace: helmreleasetest-t2295\n\n---\napiVersion: v1\nkind: Service\nmetadata:\n  annotations:\n    service.alpha.kubernetes.io/tolerate-unready-endpoints: \"true\"\n  labels:\n    k8s-app: zookeeper-hl\n    kubernetes.io/headless-service: \"true\"\n    release: zookeeper-test\n    transwarp.install: 96nhl\n    transwarp.name: zookeeper-hl\n  name: zookeeper-hl-96nhl\n  namespace: helmreleasetest-t2295\nspec:\n  clusterIP: None\n  ports:\n  - name: hl-service\n    port: 2181\n    protocol: TCP\n    targetPort: 2181\n  selector:\n    transwarp.install: 96nhl\n    transwarp.name: zookeeper\n\n---\napiVersion: v1\nkind: Service\nmetadata:\n  annotations: {}\n  labels:\n    k8s-app: zookeeper\n    kubernetes.io/cluster-service: \"true\"\n    release: zookeeper-test\n    transwarp.install: 96nhl\n    transwarp.name: zookeeper\n  name: zookeeper-96nhl\n  namespace: helmreleasetest-t2295\nspec:\n  ports:\n  - name: service\n    port: 2181\n    protocol: TCP\n    targetPort: 2181\n  selector:\n    transwarp.install: 96nhl\n    transwarp.name: zookeeper\n  type: NodePort\n\n---\napiVersion: apps/v1beta1\nkind: StatefulSet\nmetadata:\n  annotations: {}\n  labels:\n    release: zookeeper-test\n    transwarp.install: 96nhl\n    transwarp.name: zookeeper\n  name: zookeeper-96nhl\n  namespace: helmreleasetest-t2295\nspec:\n  podManagementPolicy: Parallel\n  replicas: 1\n  selector:\n    matchLabels:\n      transwarp.install: 96nhl\n      transwarp.name: zookeeper\n  serviceName: zookeeper-96nhl\n  template:\n    metadata:\n      annotations:\n        cni.networks: overlay\n        pod.alpha.kubernetes.io/initialized: \"true\"\n        transwarp/configmap.md5: 2f17b219ccca5d504959b9ccdb950fe0278a4a4894113dbc5c063780d00cab9c\n      labels:\n        release: zookeeper-test\n        transwarp.install: 96nhl\n        transwarp.name: zookeeper\n    spec:\n      affinity:\n        podAntiAffinity:\n          requiredDuringSchedulingIgnoredDuringExecution:\n          - labelSelector:\n              matchLabels:\n                release: zookeeper-test\n                transwarp.install: 96nhl\n                transwarp.name: zookeeper\n            namespaces:\n            - helmreleasetest-t2295\n            topologyKey: kubernetes.io/hostname\n      containers:\n      - args:\n        - /boot/entrypoint.sh\n        env:\n        - name: MYID\n          valueFrom:\n            fieldRef:\n              fieldPath: metadata.annotations['transwarp.replicaid']\n        - name: SERVICE_NAME\n          value: zookeeper-96nhl\n        - name: SERVICE_NAMESPACE\n          valueFrom:\n            fieldRef:\n              fieldPath: metadata.namespace\n        - name: HEAP_SIZE\n          value: 40m\n        - name: QUORUM_SIZE\n          value: \"1\"\n        image: zookeeper:transwarp-5.2\n        imagePullPolicy: Always\n        livenessProbe:\n          exec:\n            command:\n            - /bin/bash\n            - -c\n            - echo ruok|nc localhost 2181 > /dev/null && echo ok\n          initialDelaySeconds: 60\n        name: zookeeper\n        readinessProbe:\n          exec:\n            command:\n            - /bin/bash\n            - -c\n            - echo ruok|nc localhost 2181 > /dev/null && echo ok\n          initialDelaySeconds: 60\n        resources:\n          limits:\n            cpu: \"0.20000000000000001\"\n            memory: 0.040000000000000001Gi\n          requests:\n            cpu: \"0.10000000000000001\"\n            memory: 0.01Gi\n        volumeMounts:\n        - mountPath: /var/transwarp\n          name: zkdir\n        - mountPath: /boot\n          name: zookeeper-entrypoint\n        - mountPath: /etc/confd\n          name: zookeeper-confd-conf\n      hostNetwork: false\n      priorityClassName: low-priority\n      volumes:\n      - configMap:\n          items:\n          - key: entrypoint.sh\n            mode: 493\n            path: entrypoint.sh\n          name: zookeeper-entrypoint-96nhl\n        name: zookeeper-entrypoint\n      - configMap:\n          items:\n          - key: zookeeper.toml\n            path: conf.d/zookeeper.toml\n          - key: tdh-env.toml\n            path: conf.d/tdh-env.toml\n          - key: zookeeper-confd.conf\n            path: zookeeper-confd.conf\n          - key: zoo.cfg.tmpl\n            path: templates/zoo.cfg.tmpl\n          - key: jaas.conf.tmpl\n            path: templates/jaas.conf.tmpl\n          - key: zookeeper-env.sh.tmpl\n            path: templates/zookeeper-env.sh.tmpl\n          - key: myid.tmpl\n            path: templates/myid.tmpl\n          - key: log4j.properties.raw\n            path: templates/log4j.properties.raw\n          - key: tdh-env.sh.tmpl\n            path: templates/tdh-env.sh.tmpl\n          name: zookeeper-confd-conf-96nhl\n        name: zookeeper-confd-conf\n  updateStrategy:\n    type: RollingUpdate\n  volumeClaimTemplates:\n  - metadata:\n      annotations:\n        volume.beta.kubernetes.io/storage-class: silver\n      labels:\n        release: zookeeper-test\n        transwarp.install: 96nhl\n        transwarp.name: zookeeper\n      name: zkdir\n    spec:\n      accessModes:\n      - ReadWriteOnce\n      resources:\n        requests:\n          storage: 1Gi\n\n---\napiVersion: apiextensions.transwarp.io/v1beta1\nkind: ReleaseConfig\nmetadata:\n  creationTimestamp: null\n  name: zookeeper-test\n  namespace: helmreleasetest-t2295\nspec:\n  chartAppVersion: \"5.2\"\n  chartImage: \"\"\n  chartName: zookeeper\n  chartVersion: 5.2.0\n  configValues:\n    Transwarp_Install_ID: 96nhl\n  dependencies: null\n  dependenciesConfigValues: {}\n  outputConfig:\n    provides:\n      ZOOKEEPER_CLIENT_CONFIG:\n        immediate_value:\n          zookeeper_addresses: zookeeper-96nhl-0.helmreleasetest-t2295.pod\n          zookeeper_auth_type: none\n          zookeeper_port: \"2181\"\n          zookeeper_principal: zookeeper/tos\n  repo: \"\"\nstatus: {}\n",
+					"96nhl", transwarpInstallID, -1)
+				manifest = strings.Replace(manifest, "helmreleasetest-t2295", namespace, -1)
+				Expect(releaseCache.Manifest).To(Equal(manifest))
+
+				Expect(releaseCache.ReleaseResourceMetas).To(Equal(getZookeeperDefaultV2ReleaseResourceMeta(namespace, "zookeeper-test", transwarpInstallID)))
+				Expect(releaseCache.MetaInfoValues).To(BeNil())
+			})
+			//
+			//// Todo: // List v1 Release. Create configmap get release from configmap
+			Describe("test list & delete v1 release", func() {
+				var releaseConfigMap *corev1.ConfigMap
+				var anotherNamespace string
+
+				BeforeEach(func() {
+					By("create test namespace")
+					anotherNamespace = "helmreleasetest-t2295"
+					err = framework.CreateNamespace(anotherNamespace, nil)
+					Expect(err).NotTo(HaveOccurred())
+					currentFilePath, err := framework.GetCurrentFilePath()
+					Expect(err).NotTo(HaveOccurred())
+
+					appmanagerConfigMapPath := filepath.Join(filepath.Dir(currentFilePath), "../../resources/helm/v1/zookeeper/appmanager-configmap.yaml")
+					confdConfigMapPath := filepath.Join(filepath.Dir(currentFilePath), "../../resources/helm/v1/zookeeper/zookeeper-confd-conf.yaml")
+					entrypointConfigMapPath := filepath.Join(filepath.Dir(currentFilePath), "../../resources/helm/v1/zookeeper/zookeeper-entrypoint.yaml")
+					releaseConfigMapPath := filepath.Join(filepath.Dir(currentFilePath), "../../resources/helm/v1/zookeeper/configmap.yaml")
+
+					_, err = framework.CreateCustomConfigMap(anotherNamespace, appmanagerConfigMapPath)
+					Expect(err).NotTo(HaveOccurred())
+
+					_, err = framework.CreateCustomConfigMap(anotherNamespace, confdConfigMapPath)
+					Expect(err).NotTo(HaveOccurred())
+
+					_, err = framework.CreateCustomConfigMap(anotherNamespace, entrypointConfigMapPath)
+					Expect(err).NotTo(HaveOccurred())
+
+					releaseConfigMap, err = framework.CreateCustomConfigMap("kube-system", releaseConfigMapPath)
+					Expect(err).NotTo(HaveOccurred())
+				})
+
+				AfterEach(func() {
+					By("delete test namespace")
+					err = framework.DeleteNamespace(anotherNamespace)
+					Expect(err).NotTo(HaveOccurred())
+
+					err = framework.DeleteConfigMap("kube-system", releaseConfigMap.Name)
+					Expect(err).NotTo(HaveOccurred())
+				})
+				It("list & delete v1 release", func() {
+					By("list v1 release")
+					releaseCaches, err := helm.ListAllReleases()
+					Expect(err).NotTo(HaveOccurred())
+					getReleaseCache := func(releaseCaches []*release.ReleaseCache, anoterNamespace, name string) *release.ReleaseCache {
+						for _, releaseCache := range releaseCaches {
+							if releaseCache.Name == "helmreleasetest-zk" && releaseCache.Namespace == anoterNamespace {
+								return releaseCache
+							}
+						}
+						return nil
+					}
+					releaseCache := getReleaseCache(releaseCaches, anotherNamespace, "helmreleasetest-zk")
+					Expect(releaseCache).NotTo(BeNil())
+					assertReleaseCacheBasic(releaseCache, anotherNamespace, "helmreleasetest-zk", "", "zookeeper",
+						"5.2.0", "5.2", 1)
+
+					Expect(releaseCache.HelmVersion).To(Equal("v2"))
+					Expect(releaseCache.ReleaseResourceMetas).To(Equal(getZookeeperDefaultV1ReleaseResourceMeta(anotherNamespace, "helmreleasetest-zk")))
+
+					By("delete v1 release")
+					err = helm.DeleteRelease(namespace, "helmreleasetest-zk")
+					Expect(err).NotTo(HaveOccurred())
+					err = helm.DeleteRelease(namespace, "not-existed")
+					Expect(err).NotTo(HaveOccurred())
+
+					releaseCaches, err = helm.ListAllReleases()
+					Expect(err).NotTo(HaveOccurred())
+					releaseCache = getReleaseCache(releaseCaches, namespace, "helmreleasetest-zk")
+					Expect(releaseCache).To(BeNil())
+				})
+			})
+		})
 
 	})
 
@@ -735,8 +881,58 @@ func getZookeeperDefaultReleaseResourceMeta(namespace, name string) []release.Re
 	}
 }
 
+func getZookeeperDefaultV1ReleaseResourceMeta(namespace, name string) []release.ReleaseResourceMeta {
+	return []release.ReleaseResourceMeta{
+		{
+			Kind:      "ConfigMap",
+			Namespace: namespace,
+			Name:      "appmanager." + name + ".1778257097",
+		},
+		{
+			Kind:      "ApplicationInstance",
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+}
+
+func getZookeeperDefaultV2ReleaseResourceMeta(namespace, name, transwarpInstallID string) []release.ReleaseResourceMeta {
+	return []release.ReleaseResourceMeta{
+		{
+			Kind:      "ConfigMap",
+			Namespace: namespace,
+			Name:      "zookeeper-confd-conf-" + transwarpInstallID,
+		},
+		{
+			Kind:      "ConfigMap",
+			Namespace: namespace,
+			Name:      "zookeeper-entrypoint-" + transwarpInstallID,
+		},
+		{
+			Kind:      "Service",
+			Namespace: namespace,
+			Name:      "zookeeper-hl-" + transwarpInstallID,
+		},
+		{
+			Kind:      "Service",
+			Namespace: namespace,
+			Name:      "zookeeper-" + transwarpInstallID,
+		},
+		{
+			Kind:      "StatefulSet",
+			Namespace: namespace,
+			Name:      "zookeeper-" + transwarpInstallID,
+		},
+		{
+			Kind:      "ReleaseConfig",
+			Namespace: namespace,
+			Name:      name,
+		},
+	}
+}
+
 func assertReleaseCacheBasic(cache *release.ReleaseCache, namespace, name, repo, chartName, chartVersion,
-chartAppVersion string, version int32) {
+	chartAppVersion string, version int32) {
 
 	Expect(cache.Name).To(Equal(name))
 	Expect(cache.Namespace).To(Equal(namespace))

@@ -1,0 +1,54 @@
+apiVersion: v1
+data:
+  entrypoint.sh: |
+    #!/bin/bash
+    set -ex
+
+    export ZOOKEEPER_CONF_DIR=/etc/zookeeper/conf
+    export ZOOKEEPER_DATA_DIR=/var/transwarp
+    export ZOOKEEPER_DATA=$ZOOKEEPER_DATA_DIR/data
+    export ZOOKEEPER_CFG=$ZOOKEEPER_CONF_DIR/zoo.cfg
+
+    mkdir -p ${ZOOKEEPER_CONF_DIR}
+    mkdir -p $ZOOKEEPER_DATA
+
+    confd -onetime -backend file -prefix / -file /etc/confd/zookeeper-confd.conf
+
+    ZOOKEEPER_ENV=$ZOOKEEPER_CONF_DIR/zookeeper-env.sh
+
+    [ -f $ZOOKEEPER_ENV ] && {
+      source $ZOOKEEPER_ENV
+    }
+    [ -f /etc/tdh-env.sh ] && {
+      source /etc/tdh-env.sh
+      setup_keytab
+    }
+    # ZOOKEEPER_LOG is defined in $ZOOKEEPER_ENV
+    mkdir -p $ZOOKEEPER_LOG_DIR
+    chown -R zookeeper:zookeeper $ZOOKEEPER_LOG_DIR
+    chown -R zookeeper:zookeeper $ZOOKEEPER_DATA
+
+    echo "Starting zookeeper service with config:"
+    cat ${ZOOKEEPER_CFG}
+
+    sudo -u zookeeper java $SERVER_JVMFLAGS \
+        $JAVAAGENT_OPTS \
+        -cp $ZOOKEEPER_HOME/zookeeper-3.4.5-transwarp-with-dependencies.jar:$ZOOKEEPER_CONF_DIR \
+        org.apache.zookeeper.server.quorum.QuorumPeerMain $ZOOKEEPER_CFG
+kind: ConfigMap
+metadata:
+  creationTimestamp: 2019-10-11T07:01:37Z
+  labels:
+    release: helmreleasetest-zk
+    transwarp.install: dw22g
+    transwarp.name: zookeeper-entrypoint
+  name: zookeeper-entrypoint-dw22g
+  namespace: helmreleasetest-t2295
+  ownerReferences:
+    - apiVersion: apiextensions.transwarp.io/v1beta1
+      controller: true
+      kind: ApplicationInstance
+      name: helmreleasetest-zk
+      uid: f7d286a1-ebf4-11e9-99f8-d61387db2e94
+  selfLink: /api/v1/namespaces/helmreleasetest-t2295/configmaps/zookeeper-entrypoint-dw22g
+  uid: f7e632af-ebf4-11e9-8827-36063b5bc7f6
