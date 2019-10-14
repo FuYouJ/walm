@@ -28,6 +28,14 @@ func GetLocalV1ZookeeperChartPath() (string, error) {
 	return filepath.Join(filepath.Dir(currentFilePath), "../../resources/helm/v1/zookeeper-5.2.0.tgz"), nil
 }
 
+func GetLocalV2ZookeeperChartPath() (string, error) {
+	currentFilePath, err := GetCurrentFilePath()
+	if err != nil {
+		return "", nil
+	}
+	return filepath.Join(filepath.Dir(currentFilePath), "../../resources/helm/zookeeper-6.1.0.tgz"), nil
+}
+
 func PushChartToRepo(repoBaseUrl, chartPath string) error{
 	logrus.Infof("start to push %s to repo %s", chartPath, repoBaseUrl)
 	if !strings.HasSuffix(repoBaseUrl, "/") {

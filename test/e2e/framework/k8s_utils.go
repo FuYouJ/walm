@@ -2,13 +2,17 @@ package framework
 
 import(
 	"errors"
+	"github.com/ghodss/yaml"
 	"github.com/sirupsen/logrus"
+	"io/ioutil"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clienthelm "WarpCloud/walm/pkg/k8s/client/helm"
 	appsv1 "k8s.io/api/apps/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/klog"
+	"path/filepath"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -177,6 +181,29 @@ func DeleteReleaseConfig(namespace, name string) (error) {
 func CreateConfigMap(namespace, name string) (*v1.ConfigMap, error) {
 	configMap := &v1.ConfigMap{}
 	configMap.Name = name
+	return k8sClient.CoreV1().ConfigMaps(namespace).Create(configMap)
+}
+
+func DeleteConfigMap(namespace, name string) (error) {
+	return k8sClient.CoreV1().ConfigMaps(namespace).Delete(name, &metav1.DeleteOptions{})
+}
+
+func CreateCustomConfigMap(namespace, configPath string) (*v1.ConfigMap, error) {
+	path, err := filepath.Abs(configPath)
+	if err != nil {
+		klog.Errorf("get configmap path err: %s", err.Error())
+		return nil, err
+	}
+	configMapByte, err := ioutil.ReadFile(path)
+	if err != nil {
+		klog.Errorf("read configmap err: %s", err.Error())
+	}
+
+	configMap := &v1.ConfigMap{}
+	err = yaml.Unmarshal(configMapByte, &configMap)
+	if err != nil {
+		klog.Errorf("unmarshal to configMap err: %s", err.Error())
+	}
 	return k8sClient.CoreV1().ConfigMaps(namespace).Create(configMap)
 }
 
