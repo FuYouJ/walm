@@ -72,6 +72,11 @@ type ReleaseConfigData struct {
 	ReleaseWalmVersion common.WalmVersion `json:"releaseWalmVersion" description:"release walm version"`
 }
 
+type ReleaseConfigDataList struct {
+	Num   int                  `json:"num" description:"release config num"`
+	Items []*ReleaseConfigData `json:"items" description:"release configs"`
+}
+
 type ReleaseInfoV2 struct {
 	ReleaseInfo
 	DependenciesConfigValues map[string]interface{} `json:"dependenciesConfigValues" description:"release's dependencies' config values"`

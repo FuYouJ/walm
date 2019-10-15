@@ -300,7 +300,7 @@ func (controller *ReleaseConfigController) publishToKafka(releaseKey string) err
 		if releaseVersion == common.WalmVersionV2 {
 			event.Data.ReleaseConfig = *resource.(*k8sModel.ReleaseConfig)
 		} else if releaseVersion == common.WalmVersionV1 {
-			event.Data.ReleaseConfig = buildEventDataFromRelease(release)
+			event.Data = utils.ConvertReleaseConfigDataFromRelease(release)
 		}
 	}
 
@@ -317,22 +317,6 @@ func (controller *ReleaseConfigController) publishToKafka(releaseKey string) err
 	}
 
 	return nil
-}
-
-func buildEventDataFromRelease(release *releaseModel.ReleaseInfoV2) k8sModel.ReleaseConfig {
-	return k8sModel.ReleaseConfig{
-		Meta:                     k8sModel.NewMeta(k8sModel.ReleaseConfigKind, release.Namespace, release.Name, k8sModel.NewState("Ready", "", "")),
-		Labels:                   release.ReleaseLabels,
-		OutputConfig:             release.OutputConfigValues,
-		ChartImage:               release.ChartImage,
-		ChartName:                release.ChartName,
-		ConfigValues:             release.ConfigValues,
-		Dependencies:             release.Dependencies,
-		ChartVersion:             release.ChartVersion,
-		ChartAppVersion:          release.ChartAppVersion,
-		Repo:                     release.RepoName,
-		DependenciesConfigValues: release.DependenciesConfigValues,
-	}
 }
 
 // worker runs a worker thread that just dequeues items, processes them, and marks them done.

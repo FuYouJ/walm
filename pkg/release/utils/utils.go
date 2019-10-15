@@ -5,10 +5,12 @@ import (
 	"k8s.io/klog"
 	"reflect"
 	"strings"
+	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/models/k8s"
 )
 
 const (
-	ReleaseSep = "/"
+	ReleaseSep           = "/"
 	CompatibleReleaseSep = "."
 )
 
@@ -37,3 +39,30 @@ func ParseDependedRelease(dependingReleaseNamespace, dependedRelease string) (na
 	return
 }
 
+func ConvertReleaseConfigDataFromRelease(r *release.ReleaseInfoV2) *release.ReleaseConfigData {
+	return &release.ReleaseConfigData{
+		ReleaseConfig: k8s.ReleaseConfig{
+			Meta:                     k8s.NewMeta(k8s.ReleaseConfigKind, r.Namespace, r.Name, k8s.NewState("", "", "")),
+			Labels:                   r.ReleaseLabels,
+			OutputConfig:             r.OutputConfigValues,
+			ChartImage:               r.ChartImage,
+			ChartName:                r.ChartName,
+			ConfigValues:             r.ConfigValues,
+			Dependencies:             r.Dependencies,
+			ChartVersion:             r.ChartVersion,
+			ChartAppVersion:          r.ChartAppVersion,
+			Repo:                     r.RepoName,
+			DependenciesConfigValues: r.DependenciesConfigValues,
+		},
+		ReleaseWalmVersion: r.ReleaseWarmVersion,
+	}
+}
+
+func ConvertReleaseConfigDatasFromReleaseList(rList []*release.ReleaseInfoV2) (cList *release.ReleaseConfigDataList) {
+	cList = &release.ReleaseConfigDataList{}
+	for _, r := range rList {
+		cList.Items = append(cList.Items, ConvertReleaseConfigDataFromRelease(r))
+	}
+	cList.Num = len(cList.Items)
+	return
+}
