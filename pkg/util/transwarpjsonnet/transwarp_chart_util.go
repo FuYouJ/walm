@@ -108,6 +108,12 @@ func buildConfigValuesToRender(
 
 	util.MergeValues(configValues, dependencyConfigs, false)
 
+	//config TosVersion can be override by user configs
+	configValues["TosVersion"] = "1.9"
+
+	util.MergeValues(configValues, userConfigs, false)
+
+	// the configs below can not be override by user configs
 	configValues["helmReleaseName"] = name
 	configValues["helmReleaseNamespace"] = namespace
 	configValues["chartVersion"] = rawChart.Metadata.Version
@@ -117,7 +123,7 @@ func buildConfigValuesToRender(
 
 	//Compatible
 	configValues["Customized_Namespace"] = namespace
-	configValues["TosVersion"] = "1.9"
+
 	helmVals := AppHelmValues{}
 	helmVals.NativeValues.ChartName = rawChart.Metadata.Name
 	helmVals.NativeValues.ChartVersion = rawChart.Metadata.Version
@@ -132,8 +138,6 @@ func buildConfigValuesToRender(
 	chartJsonRawVals, _ := yaml.Marshal(chartRawBase)
 	yaml.Unmarshal(chartJsonRawVals, &chartJsonRawBase)
 	util.MergeValues(configValues, chartJsonRawBase, false )
-
-	util.MergeValues(configValues, userConfigs, false)
 
 	return configValues, nil
 }
