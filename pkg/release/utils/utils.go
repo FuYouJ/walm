@@ -9,6 +9,7 @@ import (
 
 const (
 	ReleaseSep = "/"
+	CompatibleReleaseSep = "."
 )
 
 func ConfigValuesDiff(configValue1 map[string]interface{}, configValue2 map[string]interface{}) bool {
@@ -19,7 +20,9 @@ func ConfigValuesDiff(configValue1 map[string]interface{}, configValue2 map[stri
 }
 
 func ParseDependedRelease(dependingReleaseNamespace, dependedRelease string) (namespace, name string, err error) {
-	ss := strings.Split(dependedRelease, ReleaseSep)
+	//Compatible
+	compatibleDependedRelease := strings.Replace(dependedRelease, CompatibleReleaseSep, ReleaseSep, -1)
+	ss := strings.Split(compatibleDependedRelease, ReleaseSep)
 	if len(ss) == 2 {
 		namespace = ss[0]
 		name = ss[1]
@@ -27,7 +30,7 @@ func ParseDependedRelease(dependingReleaseNamespace, dependedRelease string) (na
 		namespace = dependingReleaseNamespace
 		name = ss[0]
 	} else {
-		err = fmt.Errorf("depended release %s is not valid: only 1 or 0 \"%s\" is allowed", dependedRelease, ReleaseSep)
+		err = fmt.Errorf("depended release %s is not valid: only 1 or 0 seperator (%s or %s) is allowed", dependedRelease, ReleaseSep, CompatibleReleaseSep)
 		klog.Warning(err.Error())
 		return
 	}
