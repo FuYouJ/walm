@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
+	"WarpCloud/walm/pkg/release/utils"
 )
 
 const (
@@ -213,6 +214,34 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
 	)
+
+	ws.Route(ws.GET("/config").To(releaseHandler.ListReleaseConfig).
+		Doc("获取所有Release的配置列表").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.QueryParameter("labelselector", "标签过滤").DataType("string")).
+		Writes(releaseModel.ReleaseConfigDataList{}).
+		Returns(200, "OK", releaseModel.ReleaseConfigDataList{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
+	)
+
+	ws.Route(ws.GET("/config/{namespace}").To(releaseHandler.ListReleaseConfigByNamespace).
+		Doc("获取Namepaces下的所有Release的配置列表").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.QueryParameter("labelselector", "标签过滤").DataType("string")).
+		Writes(releaseModel.ReleaseConfigDataList{}).
+		Returns(200, "OK", releaseModel.ReleaseConfigDataList{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
+	ws.Route(ws.GET("/config/{namespace}/name/{release}").To(releaseHandler.GetReleaseConfig).
+		Doc("获取对应Release的配置信息").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Writes(releaseModel.ReleaseConfigData{}).
+		Returns(200, "OK", releaseModel.ReleaseConfigData{}).
+		Returns(404, "Not Found", http.ErrorMessageResponse{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	return ws
 }
@@ -514,6 +543,64 @@ func (handler *ReleaseHandler) GetRelease(request *restful.Request, response *re
 		return
 	}
 	response.WriteEntity(info)
+}
+
+func (handler *ReleaseHandler) ListReleaseConfigByNamespace(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	labelSelectorStr := request.QueryParameter("labelselector")
+	var infos []*releaseModel.ReleaseInfoV2
+	var err error
+	if labelSelectorStr == "" {
+		infos, err = handler.usecase.ListReleases(namespace, "")
+		if err != nil {
+			httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release: %s", err.Error()))
+			return
+		}
+	} else {
+		infos, err = handler.usecase.ListReleasesByLabels(namespace, labelSelectorStr)
+		if err != nil {
+			httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release: %s", err.Error()))
+			return
+		}
+	}
+
+	response.WriteEntity(utils.ConvertReleaseConfigDatasFromReleaseList(infos))
+}
+
+func (handler *ReleaseHandler) ListReleaseConfig(request *restful.Request, response *restful.Response) {
+	labelSelectorStr := request.QueryParameter("labelselector")
+	var infos []*releaseModel.ReleaseInfoV2
+	var err error
+	if labelSelectorStr == "" {
+		infos, err = handler.usecase.ListReleases("", "")
+		if err != nil {
+			httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release: %s", err.Error()))
+			return
+		}
+	} else {
+		infos, err = handler.usecase.ListReleasesByLabels("", labelSelectorStr)
+		if err != nil {
+			httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release: %s", err.Error()))
+			return
+		}
+	}
+
+	response.WriteEntity(utils.ConvertReleaseConfigDatasFromReleaseList(infos))
+}
+
+func (handler *ReleaseHandler) GetReleaseConfig(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	info, err := handler.usecase.GetRelease(namespace, name)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("release %s is not found", name))
+			return
+		}
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get release %s: %s", name, err.Error()))
+		return
+	}
+	response.WriteEntity(utils.ConvertReleaseConfigDataFromRelease(info))
 }
 
 func (handler *ReleaseHandler) RestartRelease(request *restful.Request, response *restful.Response) {

@@ -37,7 +37,7 @@ func TestConvertReleaseConfigFromK8s(t *testing.T) {
 					Namespace: "test-namespace",
 					Kind:      "ReleaseConfig",
 					State: k8s.State{
-						Status:  "Ready",
+						Status:  "",
 						Reason:  "",
 						Message: "",
 					},

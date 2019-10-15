@@ -52,6 +52,13 @@ func Test_ParseDependedRelease(t *testing.T) {
 		},
 		{
 			dependingReleaseNamespace: "testns",
+			dependedRelease: "testns1.testnm",
+			namespace: "testns1",
+			name: "testnm",
+			err: nil,
+		},
+		{
+			dependingReleaseNamespace: "testns",
 			dependedRelease: "testns1/testnm/error",
 			namespace: "",
 			name: "",

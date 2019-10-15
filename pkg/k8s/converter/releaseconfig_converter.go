@@ -11,7 +11,7 @@ func ConvertReleaseConfigFromK8s(oriReleaseConfig *v1beta1.ReleaseConfig) (*k8s.
 	}
 	releaseConfig := oriReleaseConfig.DeepCopy()
 	return &k8s.ReleaseConfig{
-		Meta:                     k8s.NewMeta(k8s.ReleaseConfigKind, releaseConfig.Namespace, releaseConfig.Name, k8s.NewState("Ready", "", "")),
+		Meta:                     k8s.NewMeta(k8s.ReleaseConfigKind, releaseConfig.Namespace, releaseConfig.Name, k8s.NewState("", "", "")),
 		Labels:                   releaseConfig.Labels,
 		OutputConfig:             releaseConfig.Spec.OutputConfig,
 		ChartImage:               releaseConfig.Spec.ChartImage,
