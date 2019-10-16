@@ -25,6 +25,7 @@ func init() {
 
 type IsomateNameArgs struct {
 	Name string `json:"name" description:"isomate name"`
+	DefaultIsomate bool `json:"defaultIsomate" description:"default isomate"`
 }
 
 func IsomateName(context *PluginContext, args string) error {
@@ -46,7 +47,10 @@ func IsomateName(context *PluginContext, args string) error {
 			unstructured := resource.(*unstructured.Unstructured)
 			annos := unstructured.GetAnnotations()
 			if len(annos) > 0 && strings.ToLower(annos[NeedIsomateNameAnnoationKey]) == NeedIsomateNameAnnoationValue {
-				unstructured.SetName(buildResourceName(unstructured, isomateNameArgs.Name))
+				if !isomateNameArgs.DefaultIsomate {
+					unstructured.SetName(buildResourceName(unstructured, isomateNameArgs.Name))
+				}
+
 				labels := unstructured.GetLabels()
 				if labels == nil {
 					labels = map[string]string{}
