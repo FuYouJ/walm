@@ -17,7 +17,8 @@ import (
 	"WarpCloud/walm/pkg/helm/impl/plugins"
 	"WarpCloud/walm/pkg/setting"
 	"WarpCloud/walm/pkg/util"
-	"k8s.io/apimachinery/pkg/util/rand"
+	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/k8s/converter"
 )
 
 const (
@@ -86,16 +87,16 @@ func loadCommonJsonnetLib(templates map[string]string) (err error) {
 }
 
 type HelmNativeValues struct {
-	ChartName string `json:"chartName"`
-	ChartVersion string `json:"chartVersion"`
-	AppVersion string `json:"appVersion"`
-	ReleaseName string `json:"releaseName"`
+	ChartName        string `json:"chartName"`
+	ChartVersion     string `json:"chartVersion"`
+	AppVersion       string `json:"appVersion"`
+	ReleaseName      string `json:"releaseName"`
 	ReleaseNamespace string `json:"releaseNamespace"`
 }
 
 type AppHelmValues struct {
 	Dependencies map[string]string `json:"dependencies"`
-	NativeValues HelmNativeValues `json:"HelmNativeValues"`
+	NativeValues HelmNativeValues  `json:"HelmNativeValues"`
 }
 
 func buildConfigValuesToRender(
@@ -137,7 +138,7 @@ func buildConfigValuesToRender(
 	chartJsonRawBase := map[string]interface{}{}
 	chartJsonRawVals, _ := yaml.Marshal(chartRawBase)
 	yaml.Unmarshal(chartJsonRawVals, &chartJsonRawBase)
-	util.MergeValues(configValues, chartJsonRawBase, false )
+	util.MergeValues(configValues, chartJsonRawBase, false)
 
 	return configValues, nil
 }
@@ -152,11 +153,9 @@ func buildConfigValuesToRender(
 //     c. merge dependency release output configs
 //     d. merge configs user provided
 // 3. render jsonnet template files to generate native chart templates
-func ProcessJsonnetChart(
-	repo string, rawChart *chart.Chart, releaseNamespace,
-	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
-	dependencies, releaseLabels map[string]string, chartImage string,
-) error {
+func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace,
+releaseName string, userConfigs, dependencyConfigs map[string]interface{},
+	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig) error {
 	jsonnetTemplateFiles := make(map[string]string, 0)
 	var rawChartFiles []*chart.File
 	for _, f := range rawChart.Files {
@@ -179,8 +178,7 @@ func ProcessJsonnetChart(
 		releaseNamespace, releaseName, repo,
 		rawChart.Metadata.Name, rawChart.Metadata.Version,
 		rawChart.Metadata.AppVersion, releaseLabels, dependencies,
-		dependencyConfigs, userConfigs, chartImage,
-	)
+		dependencyConfigs, userConfigs, chartImage, isomateConfig)
 	if err != nil {
 		klog.Errorf("failed to auto gen release config : %s", err.Error())
 		return err
@@ -232,13 +230,7 @@ func ProcessJsonnetChart(
 func ProcessJsonnetChartV1(
 	repo string, rawChart *chart.Chart, releaseNamespace,
 	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
-	dependencies, releaseLabels map[string]string, chartImage string) error {
-	if userConfigs == nil {
-		userConfigs = map[string]interface{}{}
-	}
-	if _, ok := userConfigs[TranswarpInstallIDKey]; !ok {
-		userConfigs[TranswarpInstallIDKey] = rand.String(5)
-	}
+	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig) error {
 	jsonnetTemplateFiles := make(map[string]string, 0)
 	var rawChartFiles []*chart.File
 	for _, f := range rawChart.Files {
@@ -259,8 +251,7 @@ func ProcessJsonnetChartV1(
 		releaseNamespace, releaseName, repo,
 		rawChart.Metadata.Name, rawChart.Metadata.Version,
 		rawChart.Metadata.AppVersion, releaseLabels, dependencies,
-		dependencyConfigs, userConfigs, chartImage,
-	)
+		dependencyConfigs, userConfigs, chartImage, isomateConfig)
 	if err != nil {
 		klog.Errorf("failed to auto gen release config : %s", err.Error())
 		return err
@@ -304,7 +295,8 @@ func ProcessJsonnetChartV1(
 }
 
 func buildAutoGenReleaseConfig(releaseNamespace, releaseName, repo, chartName, chartVersion, chartAppVersion string,
-	labels, dependencies map[string]string, dependencyConfigs, userConfigs map[string]interface{}, chartImage string) ([]byte, error) {
+	labels, dependencies map[string]string, dependencyConfigs, userConfigs map[string]interface{}, chartImage string,
+	isomateConfig *k8s.IsomateConfig) ([]byte, error) {
 	if labels == nil {
 		labels = map[string]string{}
 	}
@@ -330,6 +322,7 @@ func buildAutoGenReleaseConfig(releaseNamespace, releaseName, repo, chartName, c
 			OutputConfig:             map[string]interface{}{},
 			Repo:                     repo,
 			ChartImage:               chartImage,
+			IsomateConfig:            converter.ConvertIsomateConfigToK8s(isomateConfig),
 		},
 	}
 
@@ -340,3 +333,4 @@ func buildAutoGenReleaseConfig(releaseNamespace, releaseName, repo, chartName, c
 	}
 	return releaseConfigBytes, nil
 }
+

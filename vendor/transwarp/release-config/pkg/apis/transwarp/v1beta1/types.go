@@ -42,6 +42,25 @@ type ReleaseConfigSpec struct {
 	OutputConfig             map[string]interface{} `json:"outputConfig"`
 	Repo                     string                 `json:"repo" description:"chart repo"`
 	ChartImage               string                 `json:"chartImage" description:"chart image"`
+	IsomateConfig            *IsomateConfig         `json:"isomateConfig" description:"isomate config"`
+}
+
+type IsomateConfig struct {
+	DefaultIsomateName string     `json:"defaultIsomateName" description:"default isomate name"`
+	Isomates           []*Isomate `json:"isomates" description:"isomates"`
+}
+
+type Isomate struct {
+	Name         string                 `json:"name" description:"isomate name"`
+	ConfigValues map[string]interface{} `json:"configValues" description:"isomate config values"`
+	Plugins      []*ReleasePlugin       `json:"plugins" description:"isomate plugins"`
+}
+
+type ReleasePlugin struct {
+	Name    string `json:"name" description:"plugin name"`
+	Args    string `json:"args" description:"plugin args"`
+	Version string `json:"version" description:"plugin version"`
+	Disable bool   `json:"disable" description:"disable plugin"`
 }
 
 // ReleaseConfigStatus is the status for a ReleaseConfig resource

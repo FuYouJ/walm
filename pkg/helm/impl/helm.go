@@ -32,6 +32,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"k8s.io/cli-runtime/pkg/resource"
+	"encoding/json"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 const (
@@ -214,38 +217,16 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		return nil, err
 	}
 
-	if chartInfo.WalmVersion == common.WalmVersionV2 {
-		err = transwarpjsonnet.ProcessJsonnetChart(
-			releaseRequest.RepoName, rawChart, namespace,
-			releaseRequest.Name, configValues, dependencyConfigs,
-			dependencies, releaseLabels, releaseRequest.ChartImage,
-		)
-		if err != nil {
-			klog.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
-			return nil, err
-		}
-	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
-		err = transwarpjsonnet.ProcessJsonnetChartV1(
-			releaseRequest.RepoName, rawChart, namespace,
-			releaseRequest.Name, configValues, dependencyConfigs,
-			dependencies, releaseLabels, releaseRequest.ChartImage,
-		)
-		if err != nil {
-			klog.Errorf("failed to ProcessJsonnetChart v1: %s", err.Error())
-			return nil, err
-		}
-	}
-
 	if paused != nil {
 		if *paused {
-			releasePlugins, err = mergeReleasePlugins([]*release.ReleasePlugin{
+			releasePlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
 				{
 					Name:    plugins.PauseReleasePluginName,
 					Version: "1.0",
 				},
 			}, releasePlugins)
 		} else {
-			releasePlugins, err = mergeReleasePlugins([]*release.ReleasePlugin{
+			releasePlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
 				{
 					Name:    plugins.PauseReleasePluginName,
 					Version: "1.0",
@@ -255,15 +236,95 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		}
 	}
 	// add default plugin
-	releasePlugins = append(releasePlugins, &release.ReleasePlugin{
+	releasePlugins = append(releasePlugins, &k8sModel.ReleasePlugin{
 		Name: plugins.ValidateReleaseConfigPluginName,
 	})
+
+	// compatible
+	if chartInfo.WalmVersion == common.WalmVersionV1 {
+		if _, ok := configValues[transwarpjsonnet.TranswarpInstallIDKey]; !ok {
+			configValues[transwarpjsonnet.TranswarpInstallIDKey] = rand.String(5)
+		}
+	}
 
 	valueOverride := map[string]interface{}{}
 	util.MergeValues(valueOverride, dependencyConfigs, false)
 	util.MergeValues(valueOverride, configValues, false)
 
 	valueOverride[plugins.WalmPluginConfigKey] = releasePlugins
+
+	if releaseRequest.IsomateConfig != nil && len(releaseRequest.IsomateConfig.Isomates) > 0 {
+		rawChartTemplates := []*chart.File{}
+		for _, template := range rawChart.Templates {
+			rawChartTemplates = append(rawChartTemplates, template)
+		}
+		rawChartFiles := []*chart.File{}
+		for _, file := range rawChart.Files {
+			rawChartFiles = append(rawChartFiles, file)
+		}
+
+		manifests := map[string]string{}
+		var chartFiles []*chart.File
+		for _, isomate := range releaseRequest.IsomateConfig.Isomates {
+			isomateConfigValues := map[string]interface{}{}
+			util.MergeValues(isomateConfigValues, configValues, false)
+			util.MergeValues(isomateConfigValues, isomate.ConfigValues, false)
+
+			err = processChart(chartInfo, releaseRequest, rawChart, namespace, isomateConfigValues, dependencyConfigs, dependencies, releaseLabels)
+			if err != nil {
+				return nil, err
+			}
+
+			isomateReleasePlugins, err := mergeReleasePlugins(isomate.Plugins, releasePlugins)
+			if err != nil {
+				klog.Errorf("failed to merge release plugins : %s", err.Error())
+				return nil, err
+			}
+
+			args := plugins.IsomateNameArgs{
+				Name: isomate.Name,
+			}
+			argsBytes, err := json.Marshal(args)
+			if err != nil {
+				klog.Errorf("failed to marshal isomate name args : %s", err.Error())
+				return nil, err
+			}
+			isomateReleasePlugins = append(isomateReleasePlugins, &k8sModel.ReleasePlugin{
+				Name: plugins.IsomateNamePluginName,
+				Args: string(argsBytes),
+			})
+
+			isomateValueOverride := map[string]interface{}{}
+			util.MergeValues(isomateValueOverride, valueOverride, false)
+			util.MergeValues(isomateValueOverride, isomate.ConfigValues, false)
+
+			releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, isomateValueOverride, update, true, isomateReleasePlugins)
+			if err != nil {
+				klog.Errorf("failed to create or update release from chart : %s", err.Error())
+				return nil, err
+			}
+
+			manifests[isomate.Name] = releaseCache.Manifest
+
+			rawChart.Templates = rawChartTemplates
+			if chartFiles == nil {
+				chartFiles = rawChart.Files
+			}
+			rawChart.Files = rawChartFiles
+		}
+		rawChart.Templates, err = helmImpl.mergeIsomateResources(namespace, manifests, releaseRequest.IsomateConfig.DefaultIsomateName)
+		if err != nil {
+			klog.Errorf("failed to merge isomate resources : %s", err.Error())
+			return nil, err
+		}
+		rawChart.Files = chartFiles
+	} else {
+		err = processChart(chartInfo, releaseRequest, rawChart, namespace, configValues, dependencyConfigs, dependencies, releaseLabels)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, valueOverride, update, dryRun, releasePlugins)
 	if err != nil {
 		klog.Errorf("failed to create or update release from chart : %s", err.Error())
@@ -273,9 +334,33 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	return releaseCache, nil
 }
 
+func processChart(chartInfo *release.ChartDetailInfo, releaseRequest *release.ReleaseRequestV2, rawChart *chart.Chart,
+	namespace string, configValues, dependencyConfigs map[string]interface{}, dependencies, releaseLabels map[string]string) (err error) {
+	if chartInfo.WalmVersion == common.WalmVersionV2 {
+		err = transwarpjsonnet.ProcessJsonnetChart(
+			releaseRequest.RepoName, rawChart, namespace,
+			releaseRequest.Name, configValues, dependencyConfigs,
+			dependencies, releaseLabels, releaseRequest.ChartImage, releaseRequest.IsomateConfig)
+		if err != nil {
+			klog.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
+			return
+		}
+	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
+		err = transwarpjsonnet.ProcessJsonnetChartV1(
+			releaseRequest.RepoName, rawChart, namespace,
+			releaseRequest.Name, configValues, dependencyConfigs,
+			dependencies, releaseLabels, releaseRequest.ChartImage, releaseRequest.IsomateConfig)
+		if err != nil {
+			klog.Errorf("failed to ProcessJsonnetChart v1: %s", err.Error())
+			return
+		}
+	}
+	return
+}
+
 func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 	releaseRequest *release.ReleaseRequestV2, rawChart *chart.Chart, valueOverride map[string]interface{},
-	update bool, dryRun bool, releasePlugins []*release.ReleasePlugin) (releaseCache *release.ReleaseCache, err error) {
+	update bool, dryRun bool, releasePlugins []*k8sModel.ReleasePlugin) (releaseCache *release.ReleaseCache, err error) {
 
 	releaseChan := make(chan *helmRelease.Release, 1)
 	releaseErrChan := make(chan error, 1)
@@ -392,7 +477,7 @@ func buildContext(kubeClient *kube.Client, release *helmRelease.Release) (*plugi
 	return context, nil
 }
 
-func runPlugins(releasePlugins []*release.ReleasePlugin, context *plugins.PluginContext, runnerType plugins.RunnerType) error {
+func runPlugins(releasePlugins []*k8sModel.ReleasePlugin, context *plugins.PluginContext, runnerType plugins.RunnerType) error {
 	for _, plugin := range releasePlugins {
 		if plugin.Disable {
 			continue
@@ -514,8 +599,54 @@ func (helmImpl *Helm) getDeleteAction(namespace string) (*action.Uninstall, erro
 	return action.NewUninstall(config), nil
 }
 
+func (helm *Helm) mergeIsomateResources(namespace string, manifests map[string]string, defaultIsomateName string) ([]*chart.File, error) {
+	_, kubeClient := helm.kubeClients.GetKubeClient(namespace)
+	resourceMap := map[string]*resource.Info{}
+	for isomateName, manifest := range manifests {
+		resources, err := kubeClient.Build(bytes.NewBufferString(manifest))
+		if err != nil {
+			klog.Errorf("failed to build resources : %s", err.Error())
+			return nil, err
+		}
+		isDefaultIsomate := false
+		if isomateName == defaultIsomateName {
+			isDefaultIsomate = true
+		}
+
+		for _, resource := range resources {
+			resourceKey := buildResourceKey(resource)
+			if _, ok := resourceMap[resourceKey]; ok {
+				if isDefaultIsomate {
+					resourceMap[resourceKey] = resource
+				}
+			} else {
+				resourceMap[resourceKey] = resource
+			}
+		}
+	}
+
+	templates := []*chart.File{}
+	for _, resource := range resourceMap {
+		resourceBytes, err := yaml.Marshal(resource.Object)
+		if err != nil {
+			klog.Errorf("failed to marshal resource : %s", err.Error())
+			return nil, err
+		}
+		templates = append(templates, &chart.File{
+			Name: transwarpjsonnet.BuildNotRenderedFileName(buildResourceKey(resource)),
+			Data: resourceBytes,
+		})
+	}
+
+	return templates, nil
+}
+
+func buildResourceKey(resource *resource.Info) string {
+	return resource.Object.GetObjectKind().GroupVersionKind().Kind + "-" + resource.Namespace + "-" + resource.Name
+}
+
 func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *release.ReleaseRequestV2) (
-	configValues map[string]interface{}, dependencies map[string]string, releaseLabels map[string]string, walmPlugins []*release.ReleasePlugin, err error) {
+	configValues map[string]interface{}, dependencies map[string]string, releaseLabels map[string]string, walmPlugins []*k8sModel.ReleasePlugin, err error) {
 
 	configValues = map[string]interface{}{}
 	util.MergeValues(configValues, releaseInfo.ConfigValues, false)
@@ -556,8 +687,8 @@ func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *rel
 	return
 }
 
-func mergeReleasePlugins(plugins, defaultPlugins []*release.ReleasePlugin) (mergedPlugins []*release.ReleasePlugin, err error) {
-	releasePluginsMap := map[string]*release.ReleasePlugin{}
+func mergeReleasePlugins(plugins, defaultPlugins []*k8sModel.ReleasePlugin) (mergedPlugins []*k8sModel.ReleasePlugin, err error) {
+	releasePluginsMap := map[string]*k8sModel.ReleasePlugin{}
 	for _, plugin := range plugins {
 		if _, ok := releasePluginsMap[plugin.Name]; ok {
 			return nil, buildDuplicatedPluginError(plugin.Name)

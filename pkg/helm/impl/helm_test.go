@@ -5,6 +5,7 @@ import (
 	"WarpCloud/walm/pkg/models/release"
 	"github.com/stretchr/testify/assert"
 	helmRelease "helm.sh/helm/pkg/release"
+	"WarpCloud/walm/pkg/models/k8s"
 )
 
 func Test_ReuseReleaseRequest(t *testing.T) {
@@ -14,7 +15,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 		configValues   map[string]interface{}
 		dependencies   map[string]string
 		releaseLabels  map[string]string
-		walmPlugins    []*release.ReleasePlugin
+		walmPlugins    []*k8s.ReleasePlugin
 		err            error
 	}{
 		{
@@ -29,7 +30,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 						},
 					},
 				},
-				Plugins: []*release.ReleasePlugin{
+				Plugins: []*k8s.ReleasePlugin{
 					{
 						Name: "existed-plugin",
 						Args: "old-value",
@@ -49,7 +50,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 			releaseLabels: map[string]string{
 				"existed-key": "old-value",
 			},
-			walmPlugins: []*release.ReleasePlugin{
+			walmPlugins: []*k8s.ReleasePlugin{
 				{
 					Name: "existed-plugin",
 					Args: "old-value",
@@ -69,7 +70,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 						},
 					},
 				},
-				Plugins: []*release.ReleasePlugin{
+				Plugins: []*k8s.ReleasePlugin{
 					{
 						Name: "existed-plugin",
 						Args: "old-value",
@@ -94,7 +95,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 					"existed-key":     "new-value",
 					"not-existed-key": "value",
 				},
-				Plugins: []*release.ReleasePlugin{
+				Plugins: []*k8s.ReleasePlugin{
 					{
 						Name: "existed-plugin",
 						Args: "new-value",
@@ -117,7 +118,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 				"existed-key":     "new-value",
 				"not-existed-key": "value",
 			},
-			walmPlugins: []*release.ReleasePlugin{
+			walmPlugins: []*k8s.ReleasePlugin{
 				{
 					Name: "existed-plugin",
 					Args: "new-value",
@@ -141,7 +142,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 						},
 					},
 				},
-				Plugins: []*release.ReleasePlugin{
+				Plugins: []*k8s.ReleasePlugin{
 					{
 						Name: "existed-plugin",
 						Args: "old-value",
@@ -163,7 +164,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 				ReleaseLabels: map[string]string{
 					"existed-key": "",
 				},
-				Plugins: []*release.ReleasePlugin{
+				Plugins: []*k8s.ReleasePlugin{
 					{
 						Name:    "existed-plugin",
 						Args:    "",
@@ -178,7 +179,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 			},
 			releaseLabels: map[string]string{
 			},
-			walmPlugins: []*release.ReleasePlugin{
+			walmPlugins: []*k8s.ReleasePlugin{
 				{
 					Name:    "existed-plugin",
 					Args:    "",
@@ -201,13 +202,13 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 
 func Test_MergeReleasePlugins(t *testing.T) {
 	tests := []struct {
-		plugins        []*release.ReleasePlugin
-		defaultPlugins []*release.ReleasePlugin
-		mergedPlugins  []*release.ReleasePlugin
+		plugins        []*k8s.ReleasePlugin
+		defaultPlugins []*k8s.ReleasePlugin
+		mergedPlugins  []*k8s.ReleasePlugin
 		err            error
 	}{
 		{
-			plugins: []*release.ReleasePlugin{
+			plugins: []*k8s.ReleasePlugin{
 				{
 					Name: "test",
 				},

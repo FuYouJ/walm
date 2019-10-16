@@ -73,6 +73,25 @@ func validateParams(releaseRequest *release.ReleaseRequestV2, chartFiles []*comm
 		return fmt.Errorf("at lease one of chart name or chart image or chart files should be supported")
 	}
 
+	if releaseRequest.IsomateConfig != nil && len(releaseRequest.IsomateConfig.Isomates) > 0 {
+		isomateNames := map[string]bool{}
+		for _, isomate := range releaseRequest.IsomateConfig.Isomates {
+			if isomate.Name == "" {
+				return fmt.Errorf("isomate name can not be empty")
+			}
+			if _, ok := isomateNames[isomate.Name]; ok {
+				return fmt.Errorf("duplicate isomate name %s is not allowed", isomate.Name)
+			} else {
+				isomateNames[isomate.Name] = true
+			}
+		}
+		if releaseRequest.IsomateConfig.DefaultIsomateName != "" {
+			if _, ok := isomateNames[releaseRequest.IsomateConfig.DefaultIsomateName] ; !ok {
+				return fmt.Errorf("default isomate name %s does not exist", releaseRequest.IsomateConfig.DefaultIsomateName)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -127,5 +146,9 @@ func preProcessRequest(releaseRequest *release.ReleaseRequestV2) {
 	}
 	if releaseRequest.ReleaseLabels == nil {
 		releaseRequest.ReleaseLabels = map[string]string{}
+	}
+	if releaseRequest.IsomateConfig != nil && len(releaseRequest.IsomateConfig.Isomates) == 0 &&
+		releaseRequest.IsomateConfig.DefaultIsomateName == "" {
+		releaseRequest.IsomateConfig.DefaultIsomateName = releaseRequest.IsomateConfig.Isomates[0].Name
 	}
 }

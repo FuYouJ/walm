@@ -4,7 +4,7 @@ import (
 	"helm.sh/helm/pkg/kube"
 	"k8s.io/apimachinery/pkg/runtime"
 	"helm.sh/helm/pkg/release"
-	releaseModel "WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/models/k8s"
 )
 
 type RunnerType string
@@ -34,7 +34,7 @@ type WalmPluginRunner struct {
 	Type RunnerType
 }
 
-func GetRunner(walmPlugin *releaseModel.ReleasePlugin) *WalmPluginRunner {
+func GetRunner(walmPlugin *k8s.ReleasePlugin) *WalmPluginRunner {
 	if pluginRunners == nil {
 		return nil
 	}

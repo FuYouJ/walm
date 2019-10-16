@@ -29,6 +29,22 @@ func TestConvertReleaseConfigFromK8s(t *testing.T) {
 					ChartAppVersion: "6.1",
 					ChartVersion:    "6.1.0",
 					Repo:            "qa",
+					IsomateConfig: &v1beta1.IsomateConfig{
+						DefaultIsomateName: "x86",
+						Isomates: []*v1beta1.Isomate{
+							{
+								Name: "x86",
+								Plugins: []*v1beta1.ReleasePlugin{
+									{
+										Name: "test",
+									},
+								},
+								ConfigValues: map[string]interface{}{
+									"test": "test",
+								},
+							},
+						},
+					},
 				},
 			},
 			releaseConfig: &k8s.ReleaseConfig{
@@ -47,6 +63,22 @@ func TestConvertReleaseConfigFromK8s(t *testing.T) {
 				ChartVersion:    "6.1.0",
 				ChartAppVersion: "6.1",
 				Repo:            "qa",
+				IsomateConfig: &k8s.IsomateConfig{
+					DefaultIsomateName: "x86",
+					Isomates: []*k8s.Isomate{
+						{
+							Name: "x86",
+							Plugins: []*k8s.ReleasePlugin{
+								{
+									Name: "test",
+								},
+							},
+							ConfigValues: map[string]interface{}{
+								"test": "test",
+							},
+						},
+					},
+				},
 			},
 		},
 		{
@@ -60,5 +92,52 @@ func TestConvertReleaseConfigFromK8s(t *testing.T) {
 		releaseConfig, err := ConvertReleaseConfigFromK8s(test.oriReleaseConfig)
 		assert.IsType(t, test.err, err)
 		assert.Equal(t, test.releaseConfig, releaseConfig)
+	}
+}
+
+func Test_ConvertIsomateConfigToK8s(t *testing.T) {
+	tests := []struct {
+		oriIsomateConfig *k8s.IsomateConfig
+		isomateConfig    *v1beta1.IsomateConfig
+	}{
+		{
+			oriIsomateConfig: &k8s.IsomateConfig{
+				DefaultIsomateName: "x86",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "x86",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test",
+						},
+					},
+				},
+			},
+			isomateConfig: &v1beta1.IsomateConfig{
+				DefaultIsomateName: "x86",
+				Isomates: []*v1beta1.Isomate{
+					{
+						Name: "x86",
+						Plugins: []*v1beta1.ReleasePlugin{
+							{
+								Name: "test",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		isomateConfig := ConvertIsomateConfigToK8s(test.oriIsomateConfig)
+		assert.Equal(t, test.isomateConfig, isomateConfig)
 	}
 }

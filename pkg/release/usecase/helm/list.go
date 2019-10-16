@@ -124,6 +124,7 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 			releaseV2.ReleaseLabels = releaseConfig.Labels
 			releaseV2.RepoName = releaseConfig.Repo
 			releaseV2.ChartImage = releaseConfig.ChartImage
+			releaseV2.IsomateConfig = releaseConfig.IsomateConfig
 		}
 		releaseV2.MetaInfoValues = releaseCache.MetaInfoValues
 		releaseV2.Plugins, releaseV2.Paused, err = walmHelm.BuildReleasePluginsByConfigValues(releaseV2.ComputedValues)
@@ -131,7 +132,7 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 		releaseV2.DependenciesConfigValues = map[string]interface{}{}
 		releaseV2.OutputConfigValues = map[string]interface{}{}
 		releaseV2.ReleaseLabels = map[string]string{}
-		releaseV2.Plugins = []*releaseModel.ReleasePlugin{}
+		releaseV2.Plugins = []*k8sModel.ReleasePlugin{}
 		releaseV2.Paused = buildV1ReleasePauseInfo(releaseV2.ConfigValues)
 
 		instResource, err := helm.k8sCache.GetResource(k8sModel.InstanceKind, releaseCache.Namespace, releaseCache.Name)
