@@ -283,7 +283,9 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 
 			args := plugins.IsomateNameArgs{
 				Name: isomate.Name,
+				DefaultIsomate: isomate.Name == releaseRequest.IsomateConfig.DefaultIsomateName,
 			}
+
 			argsBytes, err := json.Marshal(args)
 			if err != nil {
 				klog.Errorf("failed to marshal isomate name args : %s", err.Error())
