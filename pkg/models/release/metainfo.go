@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"WarpCloud/walm/pkg/models/k8s"
 )
 
 // chart metainfo
@@ -17,7 +18,7 @@ type ChartMetaInfo struct {
 	ChartDependenciesInfo []*ChartDependencyMetaInfo `json:"dependencies" description:"dependency metainfo"`
 	ChartRoles            []*MetaRoleConfig          `json:"roles"`
 	ChartParams           []*MetaCommonConfig        `json:"params"`
-	Plugins               []*ReleasePlugin           `json:"plugins"`
+	Plugins               []*k8s.ReleasePlugin           `json:"plugins"`
 	CustomChartParams     map[string]string          `json:"customParams"`
 }
 

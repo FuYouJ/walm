@@ -393,9 +393,28 @@ type ReleaseConfig struct {
 	OutputConfig             map[string]interface{} `json:"outputConfig"`
 	Repo                     string                 `json:"repo" description:"chart repo"`
 	ChartImage               string                 `json:"chartImage" description:"chart image"`
+	IsomateConfig            *IsomateConfig         `json:"isomateConfig" description:"isomate config"`
 }
 
 func (resource *ReleaseConfig) AddToResourceSet(resourceSet *ResourceSet) {
+}
+
+type IsomateConfig struct {
+	DefaultIsomateName string     `json:"defaultIsomateName" description:"default isomate name"`
+	Isomates           []*Isomate `json:"isomates" description:"isomates"`
+}
+
+type Isomate struct {
+	Name         string                 `json:"name" description:"isomate name"`
+	ConfigValues map[string]interface{} `json:"configValues" description:"isomate config values"`
+	Plugins      []*ReleasePlugin       `json:"plugins" description:"isomate plugins"`
+}
+
+type ReleasePlugin struct {
+	Name    string `json:"name" description:"plugin name"`
+	Args    string `json:"args" description:"plugin args"`
+	Version string `json:"version" description:"plugin version"`
+	Disable bool   `json:"disable" description:"disable plugin"`
 }
 
 type Namespace struct {
@@ -432,10 +451,10 @@ type TaintNodeRequestBody struct {
 
 type ApplicationInstance struct {
 	Meta
-	Dependencies map[string]string `json:"dependencies"`
-	InstanceId   string            `json:"instanceId"`
-	Modules      *ResourceSet      `json:"resourceSet"`
-	DependencyMeta *DependencyMeta  `json:"dependencyMeta"`
+	Dependencies   map[string]string `json:"dependencies"`
+	InstanceId     string            `json:"instanceId"`
+	Modules        *ResourceSet      `json:"resourceSet"`
+	DependencyMeta *DependencyMeta   `json:"dependencyMeta"`
 }
 
 type DependencyMeta struct {

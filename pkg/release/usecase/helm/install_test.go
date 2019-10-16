@@ -13,6 +13,7 @@ import (
 	"WarpCloud/walm/pkg/release/mocks"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/task"
+	"WarpCloud/walm/pkg/models/k8s"
 )
 
 func TestHelm_InstallUpgradeReleaseWithRetry(t *testing.T) {
@@ -271,7 +272,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
 				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
 			},
-			dryRun: true,
+			dryRun:         true,
 			releaseRequest: &release.ReleaseRequestV2{},
 			err:            nil,
 		},
@@ -282,7 +283,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
 				mockReleaseCache.On("CreateOrUpdateReleaseCache", mock.Anything).Return(errors.New(""))
 			},
-			dryRun: false,
+			dryRun:         false,
 			releaseRequest: &release.ReleaseRequestV2{},
 			err:            errors.New(""),
 		},
@@ -293,7 +294,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
 				mockReleaseCache.On("CreateOrUpdateReleaseCache", mock.Anything).Return(nil)
 			},
-			dryRun: false,
+			dryRun:         false,
 			releaseRequest: &release.ReleaseRequestV2{},
 			err:            nil,
 		},
@@ -360,6 +361,100 @@ func Test_validateParams(t *testing.T) {
 			},
 			chartFiles: []*common.BufferedFile{
 				{
+				},
+			},
+			err: nil,
+		},
+		{
+			releaseRequest: &release.ReleaseRequestV2{
+				ReleaseRequest: release.ReleaseRequest{
+					Name:      "test",
+					ChartName: "test",
+				},
+				IsomateConfig: &k8s.IsomateConfig{
+					Isomates: []*k8s.Isomate{
+						{
+
+						},
+					},
+				},
+			},
+			err: errors.New(""),
+		},
+		{
+			releaseRequest: &release.ReleaseRequestV2{
+				ReleaseRequest: release.ReleaseRequest{
+					Name:      "test",
+					ChartName: "test",
+				},
+				IsomateConfig: &k8s.IsomateConfig{
+					Isomates: []*k8s.Isomate{
+						{
+							Name: "x86",
+						},
+						{
+							Name: "x86",
+						},
+					},
+				},
+			},
+			err: errors.New(""),
+		},
+		{
+			releaseRequest: &release.ReleaseRequestV2{
+				ReleaseRequest: release.ReleaseRequest{
+					Name:      "test",
+					ChartName: "test",
+				},
+				IsomateConfig: &k8s.IsomateConfig{
+					Isomates: []*k8s.Isomate{
+						{
+							Name: "x86",
+						},
+						{
+							Name: "arm",
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+		{
+			releaseRequest: &release.ReleaseRequestV2{
+				ReleaseRequest: release.ReleaseRequest{
+					Name:      "test",
+					ChartName: "test",
+				},
+				IsomateConfig: &k8s.IsomateConfig{
+					DefaultIsomateName: "windows",
+					Isomates: []*k8s.Isomate{
+						{
+							Name: "x86",
+						},
+						{
+							Name: "arm",
+						},
+					},
+				},
+			},
+			err: errors.New(""),
+		},
+		{
+			releaseRequest: &release.ReleaseRequestV2{
+				ReleaseRequest: release.ReleaseRequest{
+					Name:      "test",
+					ChartName: "test",
+				},
+				IsomateConfig: &k8s.IsomateConfig{
+					DefaultIsomateName: "x86",
+					Isomates: []*k8s.Isomate{
+						{
+							Name: "x86",
+						},
+						{
+							Name: "arm",
+						},
+					},
 				},
 			},
 			err: nil,

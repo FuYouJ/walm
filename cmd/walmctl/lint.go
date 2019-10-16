@@ -196,7 +196,7 @@ func (lint *lintOptions) run() error {
 		err = transwarpjsonnet.ProcessJsonnetChart(
 			repo, rawChart, testCase.caseNamespace,
 			testCase.caseName, testCase.userConfigs, testCase.dependencyConfigs,
-			testCase.dependencies, testCase.releaseLabels, "",
+			testCase.dependencies, testCase.releaseLabels, "", nil,
 		)
 		if err != nil {
 			klog.Errorf("processJsonnetChart error %v", err)

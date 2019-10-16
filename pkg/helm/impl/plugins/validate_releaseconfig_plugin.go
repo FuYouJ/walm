@@ -77,18 +77,19 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 		}
 	}
 
+	var mergedReleaseConfig *v1beta1.ReleaseConfig
 	if autoGenReleaseConfig == nil {
 		if releaseConfig == nil {
 			return fmt.Errorf("release must have one ReleaseConfig resource")
 		} else {
-			newResource = append(newResource, releaseConfig)
+			mergedReleaseConfig = releaseConfig
 		}
 	} else {
 		if len(autoGenReleaseConfig.Labels) > 0 {
 			delete(autoGenReleaseConfig.Labels, AutoGenLabelKey)
 		}
 		if releaseConfig == nil {
-			newResource = append(newResource, autoGenReleaseConfig)
+			mergedReleaseConfig = autoGenReleaseConfig
 		} else {
 			autoGenReleaseConfig.Spec.OutputConfig = releaseConfig.Spec.OutputConfig
 			if autoGenReleaseConfig.Labels == nil {
@@ -101,10 +102,17 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 				}
 			}
 
-			newResource = append(newResource, autoGenReleaseConfig)
+			mergedReleaseConfig = autoGenReleaseConfig
 		}
 	}
 
+	unstructuredReleaseConfig, err := convertToUnstructured(mergedReleaseConfig)
+	if err != nil {
+		klog.Errorf("failed to convert to unstructured : %s", err.Error())
+		return err
+	}
+
+	newResource = append(newResource, unstructuredReleaseConfig)
 	context.Resources = newResource
 	return nil
 }

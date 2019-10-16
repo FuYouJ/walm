@@ -83,18 +83,12 @@ type ReleaseInfoV2 struct {
 	ComputedValues           map[string]interface{} `json:"computedValues" description:"config values to render chart templates"`
 	OutputConfigValues       map[string]interface{} `json:"outputConfigValues" description:"release's output config values'"`
 	ReleaseLabels            map[string]string      `json:"releaseLabels" description:"release labels'"`
-	Plugins                  []*ReleasePlugin       `json:"plugins" description:"plugins"`
+	Plugins                  []*k8s.ReleasePlugin       `json:"plugins" description:"plugins"`
 	MetaInfoValues           *MetaInfoParams        `json:"metaInfoValues" description:"meta info values"`
 	Paused                   bool                   `json:"paused" description:"whether release is paused"`
 	ChartImage               string                 `json:"chartImage" description:"release chart image"`
 	ReleaseWarmVersion       common.WalmVersion     `json:"releaseWalmVersion" description:"release walm version: v1, v2"`
-}
-
-type ReleasePlugin struct {
-	Name    string `json:"name" description:"plugin name"`
-	Args    string `json:"args" description:"plugin args"`
-	Version string `json:"version" description:"plugin version"`
-	Disable bool   `json:"disable" description:"disable plugin"`
+	IsomateConfig            *k8s.IsomateConfig         `json:"isomateConfig" description:"isomate config"`
 }
 
 func (releaseInfo *ReleaseInfoV2) BuildReleaseRequestV2() *ReleaseRequestV2 {
@@ -116,9 +110,10 @@ func (releaseInfo *ReleaseInfoV2) BuildReleaseRequestV2() *ReleaseRequestV2 {
 type ReleaseRequestV2 struct {
 	ReleaseRequest
 	ReleaseLabels  map[string]string `json:"releaseLabels" description:"release labels"`
-	Plugins        []*ReleasePlugin  `json:"plugins" description:"plugins"`
+	Plugins        []*k8s.ReleasePlugin  `json:"plugins" description:"plugins"`
 	MetaInfoParams *MetaInfoParams   `json:"metaInfoParams" description:"meta info parameters"`
 	ChartImage     string            `json:"chartImage" description:"chart image url"`
+	IsomateConfig  *k8s.IsomateConfig    `json:"isomateConfig" description:"isomate config"`
 }
 
 type ReleaseInfoV2List struct {

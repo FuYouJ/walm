@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/klog"
 	"strconv"
+	"WarpCloud/walm/pkg/models/k8s"
 )
 
 var PLUGINS_KEY = "plugins"
@@ -35,8 +36,8 @@ type CtlPluginParam struct {
 	Disable bool        `json:"disable"`
 }
 
-func convertReleasePlugins(pluginValuesBytes []byte) ([]*release.ReleasePlugin, error) {
-	releasePlugins := make([]*release.ReleasePlugin, 0)
+func convertReleasePlugins(pluginValuesBytes []byte) ([]*k8s.ReleasePlugin, error) {
+	releasePlugins := make([]*k8s.ReleasePlugin, 0)
 	ctlPluginParams := make([]CtlPluginParam, 0)
 
 	err := json.Unmarshal(pluginValuesBytes, &ctlPluginParams)
@@ -45,7 +46,7 @@ func convertReleasePlugins(pluginValuesBytes []byte) ([]*release.ReleasePlugin, 
 		return releasePlugins, err
 	}
 	for _, ctlPluginParam := range ctlPluginParams {
-		releasePlugin := release.ReleasePlugin{
+		releasePlugin := k8s.ReleasePlugin{
 			Name:    ctlPluginParam.Name,
 			Args:    "{}",
 			Version: ctlPluginParam.Version,
@@ -133,7 +134,7 @@ func convertMetaInfoParams(metaInfoParamsBytes []byte) ([]*release.MetaCommonCon
 	return metaInfoParams, nil
 }
 
-func SmartConfigValues(configValues map[string]interface{}) (destConfigValues map[string]interface{}, metaInfoParamParams []*release.MetaCommonConfigValue, releasePlugins []*release.ReleasePlugin, retErr error) {
+func SmartConfigValues(configValues map[string]interface{}) (destConfigValues map[string]interface{}, metaInfoParamParams []*release.MetaCommonConfigValue, releasePlugins []*k8s.ReleasePlugin, retErr error) {
 	destConfigValues = make(map[string]interface{}, 0)
 	util.MergeValues(destConfigValues, configValues, false)
 	pluginValues, ok := configValues[PLUGINS_KEY]
