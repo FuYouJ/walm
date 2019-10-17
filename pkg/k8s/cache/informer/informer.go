@@ -7,6 +7,10 @@ import (
 	"WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
 	"errors"
+	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+	migrationexternalversions "github.com/migration/pkg/client/informers/externalversions"
+	migrationv1beta1 "github.com/migration/pkg/client/listers/tos/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,16 +26,16 @@ import (
 	"sort"
 	"sync"
 	"time"
+	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
+	instanceexternalversions "transwarp/application-instance/pkg/client/informers/externalversions"
+	instancev1beta1 "transwarp/application-instance/pkg/client/listers/transwarp/v1beta1"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	releaseconfigexternalversions "transwarp/release-config/pkg/client/informers/externalversions"
 	releaseconfigv1beta1 "transwarp/release-config/pkg/client/listers/transwarp/v1beta1"
-	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
-	instancev1beta1 "transwarp/application-instance/pkg/client/listers/transwarp/v1beta1"
-	instanceexternalversions "transwarp/application-instance/pkg/client/informers/externalversions"
-	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
-	beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
-	"fmt"
+
 	k8sutils "WarpCloud/walm/pkg/k8s/utils"
+	"fmt"
+	beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
 )
 
 type Informer struct {
@@ -59,6 +63,9 @@ type Informer struct {
 
 	instanceFactory instanceexternalversions.SharedInformerFactory
 	instanceLister  instancev1beta1.ApplicationInstanceLister
+
+	migrationFactory migrationexternalversions.SharedInformerFactory
+	migrationLister  migrationv1beta1.MigLister
 }
 
 func (informer *Informer) ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error) {
@@ -291,6 +298,9 @@ func (informer *Informer) AddServiceHandler(OnAdd func(obj interface{}), OnUpdat
 	informer.factory.Core().V1().Services().Informer().AddEventHandler(handlerFuncs)
 }
 
+func (informer *Informer) AddMigrationHandler(OnAdd func(obj interface{}), OnUpdate func(oldObj, newObj interface{}), OnDelete func(obj interface{})) {
+
+}
 func (informer *Informer) ListPersistentVolumeClaims(namespace string, labelSelectorStr string) ([]*k8s.PersistentVolumeClaim, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
@@ -337,6 +347,34 @@ func (informer *Informer) ListReleaseConfigs(namespace, labelSelectorStr string)
 		releaseConfigs = append(releaseConfigs, releaseConfig)
 	}
 	return releaseConfigs, nil
+}
+
+func (informer *Informer) GetMigration(namespace, name string) (*tosv1beta1.Mig, error){
+	resource, err := informer.migrationLister.Migs(namespace).Get(name)
+	if err != nil {
+		klog.Errorf("failed to get crd: %s", err.Error())
+		return nil, err
+	}
+	return resource, nil
+}
+
+func (informer *Informer) ListMigrations(namespace, labelSelectorStr string) ([]*tosv1beta1.Mig, error) {
+	resource :=  []*tosv1beta1.Mig{}
+	selector, err := labels.Parse(labelSelectorStr)
+	if err != nil {
+		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
+		return nil, err
+	}
+	if namespace == "" {
+		resource, err = informer.migrationLister.List(selector)
+	} else {
+		resource, err = informer.migrationLister.Migs(namespace).List(selector)
+	}
+	if err != nil {
+		klog.Errorf("failed to get all migrations: %s", err.Error())
+		return nil, err
+	}
+	return resource, nil
 }
 
 func (informer *Informer) GetResourceSet(releaseResourceMetas []release.ReleaseResourceMeta) (resourceSet *k8s.ResourceSet, err error) {
@@ -391,6 +429,9 @@ func (informer *Informer) start(stopCh <-chan struct{}) {
 	if informer.instanceFactory != nil {
 		informer.instanceFactory.Start(stopCh)
 	}
+	if informer.migrationFactory != nil {
+		informer.migrationFactory.Start(stopCh)
+	}
 }
 
 func (informer *Informer) waitForCacheSync(stopCh <-chan struct{}) {
@@ -398,6 +439,9 @@ func (informer *Informer) waitForCacheSync(stopCh <-chan struct{}) {
 	informer.releaseConifgFactory.WaitForCacheSync(stopCh)
 	if informer.instanceFactory != nil {
 		informer.instanceFactory.WaitForCacheSync(stopCh)
+	}
+	if informer.migrationFactory != nil {
+		informer.migrationFactory.WaitForCacheSync(stopCh)
 	}
 }
 
@@ -461,7 +505,9 @@ func NewInformer(
 	}
 
 	if migrationClient != nil {
-		klog.Warning("ToDo Implement migration client")
+
+		informer.migrationFactory = migrationexternalversions.NewSharedInformerFactory(migrationClient, resyncPeriod)
+		informer.migrationLister = informer.migrationFactory.Apiextensions().V1beta1().Migs().Lister()
 	}
 
 	informer.start(stopCh)
