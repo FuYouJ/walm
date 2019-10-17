@@ -90,7 +90,8 @@ func (migrate *migrateOptions) run() error {
 
 	migrate.kubeconfig, err = filepath.Abs(migrate.kubeconfig)
 	if err != nil {
-		klog.Errorf("get kubeconfig failed:", err.Error())
+		klog.Errorf("get kubeconfig failed: %s", err.Error())
+		return err
 	}
 
 	k8sClient, err := k8sclient.NewClient("", migrate.kubeconfig)
