@@ -95,19 +95,30 @@ func (projectImpl *Project) DryRunProject(namespace, projectName string, project
 		releaseParams.ReleaseLabels[projectModel.ProjectNameLabelKey] = projectName
 	}
 
-	releaseList, err := projectImpl.autoCreateReleaseDependencies(projectParams)
-	if err != nil {
-		klog.Errorf("failed to parse project charts dependency relation  : %s", err.Error())
-		return manifests, err
+	var err error
+	mux := &sync.Mutex{}
+	var wg sync.WaitGroup
+	for _, releaseParams := range projectParams.Releases {
+		wg.Add(1)
+		go func(releaseParams *releaseModel.ReleaseRequestV2) {
+			defer wg.Done()
+			releaseManifests, err1 := projectImpl.releaseUseCase.DryRunRelease(namespace, releaseParams, nil)
+			if err1 != nil {
+				klog.Errorf("failed to dryRun project release %s/%s : %s", namespace, releaseParams.Name, err1)
+				err = errors.New(err1.Error())
+				return
+			}
+			mux.Lock()
+			manifests = append(manifests, releaseManifests...)
+			klog.V(2).Infof("succeed to dryRun project release %s/%s", namespace, releaseParams.Name)
+			mux.Unlock()
+		}(releaseParams)
 	}
-	for _, releaseParams := range releaseList {
-		releaseManifests, err := projectImpl.releaseUseCase.DryRunRelease(namespace, releaseParams, nil)
-		if err != nil {
-			klog.Errorf("failed to dryRun project release %s/%s : %s", namespace, releaseParams.Name, err)
-			return manifests, err
-		}
-		manifests = append(releaseManifests, releaseManifests...)
-		klog.V(2).Infof("succeed to dryRun project release %s/%s", namespace, releaseParams.Name)
+
+	wg.Wait()
+	if err != nil {
+		klog.Errorf("failed to dryrun project : %s", err.Error())
+		return nil, err
 	}
 	return manifests, nil
 }
@@ -125,20 +136,32 @@ func (projectImpl *Project) ComputeResourcesByDryRunProject(namespace, projectNa
 		releaseParams.ReleaseLabels[projectModel.ProjectNameLabelKey] = projectName
 	}
 
-	releaseList, err := projectImpl.autoCreateReleaseDependencies(projectParams)
+	var err error
+	mux := &sync.Mutex{}
+	var wg sync.WaitGroup
+	for _, releaseParams := range projectParams.Releases {
+		wg.Add(1)
+		go func(releaseParams *releaseModel.ReleaseRequestV2) {
+			defer wg.Done()
+			releaseResources, err1 := projectImpl.releaseUseCase.ComputeResourcesByDryRunRelease(namespace, releaseParams, nil)
+			if err1 != nil {
+				klog.Errorf("failed to computeResources project release %s/%s : %s", namespace, releaseParams.Name, err1)
+				err = errors.New(err1.Error())
+				return
+			}
+			mux.Lock()
+			resources = append(resources, releaseResources)
+			klog.V(2).Infof("succeed to computeResources project release %s/%s", namespace, releaseParams.Name)
+			mux.Unlock()
+		}(releaseParams)
+	}
+
+	wg.Wait()
 	if err != nil {
-		klog.Errorf("failed to parse project charts dependency relation  : %s", err.Error())
-		return resources, err
+		klog.Errorf("failed to computeResources project : %s", err.Error())
+		return nil, err
 	}
-	for _, releaseParams := range releaseList {
-		releaseResources, err := projectImpl.releaseUseCase.ComputeResourcesByDryRunRelease(namespace, releaseParams, nil)
-		if err != nil {
-			klog.Errorf("failed to computeResources project release %s/%s : %s", namespace, releaseParams.Name, err)
-			return resources, err
-		}
-		resources = append(resources, releaseResources)
-		klog.V(2).Infof("succeed to computeResources project release %s/%s", namespace, releaseParams.Name)
-	}
+
 	return resources, nil
 }
 
