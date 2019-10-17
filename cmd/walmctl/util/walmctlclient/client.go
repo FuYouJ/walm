@@ -371,3 +371,47 @@ func (c *WalmctlClient) DeleteReleaseInProject(namespace string, projectName str
 
 	return resp, err
 }
+
+func (c *WalmctlClient) MigratePod(namespace string, pod string, mig string, migNamespace string, destHost string) (resp *resty.Response, err error) {
+	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + namespace + "/name/" + pod + "/mig/" + mig
+
+	if migNamespace != "" {
+		fullUrl += "?migNamespace=" + migNamespace
+		if destHost != "" {
+			fullUrl += "&destHost=" + destHost
+		}
+	} else {
+		if destHost != "" {
+			fullUrl += "?destHost=" + destHost
+		}
+	}
+
+	resp, err = resty.R().
+		SetHeader("Content-Type", "application/json").
+		Post(fullUrl)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != 200 {
+		return nil, errors.New(resp.String())
+	}
+	return resp, err
+}
+
+func (c *WalmctlClient) GetMigration(migNamespace string, mig string) (resp *resty.Response, err error) {
+	fullUrl := walmctlClient.baseURL + "/crd/migration/" + migNamespace + "/" + mig
+	resp, err = resty.R().
+		Get(fullUrl)
+
+	if err != nil {
+		return  nil, err
+	}
+	if resp.StatusCode() != 200 {
+		return nil, errors.Errorf(resp.String())
+	}
+
+	return resp, err
+}
+
