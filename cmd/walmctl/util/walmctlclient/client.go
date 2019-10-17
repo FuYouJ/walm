@@ -1,6 +1,7 @@
 package walmctlclient
 
 import (
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/util"
 	"encoding/json"
 	"fmt"
@@ -39,6 +40,62 @@ func (c *WalmctlClient) ValidateHostConnect() error {
 	if err != nil {
 		return errors.Errorf("WalmServer unreachable, error: %s", err.Error())
 	}
+	return nil
+}
+
+func (c *WalmctlClient) CreateTenantIfNotExist(namespace string) error {
+	fullUrl := walmctlClient.baseURL + "/tenant/" + namespace
+
+	_, _ = resty.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody("{}").
+		Post(fullUrl)
+
+	resp, err := resty.R().
+		SetHeader("Content-Type", "application/json").
+		Get(fullUrl)
+
+	if err != nil || !resp.IsSuccess() {
+		return errors.Errorf("create Tenant Error %v", err)
+	}
+	return nil
+}
+
+func (c *WalmctlClient) CreateSecret(namespace, secretName string, secretData map[string]string) error {
+	_ = c.CreateTenantIfNotExist(namespace)
+	secretFullUrl := walmctlClient.baseURL + "/secret/" + namespace
+
+	secretReq := k8sModel.CreateSecretRequestBody{
+		Data: secretData,
+		Type: "Opaque",
+		Name: secretName,
+	}
+	resp, err := resty.R().SetHeader("Content-Type", "application/json").
+		SetBody(secretReq).
+		Post(secretFullUrl)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != 200 {
+		return errors.New(resp.String())
+	}
+
+	return nil
+}
+
+func (c *WalmctlClient) DeleteSecret(namespace, secretName string) error {
+	_ = c.CreateTenantIfNotExist(namespace)
+	secretFullUrl := walmctlClient.baseURL + "/secret/" + namespace + "/name/" + secretName
+
+	resp, err := resty.R().SetHeader("Content-Type", "application/json").
+		Delete(secretFullUrl)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() != 200 {
+		return errors.New(resp.String())
+	}
+
 	return nil
 }
 
@@ -88,6 +145,7 @@ func (c *WalmctlClient) CreateRelease(
 	async bool, timeoutSec int64,
 	configValues map[string]interface{},
 ) (*resty.Response, error) {
+	_ = c.CreateTenantIfNotExist(namespace)
 	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
 
@@ -210,6 +268,7 @@ func (c *WalmctlClient) CreateProject(
 	async bool, timeoutSec int64,
 	configValues map[string]interface{},
 ) (resp *resty.Response, err error) {
+	_ = c.CreateTenantIfNotExist(namespace)
 	fullUrl := walmctlClient.baseURL + "/project/" + namespace + "/name/" + projectName + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
 
