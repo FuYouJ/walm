@@ -21,10 +21,16 @@ import(
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"WarpCloud/walm/pkg/k8s/operator"
 	"time"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+
 )
 
 func GetKubeClient() *clienthelm.Client {
 	return kubeClients
+}
+
+func GetK8sMigrationClient() *migrationclientset.Clientset {
+	return k8sMigrationClient
 }
 
 func GetK8sClient() *kubernetes.Clientset {
@@ -99,7 +105,7 @@ func GetNode(name string) (*v1.Node, error) {
 }
 
 func LabelNode(name string, labelsToAdd map[string]string, labelsToRemove []string) error {
-	k8sOperator := operator.NewOperator(k8sClient, nil, nil)
+	k8sOperator := operator.NewOperator(k8sClient, nil, nil, nil)
 	return k8sOperator.LabelNode(name, labelsToAdd, labelsToRemove)
 }
 

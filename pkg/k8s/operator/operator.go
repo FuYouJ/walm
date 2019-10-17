@@ -12,6 +12,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+	"github.com/pkg/errors"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/core/v1"
@@ -33,6 +36,7 @@ type Operator struct {
 	client      *kubernetes.Clientset
 	k8sCache    k8s.Cache
 	kubeClients *helm.Client
+	k8sMigrationClient *migrationclientset.Clientset
 }
 
 func (op *Operator) DeleteStatefulSetPvcs(statefulSets []*k8sModel.StatefulSet) error {
@@ -71,6 +75,108 @@ func (op *Operator) RestartPod(namespace string, name string) error {
 		klog.Errorf("failed to restart pod %s/%s : %s", namespace, name, err.Error())
 		return err
 	}
+	return nil
+}
+
+func (op *Operator) MigratePod(namespace string, name string, mig string, migNamespace string, destHost string) error {
+	k8sMigrationClient := op.k8sMigrationClient
+	if k8sMigrationClient == nil {
+		return errors.Errorf("failed to get migration client, check config.CrdConfig.EnableMigrationCRD")
+	}
+
+	if migNamespace == "" {
+		migNamespace = namespace
+	}
+
+	_, err := op.k8sMigrationClient.ApiextensionsV1beta1().Migs(namespace).Create(&tosv1beta1.Mig{
+
+		ObjectMeta: metav1.ObjectMeta{
+			Name: mig,
+			Namespace: migNamespace,
+		},
+		Spec: tosv1beta1.MigSpec{
+			PodName:    name,
+			Namespace:  namespace,
+		},
+		Status: tosv1beta1.MigStatus{
+			DestHost: destHost,
+		},
+	})
+	if err != nil {
+		klog.Errorf("failed to migrate pod %s/%s: %s", namespace, name, err.Error())
+		return err
+	}
+	return nil
+}
+
+func (op *Operator) MigrateNode(srcHost string, destHost string, mig string, migNamespace string) error {
+
+	k8sMigrationClient := op.k8sMigrationClient
+	if k8sMigrationClient == nil {
+		return errors.Errorf("failed to get migration client, check config.CrdConfig.EnableMigrationCRD")
+	}
+
+	nodeList, err := op.client.CoreV1().Nodes().List(metav1.ListOptions{})
+	if err != nil {
+		klog.Errorf("failed to get nodes: %s", err.Error())
+		return err
+	}
+
+	if len(nodeList.Items) < 2 {
+		return errors.Errorf("only one node, migration make no sense")
+	}
+
+	_, err = op.client.CoreV1().Nodes().Get(srcHost, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get node %s: %s", srcHost, err.Error())
+		return err
+	}
+
+	if destHost != "" {
+		_, err = op.client.CoreV1().Nodes().Get(destHost, metav1.GetOptions{})
+		if err != nil {
+			klog.Errorf("failed to get node %s: %s", srcHost, err.Error())
+			return err
+		}
+	}
+
+	namespaceList, err := op.client.CoreV1().Namespaces().List(metav1.ListOptions{})
+	if err != nil {
+		klog.Errorf("failed to get namespace: %s", err.Error())
+		return err
+	}
+
+	var podList []*k8sModel.Pod
+
+	for _, namespace := range namespaceList.Items {
+		statefulsets, err := op.k8sCache.ListStatefulSets(namespace.Name, "")
+		if err != nil {
+			klog.Errorf("failed to get statefulsets of namespace %s: %s", namespace.Name, err.Error())
+			return err
+		}
+		for _, statefulset := range statefulsets {
+			pods := statefulset.Pods
+			for _, pod := range pods {
+				podInfo, err := op.client.CoreV1().Pods(namespace.Name).Get(pod.Name, metav1.GetOptions{})
+				if err != nil {
+					klog.Errorf("failed to get pod %s: %s", pod.Name, err.Error())
+					return err
+				}
+				if podInfo.Spec.NodeName != srcHost {
+					continue
+				}
+				podList = append(podList, pod)
+			}
+		}
+	}
+
+	for _, pod := range podList {
+		err = op.MigratePod(pod.Namespace, pod.Name, mig, migNamespace, destHost)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -763,10 +869,11 @@ func (op *Operator) UpdateConfigMap(namespace, configMapName string, requestBody
 	return
 }
 
-func NewOperator(client *kubernetes.Clientset, k8sCache k8s.Cache, kubeClients *helm.Client) *Operator {
+func NewOperator(client *kubernetes.Clientset, k8sCache k8s.Cache, kubeClients *helm.Client, k8sMigrationClient *migrationclientset.Clientset) *Operator {
 	return &Operator{
 		client:      client,
 		k8sCache:    k8sCache,
 		kubeClients: kubeClients,
+		k8sMigrationClient: k8sMigrationClient,
 	}
 }

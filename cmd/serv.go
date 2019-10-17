@@ -10,6 +10,7 @@ import (
 	"k8s.io/klog"
 	"net/http"
 
+	migrationhttp "WarpCloud/walm/pkg/crd/delivery/http"
 	helmImpl "WarpCloud/walm/pkg/helm/impl"
 	cacheInformer "WarpCloud/walm/pkg/k8s/cache/informer"
 	"WarpCloud/walm/pkg/k8s/client"
@@ -160,7 +161,7 @@ func (sc *ServCmd) run() error {
 		klog.Errorf("failed to create helm manager: %s", err.Error())
 		return err
 	}
-	k8sOperator := operator.NewOperator(k8sClient, k8sCache, kubeClients)
+	k8sOperator := operator.NewOperator(k8sClient, k8sCache, kubeClients, k8sMigrationClient)
 	if config.RedisConfig == nil {
 		err = errors.New("redis config can not be empty")
 		klog.Error(err.Error())
@@ -240,6 +241,7 @@ func (sc *ServCmd) run() error {
 
 	restful.Add(InitRootRouter())
 	restful.Add(nodehttp.RegisterNodeHandler(k8sCache, k8sOperator))
+	restful.Add(migrationhttp.RegisterCrdHandler(k8sCache, k8sOperator))
 	restful.Add(secrethttp.RegisterSecretHandler(k8sCache, k8sOperator))
 	restful.Add(storageclasshttp.RegisterStorageClassHandler(k8sCache))
 	restful.Add(pvchttp.RegisterPvcHandler(k8sCache, k8sOperator))

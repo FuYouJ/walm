@@ -1,25 +1,27 @@
 package framework
 
 import (
-	"strings"
-	"fmt"
-	utilrand "k8s.io/apimachinery/pkg/util/rand"
-	"errors"
-	"WarpCloud/walm/pkg/setting"
-	"github.com/sirupsen/logrus"
-	"WarpCloud/walm/pkg/k8s/client"
-	"k8s.io/client-go/kubernetes"
-	clienthelm "WarpCloud/walm/pkg/k8s/client/helm"
-	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
-	"runtime"
 	"WarpCloud/walm/pkg/helm/impl"
+	"WarpCloud/walm/pkg/k8s/client"
+	clienthelm "WarpCloud/walm/pkg/k8s/client/helm"
+	"WarpCloud/walm/pkg/setting"
+	"errors"
+	"fmt"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+	"github.com/sirupsen/logrus"
 	"helm.sh/helm/pkg/chart/loader"
 	"helm.sh/helm/pkg/registry"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes"
+	"runtime"
+	"strings"
+	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 )
 
 var k8sClient *kubernetes.Clientset
 var k8sReleaseConfigClient *releaseconfigclientset.Clientset
 var kubeClients *clienthelm.Client
+var k8sMigrationClient *migrationclientset.Clientset
 
 const (
 	maxNameLength                = 62
@@ -31,7 +33,7 @@ const (
 	TomcatChartName    = "tomcat"
 	TomcatChartVersion = "0.2.0"
 
-	V1ZookeeperChartName = "zookeeper"
+	V1ZookeeperChartName    = "zookeeper"
 	V1ZookeeperChartVersion = "5.2.0"
 
 	tomcatChartImageSuffix = "walm-test/tomcat:0.2.0"
@@ -67,7 +69,7 @@ func InitFramework() error {
 
 	foundTestRepo := false
 	for _, repo := range setting.Config.RepoList {
-		if repo.Name == TestChartRepoName{
+		if repo.Name == TestChartRepoName {
 			foundTestRepo = true
 			err = PushChartToRepo(repo.URL, tomcatChartPath)
 			if err != nil {
@@ -137,8 +139,12 @@ func InitFramework() error {
 		return err
 	}
 
+	k8sMigrationClient, err = client.NewMigrationClient("", kubeConfig)
+	if err != nil {
+		logrus.Errorf("failed to create k8s crd client : %s", err.Error())
+	}
+
 	kubeClients = clienthelm.NewHelmKubeClient(kubeConfig, kubeContext, nil)
 
 	return nil
 }
-

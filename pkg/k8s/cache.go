@@ -4,6 +4,7 @@ import (
 	"WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/tenant"
+	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
 )
 
 type Cache interface {
@@ -30,4 +31,7 @@ type Cache interface {
 
 	ListStorageClasses(namespace string, labelSelectorStr string) ([]*k8s.StorageClass, error)
 	ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error)
+
+	ListMigrations(namespace, labelSelectorStr string) ([]*tosv1beta1.Mig, error)
+	GetMigration(namespace, name string) (*tosv1beta1.Mig, error)
 }
