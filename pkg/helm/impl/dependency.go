@@ -49,9 +49,9 @@ func (helmImpl *Helm) getDependencyOutputConfigsForChartV1(
 	for dependencyKey, dependency := range dependencies {
 		dependencyRequire, ok := dependencyRequires[dependencyKey]
 		if !ok {
-			err = fmt.Errorf("dependency key %s is not valid", dependencyKey)
-			klog.Errorf(err.Error())
-			return
+			delete(dependencies, dependencyKey)
+			klog.Warningf("dependency key %s is not valid, ignore error", dependencyKey)
+			continue
 		}
 
 		dependencyMeta, err := helmImpl.getDependencyMetaForChartV1(namespace, dependency)
@@ -118,9 +118,9 @@ func (helmImpl *Helm) getDependencyOutputConfigsForChartV2(namespace string, dep
 	for dependencyKey, dependency := range dependencies {
 		dependencyAliasConfigVar, ok := dependencyAliasConfigVars[dependencyKey]
 		if !ok {
-			err = fmt.Errorf("dependency key %s is not valid, you can see valid keys in chart metainfo", dependencyKey)
-			klog.Errorf(err.Error())
-			return
+			delete(dependencies, dependencyKey)
+			klog.Warningf("dependency key %s is not valid, ignore error", dependencyKey)
+			continue
 		}
 
 		outputConfig, err := helmImpl.getOutputConfigValuesForChartV2(namespace, dependency)

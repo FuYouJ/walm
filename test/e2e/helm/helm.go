@@ -373,7 +373,7 @@ var _ = Describe("HelmRelease", func() {
 				releaseRequest = &release.ReleaseRequestV2{
 					ReleaseRequest: release.ReleaseRequest{
 						Name:         "kafka-test",
-						Dependencies: map[string]string{"zookeeper1": "zookeeper-test"},
+						Dependencies: map[string]string{"zookeeper": "zookeeper-test-notexist"},
 					},
 				}
 
