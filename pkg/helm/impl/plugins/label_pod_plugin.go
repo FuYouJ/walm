@@ -45,12 +45,12 @@ func LabelPod(context *PluginContext, args string) (err error) {
 		switch resource.GetObjectKind().GroupVersionKind().Kind {
 		case "Job", "Deployment", "DaemonSet", "StatefulSet":
 			unstruct := resource.(*unstructured.Unstructured)
-			err := setNestedStringMap(unstruct.Object, labelPodArgs.LabelsToAdd, "spec", "template", "metadata", "labels")
+			err := addNestedStringMap(unstruct.Object, labelPodArgs.LabelsToAdd, "spec", "template", "metadata", "labels")
 			if err != nil {
 				klog.Errorf("failed to add labels to pod : %s", err.Error())
 				return err
 			}
-			err = setNestedStringMap(unstruct.Object, labelPodArgs.AnnotationsToAdd, "spec", "template", "metadata", "annotations")
+			err = addNestedStringMap(unstruct.Object, labelPodArgs.AnnotationsToAdd, "spec", "template", "metadata", "annotations")
 			if err != nil {
 				klog.Errorf("failed to add labels to pod : %s", err.Error())
 				return err

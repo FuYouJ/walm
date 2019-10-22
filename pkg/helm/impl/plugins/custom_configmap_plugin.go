@@ -4,12 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	appsv1 "k8s.io/api/apps/v1"
-	batchv1 "k8s.io/api/batch/v1"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 )
 
@@ -59,9 +56,28 @@ func CustomConfigmapTransform(context *PluginContext, args string) (err error) {
 		return err
 	}
 
-	newResource := []runtime.Object{}
-	chartConfigmapResources := make([]*v1.ConfigMap, 0)
-	// ToDo: Add Configmap volume/volumeMounts to Resources
+	for _, resource := range context.Resources {
+		unstructuredObj := resource.(*unstructured.Unstructured)
+		switch resource.GetObjectKind().GroupVersionKind().Kind {
+		case "Job", "Deployment", "DaemonSet", "StatefulSet":
+			for configMapName, addConfigMapObj := range customConfigmapArgs.ConfigmapToAdd {
+				err = mountConfigMap(unstructuredObj, context.R.Name, configMapName, addConfigMapObj)
+				if err != nil {
+					klog.Errorf("mountConfigMap %s %s %v error %v", context.R.Name, configMapName, *addConfigMapObj, err)
+					return err
+				}
+			}
+		case "Configmap":
+			if isSkippedConfigMap(unstructuredObj.GetName(), customConfigmapArgs) {
+				err = addNestedStringMap(unstructuredObj.Object, map[string]string{ResourceUpgradePolicyAnno: UpgradePolicy}, "metadata", "annotations")
+				if err != nil {
+					klog.Errorf("failed add nested string map : %s", err.Error())
+					return err
+				}
+			}
+		}
+	}
+
 	for configMapName, addObj := range customConfigmapArgs.ConfigmapToAdd {
 		configMapObj, err := convertK8SConfigMap(context.R.Name, context.R.Namespace, configMapName, addObj)
 		if err != nil {
@@ -73,155 +89,23 @@ func CustomConfigmapTransform(context *PluginContext, args string) (err error) {
 			klog.Infof("failed to convertToUnstructured : %v", *configMapObj)
 			return err
 		}
-		newResource = append(newResource, unstructuredObj)
+		context.Resources = append(context.Resources, unstructuredObj)
 	}
 
-	for _, resource := range context.Resources {
-		switch resource.GetObjectKind().GroupVersionKind().Kind {
-		case "Job":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
-				return err
-			}
-			job, err := buildJob(converted)
-			if err != nil {
-				klog.Infof("failed to build Job : %s", err.Error())
-				return err
-			}
-			for configMapName, addConfigMapObj := range customConfigmapArgs.ConfigmapToAdd {
-				err = addConfigMapJob(context.R.Name, configMapName, job, addConfigMapObj)
-				if err != nil {
-					klog.Errorf("addConfigMapJob %s %s %v error %v", context.R.Name, configMapName, *addConfigMapObj, err)
-					return err
-				}
-			}
-			unstructuredObj, err := convertToUnstructured(job)
-			if err != nil {
-				klog.Infof("failed to convertToUnstructured : %v", *job)
-				return err
-			}
-			newResource = append(newResource, unstructuredObj)
-		case "Deployment":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
-				return err
-			}
-			deployment, err := buildDeployment(converted)
-			if err != nil {
-				klog.Infof("failed to build deployment : %s", err.Error())
-				return err
-			}
-			for configMapName, addConfigMapObj := range customConfigmapArgs.ConfigmapToAdd {
-				err = addConfigMapDeployment(context.R.Name, configMapName, deployment, addConfigMapObj)
-				if err != nil {
-					klog.Errorf("addConfigMapDeployment %s %s %v error %v", context.R.Name, configMapName, *addConfigMapObj, err)
-					return err
-				}
-			}
-			unstructuredObj, err := convertToUnstructured(deployment)
-			if err != nil {
-				klog.Infof("failed to convertToUnstructured : %v", *deployment)
-				return err
-			}
-			newResource = append(newResource, unstructuredObj)
-		case "DaemonSet":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
-				return err
-			}
-			daemonSet, err := buildDaemonSet(converted)
-			if err != nil {
-				klog.Infof("failed to build daemonSet : %s", err.Error())
-				return err
-			}
-			for configMapName, addConfigMapObj := range customConfigmapArgs.ConfigmapToAdd {
-				err = addConfigMapDaemonSet(context.R.Name, configMapName, daemonSet, addConfigMapObj)
-				if err != nil {
-					klog.Errorf("addConfigMapDaemonSet %s %s %v error %v", context.R.Name, configMapName, *addConfigMapObj, err)
-					return err
-				}
-			}
-			unstructuredObj, err := convertToUnstructured(daemonSet)
-			if err != nil {
-				klog.Infof("failed to convertToUnstructured : %v", *daemonSet)
-				return err
-			}
-			newResource = append(newResource, unstructuredObj)
-		case "StatefulSet":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
-				return err
-			}
-			statefulSet, err := buildStatefulSet(converted)
-			if err != nil {
-				klog.Infof("failed to build statefulSet : %s", err.Error())
-				return err
-			}
-			for configMapName, addConfigMapObj := range customConfigmapArgs.ConfigmapToAdd {
-				err = addConfigMapStatefulSet(context.R.Name, configMapName, statefulSet, addConfigMapObj)
-				if err != nil {
-					klog.Errorf("addConfigMapStatefulSet %s %s %v error %v", context.R.Name, configMapName, *addConfigMapObj, err)
-					return err
-				}
-			}
-			unstructuredObj, err := convertToUnstructured(statefulSet)
-			if err != nil {
-				klog.Infof("failed to convertToUnstructured : %v", *statefulSet)
-				return err
-			}
-			newResource = append(newResource, unstructuredObj)
-		case "Configmap":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
-				return err
-			}
-			convertedConfigMap, err := buildConfigmap(converted)
-			if err != nil {
-				klog.Errorf("buildConfigmap %v error %v", converted, err)
-				return err
-			}
-			if convertedConfigMap.Annotations != nil {
-				customAnnotation, ok := convertedConfigMap.Annotations["transwarp/walmplugin.custom.configmap"]
-				if ok && customAnnotation == "true" {
-					continue
-				}
-			}
-			chartConfigmapResources = append(chartConfigmapResources, convertedConfigMap)
-		default:
-			newResource = append(newResource, resource)
-		}
-	}
-
-	klog.Infof("%s enabled plugin %s", context.R.Name, CustomConfigmapPluginName)
-	for _, chartConfigmapResource := range chartConfigmapResources {
-		if chartConfigmapResource.Annotations == nil {
-			chartConfigmapResource.Annotations = make(map[string]string, 0)
-		}
-		if customConfigmapArgs.ConfigmapSkipAll == true {
-			chartConfigmapResource.Annotations[ResourceUpgradePolicyAnno] = UpgradePolicy
-		} else {
-			for _, skipConfigmapName := range customConfigmapArgs.ConfigmapToSkipNames {
-				if skipConfigmapName == chartConfigmapResource.Name {
-					chartConfigmapResource.Annotations[ResourceUpgradePolicyAnno] = UpgradePolicy
-					break
-				}
-			}
-		}
-		unstructuredObj, err := convertToUnstructured(chartConfigmapResource)
-		if err != nil {
-			klog.Infof("failed to convertToUnstructured : %v", *chartConfigmapResource)
-			return err
-		}
-		newResource = append(newResource, unstructuredObj)
-	}
-
-	context.Resources = newResource
 	return
+}
+
+func isSkippedConfigMap(name string, args *CustomConfigmapArgs) bool{
+	if args.ConfigmapSkipAll == true {
+		return true
+	} else {
+		for _, skipConfigmapName := range args.ConfigmapToSkipNames {
+			if skipConfigmapName == name {
+				return true
+			}
+		}
+		return false
+	}
 }
 
 func convertK8SConfigMap(releaseName, releaseNamespace, configMapName string, addObj *AddConfigmapObject) (*v1.ConfigMap, error) {
@@ -283,109 +167,49 @@ func splitConfigmapVolumes(releaseName, configMapName string, addConfigMapObj *A
 	return configMapVolume, configMapVolumeMounts, nil
 }
 
-func addConfigMapStatefulSet(releaseName, configMapName string, statefulSet *appsv1.StatefulSet, addConfigMapObj *AddConfigmapObject) error {
+func mountConfigMap(unstructuredObj *unstructured.Unstructured, releaseName, configMapName string, addConfigMapObj *AddConfigmapObject) error {
+	resourceKind := unstructuredObj.GetKind()
+	resourceName := unstructuredObj.GetName()
 	if !addConfigMapObj.ApplyAllResources {
-		if addConfigMapObj.Kind != "StatefulSet" || addConfigMapObj.ResourceName != statefulSet.Name {
+		if addConfigMapObj.Kind != resourceKind || addConfigMapObj.ResourceName != resourceName {
 			return nil
 		}
 	}
 	configMapVolume, configMapVolumeMounts, err := splitConfigmapVolumes(releaseName, configMapName, addConfigMapObj)
 	if err != nil {
+		klog.Errorf("failed to split config map volumes : %s", err.Error())
 		return err
 	}
-	if statefulSet.Spec.Template.Spec.Volumes == nil {
-		statefulSet.Spec.Template.Spec.Volumes = []v1.Volume{
-			configMapVolume,
-		}
-	} else {
-		statefulSet.Spec.Template.Spec.Volumes = append(statefulSet.Spec.Template.Spec.Volumes, configMapVolume)
-	}
-	for idx, _ := range statefulSet.Spec.Template.Spec.Containers {
-		if statefulSet.Spec.Template.Spec.Containers[idx].VolumeMounts == nil {
-			statefulSet.Spec.Template.Spec.Containers[idx].VolumeMounts = configMapVolumeMounts
-		} else {
-			statefulSet.Spec.Template.Spec.Containers[idx].VolumeMounts = append(statefulSet.Spec.Template.Spec.Containers[idx].VolumeMounts, configMapVolumeMounts...)
-		}
-	}
-	return nil
-}
 
-func addConfigMapJob(releaseName, configMapName string, job *batchv1.Job, addConfigMapObj *AddConfigmapObject) error {
-	if !addConfigMapObj.ApplyAllResources {
-		if addConfigMapObj.Kind != "Job" || addConfigMapObj.ResourceName != job.Name {
-			return nil
-		}
-	}
-	configMapVolume, configMapVolumeMounts, err := splitConfigmapVolumes(releaseName, configMapName, addConfigMapObj)
+	err = addNestedSliceObj(unstructuredObj.Object, []interface{}{
+		configMapVolume,
+	}, "spec", "template", "spec", "volumes")
 	if err != nil {
+		klog.Errorf("failed to add nested slice objs : %s", err.Error())
 		return err
 	}
-	if job.Spec.Template.Spec.Volumes == nil {
-		job.Spec.Template.Spec.Volumes = []v1.Volume{
-			configMapVolume,
-		}
-	} else {
-		job.Spec.Template.Spec.Volumes = append(job.Spec.Template.Spec.Volumes, configMapVolume)
-	}
-	for idx, _ := range job.Spec.Template.Spec.Containers {
-		if job.Spec.Template.Spec.Containers[idx].VolumeMounts == nil {
-			job.Spec.Template.Spec.Containers[idx].VolumeMounts = configMapVolumeMounts
-		} else {
-			job.Spec.Template.Spec.Containers[idx].VolumeMounts = append(job.Spec.Template.Spec.Containers[idx].VolumeMounts, configMapVolumeMounts...)
-		}
-	}
-	return nil
-}
 
-func addConfigMapDeployment(releaseName, configMapName string, deployment *appsv1.Deployment, addConfigMapObj *AddConfigmapObject) error {
-	if !addConfigMapObj.ApplyAllResources {
-		if addConfigMapObj.Kind != "Deployment" || addConfigMapObj.ResourceName != deployment.Name {
-			return nil
-		}
-	}
-	configMapVolume, configMapVolumeMounts, err := splitConfigmapVolumes(releaseName, configMapName, addConfigMapObj)
+	containers, found, err := unstructured.NestedSlice(unstructuredObj.Object, "spec", "template", "spec", "containers")
 	if err != nil {
+		klog.Errorf("failed to get containers %s", err.Error())
 		return err
 	}
-	if deployment.Spec.Template.Spec.Volumes == nil {
-		deployment.Spec.Template.Spec.Volumes = []v1.Volume{
-			configMapVolume,
+	if found {
+		for _, container := range containers {
+			configMapVolumeMountsInterface := []interface{}{}
+			for _, configMapVolumeMount := range configMapVolumeMounts {
+				configMapVolumeMountsInterface = append(configMapVolumeMountsInterface, configMapVolumeMount)
+			}
+			err = addNestedSliceObj(container.(map[string]interface{}), configMapVolumeMountsInterface, "volumeMounts")
+			if err != nil {
+				klog.Errorf("failed to add nested slice obj : %s", err.Error())
+				return err
+			}
 		}
-	} else {
-		deployment.Spec.Template.Spec.Volumes = append(deployment.Spec.Template.Spec.Volumes, configMapVolume)
-	}
-	for idx, _ := range deployment.Spec.Template.Spec.Containers {
-		if deployment.Spec.Template.Spec.Containers[idx].VolumeMounts == nil {
-			deployment.Spec.Template.Spec.Containers[idx].VolumeMounts = configMapVolumeMounts
-		} else {
-			deployment.Spec.Template.Spec.Containers[idx].VolumeMounts = append(deployment.Spec.Template.Spec.Containers[idx].VolumeMounts, configMapVolumeMounts...)
-		}
-	}
-	return nil
-}
-
-func addConfigMapDaemonSet(releaseName, configMapName string, daemonSet *appsv1.DaemonSet, addConfigMapObj *AddConfigmapObject) error {
-	if !addConfigMapObj.ApplyAllResources {
-		if addConfigMapObj.Kind != "DaemonSet" || addConfigMapObj.ResourceName != daemonSet.Name {
-			return nil
-		}
-	}
-	configMapVolume, configMapVolumeMounts, err := splitConfigmapVolumes(releaseName, configMapName, addConfigMapObj)
-	if err != nil {
-		return err
-	}
-	if daemonSet.Spec.Template.Spec.Volumes == nil {
-		daemonSet.Spec.Template.Spec.Volumes = []v1.Volume{
-			configMapVolume,
-		}
-	} else {
-		daemonSet.Spec.Template.Spec.Volumes = append(daemonSet.Spec.Template.Spec.Volumes, configMapVolume)
-	}
-	for idx, _ := range daemonSet.Spec.Template.Spec.Containers {
-		if daemonSet.Spec.Template.Spec.Containers[idx].VolumeMounts == nil {
-			daemonSet.Spec.Template.Spec.Containers[idx].VolumeMounts = configMapVolumeMounts
-		} else {
-			daemonSet.Spec.Template.Spec.Containers[idx].VolumeMounts = append(daemonSet.Spec.Template.Spec.Containers[idx].VolumeMounts, configMapVolumeMounts...)
+		err = unstructured.SetNestedSlice(unstructuredObj.Object, containers, "spec", "template", "spec", "containers")
+		if err != nil {
+			klog.Errorf("failed to set nested slice : %s", err.Error())
+			return err
 		}
 	}
 	return nil

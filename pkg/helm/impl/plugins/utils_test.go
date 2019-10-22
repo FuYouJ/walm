@@ -19,7 +19,7 @@ func convertObjToUnstructured(obj interface{}) *unstructured.Unstructured {
 	}
 }
 
-func Test_setNestedStringMap(t *testing.T) {
+func Test_addNestedStringMap(t *testing.T) {
 	tests := []struct {
 		obj            map[string]interface{}
 		stringMapToAdd map[string]string
@@ -28,9 +28,9 @@ func Test_setNestedStringMap(t *testing.T) {
 		result         map[string]interface{}
 	}{
 		{
-			obj: convertObjToUnstructured(&appsv1.StatefulSet{}).Object,
+			obj:            convertObjToUnstructured(&appsv1.StatefulSet{}).Object,
 			stringMapToAdd: map[string]string{"test": "test"},
-			fields: []string{"spec", "template", "metadata", "labels"},
+			fields:         []string{"spec", "template", "metadata", "labels"},
 			result: convertObjToUnstructured(&appsv1.StatefulSet{
 				Spec: appsv1.StatefulSetSpec{
 					Template: v1.PodTemplateSpec{
@@ -44,7 +44,46 @@ func Test_setNestedStringMap(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		err := setNestedStringMap(test.obj, test.stringMapToAdd, test.fields...)
+		err := addNestedStringMap(test.obj, test.stringMapToAdd, test.fields...)
+		assert.IsType(t, test.err, err)
+		assert.Equal(t, test.result, test.obj)
+	}
+}
+
+func Test_addNestedSliceObj(t *testing.T) {
+	tests := []struct {
+		obj        map[string]interface{}
+		sliceToAdd []interface{}
+		fields     []string
+		err        error
+		result     map[string]interface{}
+	}{
+		{
+			obj: convertObjToUnstructured(&appsv1.StatefulSet{}).Object,
+			sliceToAdd: []interface{}{
+				v1.Volume{
+					Name: "test",
+				},
+			},
+			fields: []string{"spec", "template", "spec", "volumes"},
+			result: convertObjToUnstructured(&appsv1.StatefulSet{
+				Spec: appsv1.StatefulSetSpec{
+					Template: v1.PodTemplateSpec{
+						Spec: v1.PodSpec{
+							Volumes: []v1.Volume{
+								{
+									Name: "test",
+								},
+							},
+						},
+					},
+				},
+			}).Object,
+		},
+	}
+
+	for _, test := range tests {
+		err := addNestedSliceObj(test.obj, test.sliceToAdd, test.fields...)
 		assert.IsType(t, test.err, err)
 		assert.Equal(t, test.result, test.obj)
 	}
