@@ -216,8 +216,15 @@ func ConvertDependencyMetaToOutputConfig(dependencyMeta *k8s.DependencyMeta)  ma
 }
 
 func IsDummyService(service *v1.Service) bool {
-	return service.Labels != nil && service.Labels["transwarp.meta"] == "true" && service.Labels["transwarp.install"] != "" &&
-		service.Annotations != nil && service.Annotations["transwarp.meta"] != ""
+	if service == nil {
+		return false
+	}
+	return IsDummyServiceByLabels(service.Labels, service.Annotations)
+}
+
+func IsDummyServiceByLabels(labels map[string]string, annos map[string]string) bool {
+	return labels != nil && labels["transwarp.meta"] == "true" && labels["transwarp.install"] != "" &&
+		annos != nil && annos["transwarp.meta"] != ""
 }
 
 func GetDependencyMetaFromDummyServiceMetaStr(metaString string) (*k8s.DependencyMeta, error) {

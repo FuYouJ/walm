@@ -7,7 +7,6 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog"
 	"regexp"
@@ -62,30 +61,17 @@ func CustomIngressTransform(context *PluginContext, args string) (err error) {
 		return err
 	}
 
-	newResource := []runtime.Object{}
-	chartIngressResources := make([]*v1beta1.Ingress, 0)
 	for _, resource := range context.Resources {
+		unstructuredObj := resource.(*unstructured.Unstructured)
 		switch resource.GetObjectKind().GroupVersionKind().Kind {
 		case "Ingress":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
-				return err
-			}
-			convertedIngress, err := buildIngress(converted)
-			if err != nil {
-				klog.Errorf("buildIngress %v error %v", converted, err)
-				return err
-			}
-			if convertedIngress.Annotations != nil {
-				customAnnotation, ok := convertedIngress.Annotations["transwarp/walmplugin.custom.ingress"]
-				if ok && customAnnotation == "true" {
-					continue
+			if isSkippedIngress(unstructuredObj.GetName(), customIngressArgs) {
+				err = addNestedStringMap(unstructuredObj.Object, map[string]string{ResourceUpgradePolicyAnno: UpgradePolicy}, "metadata", "annotations")
+				if err != nil {
+					klog.Errorf("failed add nested string map : %s", err.Error())
+					return err
 				}
 			}
-			chartIngressResources = append(chartIngressResources, convertedIngress)
-		default:
-			newResource = append(newResource, resource)
 		}
 	}
 
@@ -100,34 +86,23 @@ func CustomIngressTransform(context *PluginContext, args string) (err error) {
 			klog.Infof("failed to convertToUnstructured : %v", *ingressObj)
 			return err
 		}
-		newResource = append(newResource, unstructuredObj)
+		context.Resources = append(context.Resources, unstructuredObj)
 	}
 
-	//if context.R.Version == 1 // New Fresh Install Release
-	klog.Infof("%s enabled plugin %s", context.R.Name, CustomIngressPluginName)
-	for _, chartIngressResource := range chartIngressResources {
-		if chartIngressResource.Annotations == nil {
-			chartIngressResource.Annotations = make(map[string]string, 0)
-		}
-		if customIngressArgs.IngressSkipAll == true {
-			chartIngressResource.Annotations[ResourceUpgradePolicyAnno] = UpgradePolicy
-		} else {
-			for _, skipIngressName := range customIngressArgs.IngressToSkipNames {
-				if skipIngressName == chartIngressResource.Name {
-					chartIngressResource.Annotations[ResourceUpgradePolicyAnno] = UpgradePolicy
-					break
-				}
+	return
+}
+
+func isSkippedIngress(name string, args *CustomIngressArgs) bool {
+	if args.IngressSkipAll == true {
+		return true
+	} else {
+		for _, skipName := range args.IngressToSkipNames {
+			if skipName == name {
+				return true
 			}
 		}
-		unstructuredObj, err := convertToUnstructured(chartIngressResource)
-		if err != nil {
-			klog.Infof("failed to convertToUnstructured : %v", *chartIngressResource)
-			return err
-		}
-		newResource = append(newResource, unstructuredObj)
+		return false
 	}
-	context.Resources = newResource
-	return
 }
 
 func convertK8SIngress(releaseName, releaseNamespace, ingressName string, addObj *AddIngressObject) (*v1beta1.Ingress, error) {

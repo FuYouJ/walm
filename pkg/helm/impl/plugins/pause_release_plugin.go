@@ -1,10 +1,9 @@
 package plugins
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
+	"encoding/json"
 )
 
 const (
@@ -22,53 +21,37 @@ func init() {
 }
 
 func PauseRelease(context *PluginContext, args string) (err error) {
-	newResource := []runtime.Object{}
 	for _, resource := range context.Resources {
+		unstructuredObj := resource.(*unstructured.Unstructured)
 		switch resource.GetObjectKind().GroupVersionKind().Kind {
 		case "Deployment":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
+			err := scaleReplicasToZero(unstructuredObj.Object)
 			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
+				klog.Errorf("failed to scale replicas to 0 : %s", err.Error())
 				return err
 			}
-			deployment, err := buildDeployment(converted)
-			if err != nil {
-				klog.Infof("failed to build deployment : %s", err.Error())
-				return err
-			}
-			pasueDeployment(deployment)
-			newResource = append(newResource, deployment)
 		case "StatefulSet":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Infof("failed to convert unstructured : %s", err.Error())
-				return err
+			annos := unstructuredObj.GetAnnotations()
+			if len(annos) > 0 && annos[UsePodOfflineKey] == UsePodOfflineValue {
+				annos[PodOfflineKey] = ""
+				unstructuredObj.SetAnnotations(annos)
+			} else {
+				err :=scaleReplicasToZero(unstructuredObj.Object)
+				if err != nil {
+					klog.Errorf("failed to scale replicas to 0 : %s", err.Error())
+					return err
+				}
 			}
-			statefulSet, err := buildStatefulSet(converted)
-			if err != nil {
-				klog.Infof("failed to build statefulSet : %s", err.Error())
-				return err
-			}
-			pauseStatefulSet(statefulSet)
-			newResource = append(newResource, statefulSet)
-		default:
-			newResource = append(newResource, resource)
 		}
 	}
-	context.Resources = newResource
 	return
 }
 
-func pauseStatefulSet(statefulSet *appsv1.StatefulSet) {
-	if len(statefulSet.Annotations) > 0 && statefulSet.Annotations[UsePodOfflineKey] == UsePodOfflineValue {
-		statefulSet.Annotations[PodOfflineKey] = ""
-	} else {
-		replicas := int32(0)
-		statefulSet.Spec.Replicas = &replicas
+func scaleReplicasToZero(obj map[string]interface{}) error{
+	err := unstructured.SetNestedField(obj, json.Number("0"), "spec", "replicas")
+	if err != nil {
+		klog.Errorf("failed to set nested field : %s", err.Error())
+		return err
 	}
-}
-
-func pasueDeployment(deployment *appsv1.Deployment) {
-	replicas := int32(0)
-	deployment.Spec.Replicas = &replicas
+	return nil
 }
