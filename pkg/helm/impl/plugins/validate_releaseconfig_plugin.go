@@ -52,19 +52,12 @@ func ValidateReleaseConfig(context *PluginContext, args string) error {
 			}
 		} else if resource.GetObjectKind().GroupVersionKind().Kind == "Service"{
 			// compatible dummy service
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Errorf("failed to convert unstructured : %s", err.Error())
-				return err
-			}
-			service, err := buildService(converted)
-			if err != nil {
-				klog.Infof("failed to build service : %s", err.Error())
-				return err
-			}
-			if k8sutils.IsDummyService(service) {
+			unstructuredObj := resource.(*unstructured.Unstructured)
+			labels := unstructuredObj.GetLabels()
+			annos := unstructuredObj.GetAnnotations()
+			if k8sutils.IsDummyServiceByLabels(labels, annos) {
 				releaseConfig = &v1beta1.ReleaseConfig{}
-				err := json.Unmarshal([]byte(service.Annotations["transwarp.meta"]), &releaseConfig.Spec.OutputConfig)
+				err := json.Unmarshal([]byte(annos["transwarp.meta"]), &releaseConfig.Spec.OutputConfig)
 				if err != nil {
 					klog.Errorf("failed to unmarshal dummy service transwarp meta : %s", err.Error())
 					return err

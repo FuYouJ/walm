@@ -2,9 +2,7 @@ package plugins
 
 import (
 	"encoding/json"
-	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 )
 
@@ -46,114 +44,78 @@ func CustomHealthProbeTransform(context *PluginContext, args string) error {
 		return err
 	}
 
-	newResource := []runtime.Object{}
 	for _, resource := range context.Resources {
+		unstructuredObj := resource.(*unstructured.Unstructured)
 		switch resource.GetObjectKind().GroupVersionKind().Kind {
-		case "Deployment":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
+		case "Deployment", "StatefulSet":
+			err := customHealthProbe(unstructuredObj, customHealthProbeArgs)
 			if err != nil {
-				klog.Errorf("failed to convert unstructured : %s", err.Error())
+				klog.Errorf("failed to customize health probe : %s", err.Error())
 				return err
 			}
-			deployment, err := buildDeployment(converted)
-			if err != nil {
-				klog.Errorf("buildDeployment %v error %v", converted, err)
-				return err
-			}
-			customHealthProbeDeployment(deployment, customHealthProbeArgs)
-			unstructuredObj, err := convertToUnstructured(deployment)
-			if err != nil {
-				klog.Infof("failed to convertToUnstructured : %v", *deployment)
-				return err
-			}
-			newResource = append(newResource, unstructuredObj)
-		case "StatefulSet":
-			converted, err := convertUnstructured(resource.(*unstructured.Unstructured))
-			if err != nil {
-				klog.Errorf("failed to convert unstructured : %s", err.Error())
-				return err
-			}
-			statefulSet, err := buildStatefulSet(converted)
-			if err != nil {
-				klog.Errorf("buildStatefulSet %v error %v", converted, err)
-				return err
-			}
-			customHealthProbeStatefulSet(statefulSet, customHealthProbeArgs)
-			unstructuredObj, err := convertToUnstructured(statefulSet)
-			if err != nil {
-				klog.Infof("failed to convertToUnstructured : %v", *statefulSet)
-				return err
-			}
-			newResource = append(newResource, unstructuredObj)
-		default:
-			newResource = append(newResource, resource)
 		}
 	}
 
-	context.Resources = newResource
 	return nil
 }
 
-func customHealthProbeStatefulSet(statefulSet *appsv1.StatefulSet, customHealthProbeArgs *CustomHealthProbeArgs) {
-	disableLivenessProbe := false
-	disableReadinessProbe := false
+func customHealthProbe(unstructuredObj *unstructured.Unstructured, customHealthProbeArgs *CustomHealthProbeArgs) error{
+	disableLivenessProbe, disableReadinessProbe := buildProbeStatus(unstructuredObj, customHealthProbeArgs)
 
-	for _, probeResource := range customHealthProbeArgs.DisableLivenessProbeResourceList {
-		if probeResource.Kind == "StatefulSet" && probeResource.ResourceName == statefulSet.Name {
-			disableLivenessProbe = true
-		}
-	}
-	for _, probeResource := range customHealthProbeArgs.DisableReadinessProbeResourceList {
-		if probeResource.Kind == "StatefulSet" && probeResource.ResourceName == statefulSet.Name {
-			disableReadinessProbe = true
-		}
-	}
-	if customHealthProbeArgs.DisableAllLivenessProbe {
-		disableLivenessProbe = true
-	}
-	if customHealthProbeArgs.DisableAllReadinessProbe {
-		disableReadinessProbe = true
+	if !(disableReadinessProbe || disableLivenessProbe) {
+		return nil
 	}
 
-	for idx, _ := range statefulSet.Spec.Template.Spec.Containers {
-		if disableLivenessProbe {
-			statefulSet.Spec.Template.Spec.Containers[idx].LivenessProbe = nil
+	containers, found, err := unstructured.NestedSlice(unstructuredObj.Object, "spec", "template", "spec", "containers")
+	if err != nil {
+		klog.Errorf("failed to get nested slice : %s", err.Error())
+		return err
+	}
+
+	if found {
+		for _, container := range containers {
+			if disableLivenessProbe{
+				unstructured.RemoveNestedField(container.(map[string]interface{}),  "livenessProbe")
+			}
+			if disableReadinessProbe{
+				unstructured.RemoveNestedField(container.(map[string]interface{}),  "readinessProbe")
+			}
 		}
-		if disableReadinessProbe {
-			statefulSet.Spec.Template.Spec.Containers[idx].ReadinessProbe = nil
+		err = unstructured.SetNestedSlice(unstructuredObj.Object, containers, "spec", "template", "spec", "containers")
+		if err != nil {
+			klog.Errorf("failed to set nested slice : %s", err.Error())
+			return err
 		}
 	}
+	return nil
 }
 
-func customHealthProbeDeployment(deployment *appsv1.Deployment, customHealthProbeArgs *CustomHealthProbeArgs) {
-	disableLivenessProbe := false
-	disableReadinessProbe := false
+func buildProbeStatus(unstructuredObj *unstructured.Unstructured, customHealthProbeArgs *CustomHealthProbeArgs) (disableLivenessProbe bool,disableReadinessProbe bool) {
+	if unstructuredObj == nil || customHealthProbeArgs == nil {
+		return
+	}
 
-	for _, probeResource := range customHealthProbeArgs.DisableLivenessProbeResourceList {
-		if probeResource.Kind == "Deployment" && probeResource.ResourceName == deployment.Name {
-			disableLivenessProbe = true
-		}
-	}
-	for _, probeResource := range customHealthProbeArgs.DisableReadinessProbeResourceList {
-		if probeResource.Kind == "Deployment" && probeResource.ResourceName == deployment.Name {
-			disableReadinessProbe = true
-		}
-	}
 	if customHealthProbeArgs.DisableAllLivenessProbe {
 		disableLivenessProbe = true
-	}
-	if customHealthProbeArgs.DisableAllReadinessProbe {
-		disableReadinessProbe = true
+	} else {
+		for _, probeResource := range customHealthProbeArgs.DisableLivenessProbeResourceList {
+			if probeResource.Kind == unstructuredObj.GetKind() && probeResource.ResourceName == unstructuredObj.GetName() {
+				disableLivenessProbe = true
+				break
+			}
+		}
 	}
 
-	for idx, _ := range deployment.Spec.Template.Spec.Containers {
-		if disableLivenessProbe {
-			klog.Infof("remove livenessProbe %v", deployment.Spec.Template.Spec.Containers[idx].LivenessProbe)
-			deployment.Spec.Template.Spec.Containers[idx].LivenessProbe = nil
-		}
-		if disableReadinessProbe {
-			klog.Infof("remove readinessProbe %v", deployment.Spec.Template.Spec.Containers[idx].ReadinessProbe)
-			deployment.Spec.Template.Spec.Containers[idx].ReadinessProbe = nil
+	if customHealthProbeArgs.DisableAllReadinessProbe {
+		disableReadinessProbe = true
+	} else {
+		for _, probeResource := range customHealthProbeArgs.DisableReadinessProbeResourceList {
+			if probeResource.Kind == unstructuredObj.GetKind() && probeResource.ResourceName == unstructuredObj.GetName() {
+				disableReadinessProbe = true
+				break
+			}
 		}
 	}
+
+	return
 }
