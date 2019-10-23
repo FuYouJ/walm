@@ -145,21 +145,45 @@ func (helmImpl *Helm) DeleteRelease(namespace string, name string) error {
 	return nil
 }
 
-func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
-	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, paused *bool) (*release.ReleaseCache, error) {
-	var rawChart *chart.Chart
-	var chartErr error
+func (helmImpl *Helm) loadChart(chartFiles []*common.BufferedFile, releaseRequest *release.ReleaseRequestV2) (
+	rawChart *chart.Chart, err error) {
 	// priority: chartFiles > chartImage > chartName
 	if chartFiles != nil {
-		rawChart, chartErr = loader.LoadFiles(convertBufferFiles(chartFiles))
+		rawChart, err = loader.LoadFiles(convertBufferFiles(chartFiles))
 	} else if releaseRequest.ChartImage != "" {
-		rawChart, chartErr = helmImpl.getRawChartByImage(releaseRequest.ChartImage)
+		rawChart, err = helmImpl.getRawChartByImage(releaseRequest.ChartImage)
 	} else {
-		rawChart, chartErr = helmImpl.getRawChartFromRepo(releaseRequest.RepoName, releaseRequest.ChartName, releaseRequest.ChartVersion)
+		rawChart, err = helmImpl.getRawChartFromRepo(releaseRequest.RepoName, releaseRequest.ChartName, releaseRequest.ChartVersion)
 	}
-	if chartErr != nil {
-		klog.Errorf("failed to get raw chart : %s", chartErr.Error())
-		return nil, chartErr
+	return
+}
+
+func processAdvancedParams(chartInfo *release.ChartDetailInfo, releaseRequest *release.ReleaseRequestV2) error {
+	if chartInfo.WalmVersion == common.WalmVersionV2 {
+		// support meta pretty parameters
+		if releaseRequest.MetaInfoParams != nil {
+			metaInfoConfigs, err := releaseRequest.MetaInfoParams.BuildConfigValues(chartInfo.MetaInfo)
+			if err != nil {
+				klog.Errorf("failed to get meta info parameters : %s", err.Error())
+				return err
+			}
+			util.MergeValues(releaseRequest.ConfigValues, metaInfoConfigs, false)
+		}
+	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
+		// compatible for v1 pretty params
+		if releaseRequest.ReleasePrettyParams != nil {
+			processPrettyParams(&releaseRequest.ReleaseRequest)
+		}
+	}
+	return nil
+}
+
+func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
+	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, paused *bool) (*release.ReleaseCache, error) {
+	rawChart, err := helmImpl.loadChart(chartFiles, releaseRequest)
+	if err != nil {
+		klog.Errorf("failed to load chart : %s", err.Error())
+		return nil, err
 	}
 
 	chartInfo, err := buildChartInfo(rawChart)
@@ -172,27 +196,17 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		releaseRequest.ConfigValues = map[string]interface{}{}
 	}
 
-	if chartInfo.WalmVersion == common.WalmVersionV2 {
-		// support meta pretty parameters
-		if releaseRequest.MetaInfoParams != nil {
-			metaInfoConfigs, err := releaseRequest.MetaInfoParams.BuildConfigValues(chartInfo.MetaInfo)
-			if err != nil {
-				klog.Errorf("failed to get meta info parameters : %s", err.Error())
-				return nil, err
-			}
-			util.MergeValues(releaseRequest.ConfigValues, metaInfoConfigs, false)
-		}
-	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
-		// compatible for v1 pretty params
-		if releaseRequest.ReleasePrettyParams != nil {
-			processPrettyParams(&releaseRequest.ReleaseRequest)
-		}
+	err = processAdvancedParams(chartInfo, releaseRequest)
+	if err != nil {
+		klog.Errorf("failed to process advanced params : %s", err.Error())
+		return nil, err
 	}
 
 	dependencies := releaseRequest.Dependencies
 	releaseLabels := releaseRequest.ReleaseLabels
 	releasePlugins := releaseRequest.Plugins
 	configValues := releaseRequest.ConfigValues
+	isomateConfig := releaseRequest.IsomateConfig
 	if update {
 		// reuse config values, dependencies, release labels, walm plugins
 		configValues, dependencies, releaseLabels, releasePlugins, err = reuseReleaseRequest(oldReleaseInfo, releaseRequest)
@@ -200,8 +214,15 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 			klog.Errorf("failed to reuse release request : %s", err.Error())
 			return nil, err
 		}
+
+		err = mergeIsomateConfig(isomateConfig, oldReleaseInfo.IsomateConfig)
+		if err != nil {
+			klog.Errorf("failed to merge old isomate config: %s", err.Error())
+			return nil, err
+		}
 	}
 
+	// merge chart default plugins
 	if chartInfo.MetaInfo != nil {
 		releasePlugins, err = mergeReleasePlugins(releasePlugins, chartInfo.MetaInfo.Plugins)
 		if err != nil {
@@ -217,24 +238,13 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		return nil, err
 	}
 
-	if paused != nil {
-		if *paused {
-			releasePlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
-				{
-					Name:    plugins.PauseReleasePluginName,
-					Version: "1.0",
-				},
-			}, releasePlugins)
-		} else {
-			releasePlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
-				{
-					Name:    plugins.PauseReleasePluginName,
-					Version: "1.0",
-					Disable: true,
-				},
-			}, releasePlugins)
-		}
+	// merge pause release plugin
+	releasePlugins, err = mergePausePlugin(paused, releasePlugins)
+	if err != nil {
+		klog.Errorf("failed to merge pause plugin : %s", err.Error())
+		return nil, err
 	}
+
 	// add default plugin
 	releasePlugins = append(releasePlugins, &k8sModel.ReleasePlugin{
 		Name: plugins.ValidateReleaseConfigPluginName,
@@ -254,74 +264,15 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	valueOverride[plugins.WalmPluginConfigKey] = releasePlugins
 
 	if releaseRequest.IsomateConfig != nil && len(releaseRequest.IsomateConfig.Isomates) > 0 {
-		rawChartTemplates := []*chart.File{}
-		for _, template := range rawChart.Templates {
-			rawChartTemplates = append(rawChartTemplates, template)
-		}
-		rawChartFiles := []*chart.File{}
-		for _, file := range rawChart.Files {
-			rawChartFiles = append(rawChartFiles, file)
-		}
-
-		manifests := map[string]string{}
-		var chartFiles []*chart.File
-		for _, isomate := range releaseRequest.IsomateConfig.Isomates {
-			isomateConfigValues := map[string]interface{}{}
-			util.MergeValues(isomateConfigValues, configValues, false)
-			util.MergeValues(isomateConfigValues, isomate.ConfigValues, false)
-
-			err = processChart(chartInfo, releaseRequest, rawChart, namespace, isomateConfigValues, dependencyConfigs, dependencies, releaseLabels)
-			if err != nil {
-				return nil, err
-			}
-
-			isomateReleasePlugins, err := mergeReleasePlugins(isomate.Plugins, releasePlugins)
-			if err != nil {
-				klog.Errorf("failed to merge release plugins : %s", err.Error())
-				return nil, err
-			}
-
-			args := plugins.IsomateNameArgs{
-				Name: isomate.Name,
-				DefaultIsomate: isomate.Name == releaseRequest.IsomateConfig.DefaultIsomateName,
-			}
-
-			argsBytes, err := json.Marshal(args)
-			if err != nil {
-				klog.Errorf("failed to marshal isomate name args : %s", err.Error())
-				return nil, err
-			}
-			isomateReleasePlugins = append(isomateReleasePlugins, &k8sModel.ReleasePlugin{
-				Name: plugins.IsomateNamePluginName,
-				Args: string(argsBytes),
-			})
-
-			isomateValueOverride := map[string]interface{}{}
-			util.MergeValues(isomateValueOverride, valueOverride, false)
-			util.MergeValues(isomateValueOverride, isomate.ConfigValues, false)
-
-			releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, isomateValueOverride, update, true, isomateReleasePlugins)
-			if err != nil {
-				klog.Errorf("failed to create or update release from chart : %s", err.Error())
-				return nil, err
-			}
-
-			manifests[isomate.Name] = releaseCache.Manifest
-
-			rawChart.Templates = rawChartTemplates
-			if chartFiles == nil {
-				chartFiles = rawChart.Files
-			}
-			rawChart.Files = rawChartFiles
-		}
-		rawChart.Templates, err = helmImpl.mergeIsomateResources(namespace, manifests, releaseRequest.IsomateConfig.DefaultIsomateName)
+		err = helmImpl.processChartWithIsomate(chartInfo, releaseRequest,
+			rawChart, namespace, configValues, dependencyConfigs, dependencies,
+			releaseLabels, releasePlugins, valueOverride, update)
 		if err != nil {
-			klog.Errorf("failed to merge isomate resources : %s", err.Error())
+			klog.Errorf("failed to process chart with isomate config : %s", err.Error())
 			return nil, err
 		}
-		rawChart.Files = chartFiles
 	} else {
-		err = processChart(chartInfo, releaseRequest, rawChart, namespace, configValues, dependencyConfigs, dependencies, releaseLabels)
+		err = transwarpjsonnet.ProcessChart(chartInfo, releaseRequest, rawChart, namespace, configValues, dependencyConfigs, dependencies, releaseLabels, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -336,28 +287,100 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	return releaseCache, nil
 }
 
-func processChart(chartInfo *release.ChartDetailInfo, releaseRequest *release.ReleaseRequestV2, rawChart *chart.Chart,
-	namespace string, configValues, dependencyConfigs map[string]interface{}, dependencies, releaseLabels map[string]string) (err error) {
-	if chartInfo.WalmVersion == common.WalmVersionV2 {
-		err = transwarpjsonnet.ProcessJsonnetChart(
-			releaseRequest.RepoName, rawChart, namespace,
-			releaseRequest.Name, configValues, dependencyConfigs,
-			dependencies, releaseLabels, releaseRequest.ChartImage, releaseRequest.IsomateConfig)
-		if err != nil {
-			klog.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
-			return
-		}
-	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
-		err = transwarpjsonnet.ProcessJsonnetChartV1(
-			releaseRequest.RepoName, rawChart, namespace,
-			releaseRequest.Name, configValues, dependencyConfigs,
-			dependencies, releaseLabels, releaseRequest.ChartImage, releaseRequest.IsomateConfig)
-		if err != nil {
-			klog.Errorf("failed to ProcessJsonnetChart v1: %s", err.Error())
-			return
+func mergePausePlugin(paused *bool, releasePlugins []*k8sModel.ReleasePlugin) (mergedPlugins []*k8sModel.ReleasePlugin, err error) {
+	mergedPlugins = releasePlugins
+	if paused != nil {
+		if *paused {
+			mergedPlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
+				{
+					Name:    plugins.PauseReleasePluginName,
+					Version: "1.0",
+				},
+			}, releasePlugins)
+		} else {
+			mergedPlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
+				{
+					Name:    plugins.PauseReleasePluginName,
+					Version: "1.0",
+					Disable: true,
+				},
+			}, releasePlugins)
 		}
 	}
 	return
+}
+
+func (helmImpl *Helm) processChartWithIsomate(chartInfo *release.ChartDetailInfo, releaseRequest *release.ReleaseRequestV2,
+	rawChart *chart.Chart, namespace string, configValues, dependencyConfigs map[string]interface{}, dependencies,
+	releaseLabels map[string]string, releasePlugins []*k8sModel.ReleasePlugin, valueOverride map[string]interface{}, update bool) (err error) {
+	rawChartTemplates := []*chart.File{}
+	for _, template := range rawChart.Templates {
+		rawChartTemplates = append(rawChartTemplates, template)
+	}
+	rawChartFiles := []*chart.File{}
+	for _, file := range rawChart.Files {
+		rawChartFiles = append(rawChartFiles, file)
+	}
+
+	manifests := map[string]string{}
+	var chartFiles []*chart.File
+	for _, isomate := range releaseRequest.IsomateConfig.Isomates {
+		err = transwarpjsonnet.ProcessChart(chartInfo, releaseRequest, rawChart, namespace, configValues, dependencyConfigs, dependencies, releaseLabels, isomate.ConfigValues)
+		if err != nil {
+			return err
+		}
+
+		isomateReleasePlugins, err := mergeReleasePlugins(isomate.Plugins, releasePlugins)
+		if err != nil {
+			klog.Errorf("failed to merge release plugins : %s", err.Error())
+			return err
+		}
+
+		args := plugins.IsomateNameArgs{
+			Name:           isomate.Name,
+			DefaultIsomate: isomate.Name == releaseRequest.IsomateConfig.DefaultIsomateName,
+		}
+
+		argsBytes, err := json.Marshal(args)
+		if err != nil {
+			klog.Errorf("failed to marshal isomate name args : %s", err.Error())
+			return err
+		}
+		isomateReleasePlugins = append(isomateReleasePlugins, &k8sModel.ReleasePlugin{
+			Name: plugins.IsomateNamePluginName,
+			Args: string(argsBytes),
+		})
+
+		isomateValueOverride := map[string]interface{}{}
+		util.MergeValues(isomateValueOverride, valueOverride, false)
+		util.MergeValues(isomateValueOverride, isomate.ConfigValues, false)
+
+		releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, isomateValueOverride, update, true, isomateReleasePlugins)
+		if err != nil {
+			klog.Errorf("failed to create or update release from chart : %s", err.Error())
+			return err
+		}
+
+		manifests[isomate.Name] = releaseCache.Manifest
+
+		rawChart.Templates = rawChartTemplates
+		if chartFiles == nil {
+			chartFiles = rawChart.Files
+		}
+		rawChart.Files = rawChartFiles
+	}
+
+	defaultIsomateName := releaseRequest.IsomateConfig.DefaultIsomateName
+	if defaultIsomateName == "" {
+		defaultIsomateName = releaseRequest.IsomateConfig.Isomates[0].Name
+	}
+	rawChart.Templates, err = helmImpl.mergeIsomateResources(namespace, manifests, defaultIsomateName)
+	if err != nil {
+		klog.Errorf("failed to merge isomate resources : %s", err.Error())
+		return err
+	}
+	rawChart.Files = chartFiles
+	return nil
 }
 
 func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
@@ -648,7 +671,8 @@ func buildResourceKey(resource *resource.Info) string {
 }
 
 func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *release.ReleaseRequestV2) (
-	configValues map[string]interface{}, dependencies map[string]string, releaseLabels map[string]string, walmPlugins []*k8sModel.ReleasePlugin, err error) {
+	configValues map[string]interface{}, dependencies map[string]string, releaseLabels map[string]string,
+	walmPlugins []*k8sModel.ReleasePlugin, err error) {
 
 	configValues = map[string]interface{}{}
 	util.MergeValues(configValues, releaseInfo.ConfigValues, false)
@@ -685,6 +709,28 @@ func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *rel
 	walmPlugins, err = mergeReleasePlugins(releaseRequest.Plugins, releaseInfo.Plugins)
 	if err != nil {
 		return
+	}
+	return
+}
+
+func mergeIsomateConfig(isomateConfig, oldIsomateConfig *k8sModel.IsomateConfig) (err error) {
+	if isomateConfig == nil || oldIsomateConfig == nil || len(oldIsomateConfig.Isomates) == 0 {
+		return nil
+	}
+	oldIsomatesMap := map[string]*k8sModel.Isomate{}
+	for _, isomate := range oldIsomateConfig.Isomates {
+		oldIsomatesMap[isomate.Name] = isomate
+	}
+
+	for _, isomate := range isomateConfig.Isomates {
+		if oldIsomate, ok := oldIsomatesMap[isomate.Name]; ok {
+			isomate.ConfigValues = util.MergeValues(oldIsomate.ConfigValues, isomate.ConfigValues, false)
+			isomate.Plugins, err = mergeReleasePlugins(isomate.Plugins, oldIsomate.Plugins)
+			if err != nil {
+				klog.Errorf("failed to merge release plugins : %s", err.Error())
+				return
+			}
+		}
 	}
 	return
 }

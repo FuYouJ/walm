@@ -73,7 +73,10 @@ func validateParams(releaseRequest *release.ReleaseRequestV2, chartFiles []*comm
 		return fmt.Errorf("at lease one of chart name or chart image or chart files should be supported")
 	}
 
-	if releaseRequest.IsomateConfig != nil && len(releaseRequest.IsomateConfig.Isomates) > 0 {
+	if releaseRequest.IsomateConfig != nil {
+		if len(releaseRequest.IsomateConfig.Isomates) == 0 {
+			return fmt.Errorf("at lease one isomate should be supported")
+		}
 		isomateNames := map[string]bool{}
 		for _, isomate := range releaseRequest.IsomateConfig.Isomates {
 			if isomate.Name == "" {
@@ -146,9 +149,5 @@ func preProcessRequest(releaseRequest *release.ReleaseRequestV2) {
 	}
 	if releaseRequest.ReleaseLabels == nil {
 		releaseRequest.ReleaseLabels = map[string]string{}
-	}
-	if releaseRequest.IsomateConfig != nil && len(releaseRequest.IsomateConfig.Isomates) == 0 &&
-		releaseRequest.IsomateConfig.DefaultIsomateName == "" {
-		releaseRequest.IsomateConfig.DefaultIsomateName = releaseRequest.IsomateConfig.Isomates[0].Name
 	}
 }

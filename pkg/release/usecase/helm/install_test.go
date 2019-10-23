@@ -371,6 +371,16 @@ func Test_validateParams(t *testing.T) {
 					Name:      "test",
 					ChartName: "test",
 				},
+				IsomateConfig: &k8s.IsomateConfig{},
+			},
+			err: errors.New(""),
+		},
+		{
+			releaseRequest: &release.ReleaseRequestV2{
+				ReleaseRequest: release.ReleaseRequest{
+					Name:      "test",
+					ChartName: "test",
+				},
 				IsomateConfig: &k8s.IsomateConfig{
 					Isomates: []*k8s.Isomate{
 						{

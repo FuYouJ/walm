@@ -236,34 +236,34 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel2",
-					Version: 1,
+					Name:      "rel2",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
-				"testns/rel2" : {
+				"testns/rel2": {
 					Namespace: "testns",
-					Name: "rel2",
-					Version: 1,
+					Name:      "rel2",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
@@ -274,26 +274,26 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
@@ -304,26 +304,26 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
@@ -334,26 +334,26 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusPendingUpgrade,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
@@ -364,26 +364,26 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusPendingUpgrade,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
@@ -394,26 +394,26 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusPendingUpgrade,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
@@ -424,26 +424,26 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusPendingUpgrade,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusDeployed,
 					},
@@ -454,26 +454,26 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusFailed,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusPendingUpgrade,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusFailed,
 					},
@@ -484,26 +484,26 @@ func Test_filterHelmReleases(t *testing.T) {
 			releases: []*helmRelease.Release{
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 1,
+					Name:      "rel1",
+					Version:   1,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusPendingUpgrade,
 					},
 				},
 				{
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusFailed,
 					},
 				},
 			},
 			filteredReleases: map[string]*helmRelease.Release{
-				"testns/rel1" : {
+				"testns/rel1": {
 					Namespace: "testns",
-					Name: "rel1",
-					Version: 2,
+					Name:      "rel1",
+					Version:   2,
 					Info: &helmRelease.Info{
 						Status: helmRelease.StatusFailed,
 					},
@@ -514,5 +514,169 @@ func Test_filterHelmReleases(t *testing.T) {
 	for _, test := range tests {
 		filteredReleases := filterHelmReleases(test.releases)
 		assert.Equal(t, test.filteredReleases, filteredReleases)
+	}
+}
+
+func Test_mergeIsomateConfig(t *testing.T) {
+	tests := []struct {
+		isomateConfig    *k8s.IsomateConfig
+		oldIsomateConfig *k8s.IsomateConfig
+		err              error
+		result           *k8s.IsomateConfig
+	}{
+		{
+			isomateConfig: &k8s.IsomateConfig{
+				DefaultIsomateName: "x86",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "x86",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test-plugin",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test",
+						},
+					},
+				},
+			},
+			oldIsomateConfig: nil,
+			result: &k8s.IsomateConfig{
+				DefaultIsomateName: "x86",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "x86",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test-plugin",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test",
+						},
+					},
+				},
+			},
+		},
+		{
+			isomateConfig: &k8s.IsomateConfig{
+				DefaultIsomateName: "x86",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "x86",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test-plugin",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test1",
+						},
+					},
+				},
+			},
+			oldIsomateConfig:  &k8s.IsomateConfig{
+				DefaultIsomateName: "x86",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "x86",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test-plugin1",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test",
+						},
+					},
+				},
+			},
+			result: &k8s.IsomateConfig{
+				DefaultIsomateName: "x86",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "x86",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test-plugin",
+							},
+							{
+								Name: "test-plugin1",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test1",
+						},
+					},
+				},
+			},
+		},
+		{
+			isomateConfig: &k8s.IsomateConfig{
+				DefaultIsomateName: "arm",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "arm",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test-plugin",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test1",
+						},
+					},
+				},
+			},
+			oldIsomateConfig:  &k8s.IsomateConfig{
+				DefaultIsomateName: "x86",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "x86",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test-plugin1",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test",
+						},
+					},
+				},
+			},
+			result: &k8s.IsomateConfig{
+				DefaultIsomateName: "arm",
+				Isomates: []*k8s.Isomate{
+					{
+						Name: "arm",
+						Plugins: []*k8s.ReleasePlugin{
+							{
+								Name: "test-plugin",
+							},
+						},
+						ConfigValues: map[string]interface{}{
+							"test": "test1",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		err := mergeIsomateConfig(test.isomateConfig, test.oldIsomateConfig)
+		assert.IsType(t, test.err, err)
+		equalIsomateConfig(t, test.result, test.isomateConfig)
+	}
+}
+
+func equalIsomateConfig(t *testing.T, expectedIsomateConfig, actualIsomateConfig *k8s.IsomateConfig) {
+	assert.Equal(t, expectedIsomateConfig.DefaultIsomateName, actualIsomateConfig.DefaultIsomateName)
+	assert.Equal(t, len(expectedIsomateConfig.Isomates), len(actualIsomateConfig.Isomates))
+	for index, isomate := range expectedIsomateConfig.Isomates {
+		assert.Equal(t, isomate.Name, actualIsomateConfig.Isomates[index].Name)
+		assert.ElementsMatch(t, isomate.Plugins, actualIsomateConfig.Isomates[index].Plugins)
+		assert.Equal(t, isomate.ConfigValues, actualIsomateConfig.Isomates[index].ConfigValues)
 	}
 }
