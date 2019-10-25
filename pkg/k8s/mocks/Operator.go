@@ -243,13 +243,13 @@ func (_m *Operator) LabelNode(name string, labelsToAdd map[string]string, labels
 	return r0
 }
 
-// MigrateNode provides a mock function with given fields: srcHost, destHost, mig, migNamespace
-func (_m *Operator) MigrateNode(srcHost string, destHost string, mig string, migNamespace string) error {
-	ret := _m.Called(srcHost, destHost, mig, migNamespace)
+// MigrateNode provides a mock function with given fields: mig
+func (_m *Operator) MigrateNode(mig *modelsk8s.Mig) error {
+	ret := _m.Called(mig)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, string, string) error); ok {
-		r0 = rf(srcHost, destHost, mig, migNamespace)
+	if rf, ok := ret.Get(0).(func(*modelsk8s.Mig) error); ok {
+		r0 = rf(mig)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -257,13 +257,13 @@ func (_m *Operator) MigrateNode(srcHost string, destHost string, mig string, mig
 	return r0
 }
 
-// MigratePod provides a mock function with given fields: namespace, name, mig, migNamespace, destHost
-func (_m *Operator) MigratePod(namespace string, name string, mig string, migNamespace string, destHost string) error {
-	ret := _m.Called(namespace, name, mig, migNamespace, destHost)
+// MigratePod provides a mock function with given fields: namespace, name, mig, fromNode
+func (_m *Operator) MigratePod(namespace string, name string, mig *modelsk8s.Mig, fromNode bool) error {
+	ret := _m.Called(namespace, name, mig, fromNode)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, string, string, string) error); ok {
-		r0 = rf(namespace, name, mig, migNamespace, destHost)
+	if rf, ok := ret.Get(0).(func(string, string, *modelsk8s.Mig, bool) error); ok {
+		r0 = rf(namespace, name, mig, fromNode)
 	} else {
 		r0 = ret.Error(0)
 	}

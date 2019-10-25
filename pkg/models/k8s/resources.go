@@ -17,6 +17,7 @@ const (
 	NamespaceKind             ResourceKind = "Namespace"
 	ReleaseConfigKind         ResourceKind = "ReleaseConfig"
 	InstanceKind              ResourceKind = "ApplicationInstance"
+	MigKind                   ResourceKind = "Mig"
 )
 
 type ResourceKind string
@@ -455,6 +456,27 @@ type ApplicationInstance struct {
 	InstanceId     string            `json:"instanceId"`
 	Modules        *ResourceSet      `json:"resourceSet"`
 	DependencyMeta *DependencyMeta   `json:"dependencyMeta"`
+}
+
+type MigList struct {
+	Items []*Mig `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+type Mig struct {
+	Meta
+	Labels              map[string]string `json:"labels" description:"labels"`
+	Spec                MigSpec           `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	SrcHost             string            `json:"srcHost,omitempty"`
+	DestHost            string            `json:"destHost,omitempty"`
+}
+
+func (resource *Mig) AddToResourceSet(resourceSet *ResourceSet) {
+}
+
+// MigSpec defines the desired state of Mig
+type MigSpec struct {
+	PodName    string `json:"podname,omitempty"`
+	Namespace  string `json:"namespace,omitempty"`
 }
 
 type DependencyMeta struct {

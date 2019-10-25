@@ -4,10 +4,11 @@ import (
 	"WarpCloud/walm/pkg/k8s"
 	"WarpCloud/walm/pkg/models/http"
 	httpUtils "WarpCloud/walm/pkg/util/http"
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
+
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
-	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
 )
 
 type CrdHandler struct {
@@ -38,8 +39,8 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Doc("获取所有crd迁移信息列表").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.QueryParameter("labelselector", "节点标签过滤").DataType("string").Required(false)).
-		Writes([]tosv1beta1.Mig{}).
-		Returns(200, "OK", []tosv1beta1.Mig{}).
+		Writes(k8sModel.MigList{}).
+		Returns(200, "OK", k8sModel.MigList{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.GET("/migration/{namespace}").To(handler.ListMigrationsByNamespace).
@@ -47,37 +48,39 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string").Required(true)).
 		Param(ws.QueryParameter("labelselector", "节点标签过滤").DataType("string").Required(false)).
-		Writes([]tosv1beta1.Mig{}).
-		Returns(200, "OK", []tosv1beta1.Mig{}).
+		Writes(k8sModel.MigList{}).
+		Returns(200, "OK", k8sModel.MigList{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.GET("/migration/{namespace}/{mig}").To(handler.GetMigration).
-		Doc("获取特定的crd迁移信息").
+	ws.Route(ws.GET("/migration/pod/{namespace}/name/{mig}").To(handler.GetPodMigration).
+		Doc("获取pod迁移信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string").Required(true)).
 		Param(ws.PathParameter("mig", "crd迁移名称").DataType("string").Required(true)).
-		Writes(tosv1beta1.Mig{}).
-		Returns(200, "Ok", tosv1beta1.Mig{}).
+		Writes(k8sModel.Mig{}).
+		Returns(200, "Ok", k8sModel.Mig{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.POST("/migration/pod/{namespace}/name/{pod}/mig/{mig}").To(handler.MigratePod).
-		Doc("迁移Pod").
+	ws.Route(ws.POST("/migration/pod").To(handler.MigratePod).
+		Doc("迁移pod").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
-		Param(ws.PathParameter("namespace", "租户名字").DataType("string").Required(true)).
-		Param(ws.PathParameter("pod", "pod名字").DataType("string").Required(true)).
-		Param(ws.PathParameter("mig", "迁移操作名称").DataType("string").Required(true)).
-		Param(ws.QueryParameter("migNamespace", "迁移信息所在Namespace").DataType("string").Required(false)).
-		Param(ws.QueryParameter("destHost", "迁移的目标node节点名称").DataType("string").Required(false)).
+		Reads(k8sModel.Mig{}).
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.POST("/migration/node/{srcHost}/mig/{mig}").To(handler.MigrateNode).
+	ws.Route(ws.GET("/migration/node/{namespace}/name/{mig}").To(handler.GetNodeMigration).
+		Doc("获取节点迁移信息").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string").Required(true)).
+		Param(ws.PathParameter("mig", "crd迁移名称").DataType("string").Required(true)).
+		Writes(k8sModel.MigList{}).
+		Returns(200, "Ok", k8sModel.MigList{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
+	ws.Route(ws.POST("/migration/node").To(handler.MigrateNode).
 		Doc("迁移节点上所有statefulset管理的pod").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
-		Param(ws.PathParameter("srcHost", "要迁移的node节点名称").DataType("string").Required(true)).
-		Param(ws.PathParameter("mig", "迁移操作名称").DataType("string").Required(true)).
-		Param(ws.QueryParameter("migNamespace", "迁移信息所在Namespace").DataType("string").Required(false)).
-		Param(ws.QueryParameter("destHost", "迁移的目标node节点名称").DataType("string").Required(false)).
+		Reads(k8sModel.Mig{}).
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
@@ -100,18 +103,18 @@ func (handler CrdHandler) ListMigrations(request *restful.Request, response *res
 func (handler CrdHandler) ListMigrationsByNamespace(request *restful.Request, response *restful.Response) {
 	labelSelectorStr := request.QueryParameter("labelselector")
 	namespace := request.PathParameter("namespace")
-	migs, err := handler.k8sCache.ListMigrations(namespace, labelSelectorStr)
+	migList, err := handler.k8sCache.ListMigrations(namespace, labelSelectorStr)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list namespace %s migrations: %s",namespace, err.Error()))
 		return
 	}
-	response.WriteEntity(migs)
+	response.WriteEntity(migList)
 }
 
-func (handler CrdHandler) GetMigration(request *restful.Request, response *restful.Response) {
+func (handler CrdHandler) GetPodMigration(request *restful.Request, response *restful.Response) {
 	namespace := request.PathParameter("namespace")
 	migName := request.PathParameter("mig")
-	mig, err := handler.k8sCache.GetMigration(namespace, migName)
+	mig, err := handler.k8sCache.GetResource(k8sModel.MigKind, namespace, migName)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get migrations %s: %s",migName, err.Error()))
 		return
@@ -120,13 +123,21 @@ func (handler CrdHandler) GetMigration(request *restful.Request, response *restf
 }
 
 func (handler CrdHandler) MigratePod(request *restful.Request, response *restful.Response) {
-	namespace := request.PathParameter("namespace")
-	podName := request.PathParameter("pod")
-	migName := request.PathParameter("mig")
-	migNamespace := request.QueryParameter("migNamespace")
-	destHost := request.QueryParameter("destHost")
 
-	err := handler.k8sOperator.MigratePod(namespace, podName, migName, migNamespace, destHost)
+	migParams := new(k8sModel.Mig)
+	err := request.ReadEntity(&migParams)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read mig params : %s", err.Error()))
+		return
+	}
+
+	if migParams.Spec.Namespace == "" || migParams.Spec.PodName == ""{
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("both spec.namespace and spec.podname must be set"))
+		return
+	}
+
+	err = handler.k8sOperator.MigratePod(migParams.Spec.Namespace, migParams.Spec.PodName, migParams, false)
+
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to migrate pod : %s", err.Error()))
 		return
@@ -134,17 +145,32 @@ func (handler CrdHandler) MigratePod(request *restful.Request, response *restful
 	return
 }
 
-func (handler CrdHandler) MigrateNode(request *restful.Request, response *restful.Response) {
-	srcHost := request.PathParameter("srcHost")
+func (handler CrdHandler) GetNodeMigration(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
 	migName := request.PathParameter("mig")
-	migNamespace := request.QueryParameter("migNamespace")
-	destHost := request.QueryParameter("destHost")
+	migList, err := handler.k8sCache.GetNodeMigration(namespace, migName)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get node migs: %s", err.Error()))
+		return
+	}
+	response.WriteEntity(migList)
+}
 
-	err := handler.k8sOperator.MigrateNode(srcHost, destHost, migName, migNamespace)
+func (handler CrdHandler) MigrateNode(request *restful.Request, response *restful.Response) {
+	migParams := new(k8sModel.Mig)
+	err := request.ReadEntity(&migParams)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read mig params : %s", err.Error()))
+		return
+	}
+	if migParams.SrcHost == "" {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("SrcHost must be set"))
+		return
+	}
+	err = handler.k8sOperator.MigrateNode(migParams)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to migrate node: %s", err.Error()))
 		return
 	}
 	return
 }
-
