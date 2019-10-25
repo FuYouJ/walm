@@ -146,8 +146,7 @@ func (migrate *migrateOptions) run() error {
 
 	prefixName := mig.Name
 	for _, pod := range podList {
-
-		mig.Labels = map[string]string{"migType": "node", "migName": mig.Name}
+		mig.Labels = map[string]string{"migType": "node", "migName": prefixName}
 		mig.Name = prefixName + "-" + pod.Namespace + "-" + pod.Name
 
 		_, err = client.MigratePod(pod.Namespace, pod.Name, mig)
