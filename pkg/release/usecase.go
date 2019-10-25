@@ -22,12 +22,11 @@ type UseCase interface {
 	// 1. nil: maintain pause state
 	// 2. true: make release paused
 	// 3. false: make release recovered
-	InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, paused *bool) error
-	InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, paused *bool) error
+	InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error
+	InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error
 	ReloadRelease(namespace, name string) error
 	RestartRelease(namespace, releaseName string) error
-	RecoverRelease(namespace, releaseName string, async bool, timeoutSec int64) error
-	PauseRelease(namespace, releaseName string, async bool, timeoutSec int64) error
+	PauseOrRecoverRelease(namespace, releaseName string, async bool, timeoutSec int64, paused bool) error
 
 	UpdateReleaseIngress(namespace, name, ingressName string, requestBody *k8s.IngressRequestBody) error
 	UpdateReleaseConfigMap(namespace, name, configMapName string, requestBody *k8s.ConfigMapRequestBody) error

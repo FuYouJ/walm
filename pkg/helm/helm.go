@@ -13,8 +13,9 @@ type Helm interface {
 	// 2. true: enable pause release plugin
 	// 3. false: disable pause release plugin
 	InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
-		dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, paused *bool) (*release.ReleaseCache, error)
+		dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error)
 	DeleteRelease(namespace string, name string) error
+	PauseOrRecoverRelease(paused bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error)
 	ListAllReleases() ([]*release.ReleaseCache, error)
 	GetDependencyOutputConfigs(namespace string, dependencies map[string]string, chartInfo *release.ChartDetailInfo, strict bool) (dependencyConfigs map[string]interface{}, err error)
 

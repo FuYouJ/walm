@@ -46,7 +46,7 @@ func TestHelm_ComputeResourcesByDryRunRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, true, false, (*release.ReleaseInfoV2)(nil), (*bool)(nil)).Return(&release.ReleaseCache{Manifest: "test-manifest"}, nil)
+				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, true, false, (*release.ReleaseInfoV2)(nil)).Return(&release.ReleaseCache{Manifest: "test-manifest"}, nil)
 				mockK8sOperator.On("ComputeReleaseResourcesByManifest", mock.Anything, "test-manifest").Return(&release.ReleaseResources{}, nil)
 			},
 			resources: &release.ReleaseResources{},
@@ -56,7 +56,7 @@ func TestHelm_ComputeResourcesByDryRunRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, true, false, (*release.ReleaseInfoV2)(nil), (*bool)(nil)).Return(&release.ReleaseCache{Manifest: "test-manifest"}, nil)
+				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, true, false, (*release.ReleaseInfoV2)(nil)).Return(&release.ReleaseCache{Manifest: "test-manifest"}, nil)
 				mockK8sOperator.On("ComputeReleaseResourcesByManifest", mock.Anything, "test-manifest").Return(nil, errors.New("failed to compute"))
 			},
 			resources: nil,
@@ -112,7 +112,7 @@ func TestHelm_DryRunRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, true, false, (*release.ReleaseInfoV2)(nil), (*bool)(nil)).Return(&release.ReleaseCache{Manifest: "test-manifest"}, nil)
+				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, true, false, (*release.ReleaseInfoV2)(nil)).Return(&release.ReleaseCache{Manifest: "test-manifest"}, nil)
 				mockK8sOperator.On("BuildManifestObjects", mock.Anything, "test-manifest").Return([]map[string]interface{}{}, nil)
 			},
 			resources: []map[string]interface{}{},
@@ -122,7 +122,7 @@ func TestHelm_DryRunRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, true, false, (*release.ReleaseInfoV2)(nil), (*bool)(nil)).Return(&release.ReleaseCache{Manifest: "test-manifest"}, nil)
+				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, true, false, (*release.ReleaseInfoV2)(nil)).Return(&release.ReleaseCache{Manifest: "test-manifest"}, nil)
 				mockK8sOperator.On("BuildManifestObjects", mock.Anything, "test-manifest").Return(nil, errors.New("failed to build"))
 			},
 			resources: nil,

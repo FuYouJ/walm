@@ -16,10 +16,10 @@ const (
 	defaultTimeoutSec int64 = 60 * 5
 )
 
-func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, paused *bool) error {
+func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
 	retryTimes := 5
 	for {
-		err := helm.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, async, timeoutSec, paused)
+		err := helm.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, async, timeoutSec)
 		if err != nil {
 			if strings.Contains(err.Error(), releasei.WaitReleaseTaskMsgPrefix) && retryTimes > 0 {
 				klog.Warningf("retry to install or upgrade release %s/%s after 2 second", namespace, releaseRequest.Name)
@@ -32,7 +32,7 @@ func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseReques
 	}
 }
 
-func (helm *Helm) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, paused *bool) error {
+func (helm *Helm) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
 	err := validateParams(releaseRequest, chartFiles)
 	if err != nil {
 		klog.Errorf("failed to validate params : %s", err.Error())
@@ -52,7 +52,6 @@ func (helm *Helm) InstallUpgradeRelease(namespace string, releaseRequest *releas
 		Namespace:      namespace,
 		ReleaseRequest: releaseRequest,
 		ChartFiles:     chartFiles,
-		Paused:         paused,
 	}
 
 	err = helm.sendReleaseTask(namespace, releaseRequest.Name, createReleaseTaskName, releaseTaskArgs, oldReleaseTask, timeoutSec, async)
@@ -98,7 +97,7 @@ func validateParams(releaseRequest *release.ReleaseRequestV2, chartFiles []*comm
 	return nil
 }
 
-func (helm *Helm) doInstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool, paused *bool) (*release.ReleaseCache, error) {
+func (helm *Helm) doInstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool) (*release.ReleaseCache, error) {
 	update := true
 	oldReleaseCache, err := helm.releaseCache.GetReleaseCache(namespace, releaseRequest.Name)
 	if err != nil {
@@ -121,7 +120,7 @@ func (helm *Helm) doInstallUpgradeRelease(namespace string, releaseRequest *rele
 
 	preProcessRequest(releaseRequest)
 
-	releaseCache, err := helm.helm.InstallOrCreateRelease(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, paused)
+	releaseCache, err := helm.helm.InstallOrCreateRelease(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo)
 	if err != nil {
 		klog.Errorf("failed to install or update release %s/%s : %s", namespace, releaseRequest.Name, err.Error())
 		return nil, err

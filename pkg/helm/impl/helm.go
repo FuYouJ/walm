@@ -179,7 +179,7 @@ func processAdvancedParams(chartInfo *release.ChartDetailInfo, releaseRequest *r
 }
 
 func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
-	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, paused *bool) (*release.ReleaseCache, error) {
+	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error) {
 	rawChart, err := helmImpl.loadChart(chartFiles, releaseRequest)
 	if err != nil {
 		klog.Errorf("failed to load chart : %s", err.Error())
@@ -238,13 +238,6 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		return nil, err
 	}
 
-	// merge pause release plugin
-	releasePlugins, err = mergePausePlugin(paused, releasePlugins)
-	if err != nil {
-		klog.Errorf("failed to merge pause plugin : %s", err.Error())
-		return nil, err
-	}
-
 	// add default plugin
 	releasePlugins = append(releasePlugins, &k8sModel.ReleasePlugin{
 		Name: plugins.ValidateReleaseConfigPluginName,
@@ -278,7 +271,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 		}
 	}
 
-	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, valueOverride, update, dryRun, releasePlugins)
+	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest.Name, rawChart, valueOverride, update, dryRun, releasePlugins)
 	if err != nil {
 		klog.Errorf("failed to create or update release from chart : %s", err.Error())
 		return nil, err
@@ -287,25 +280,22 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	return releaseCache, nil
 }
 
-func mergePausePlugin(paused *bool, releasePlugins []*k8sModel.ReleasePlugin) (mergedPlugins []*k8sModel.ReleasePlugin, err error) {
-	mergedPlugins = releasePlugins
-	if paused != nil {
-		if *paused {
-			mergedPlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
-				{
-					Name:    plugins.PauseReleasePluginName,
-					Version: "1.0",
-				},
-			}, releasePlugins)
-		} else {
-			mergedPlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
-				{
-					Name:    plugins.PauseReleasePluginName,
-					Version: "1.0",
-					Disable: true,
-				},
-			}, releasePlugins)
-		}
+func mergePausePlugin(paused bool, releasePlugins []*k8sModel.ReleasePlugin) (mergedPlugins []*k8sModel.ReleasePlugin, err error) {
+	if paused {
+		mergedPlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
+			{
+				Name:    plugins.PauseReleasePluginName,
+				Version: "1.0",
+			},
+		}, releasePlugins)
+	} else {
+		mergedPlugins, err = mergeReleasePlugins([]*k8sModel.ReleasePlugin{
+			{
+				Name:    plugins.PauseReleasePluginName,
+				Version: "1.0",
+				Disable: true,
+			},
+		}, releasePlugins)
 	}
 	return
 }
@@ -355,7 +345,7 @@ func (helmImpl *Helm) processChartWithIsomate(chartInfo *release.ChartDetailInfo
 		util.MergeValues(isomateValueOverride, valueOverride, false)
 		util.MergeValues(isomateValueOverride, isomate.ConfigValues, false)
 
-		releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest, rawChart, isomateValueOverride, update, true, isomateReleasePlugins)
+		releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest.Name, rawChart, isomateValueOverride, update, true, isomateReleasePlugins)
 		if err != nil {
 			klog.Errorf("failed to create or update release from chart : %s", err.Error())
 			return err
@@ -383,8 +373,45 @@ func (helmImpl *Helm) processChartWithIsomate(chartInfo *release.ChartDetailInfo
 	return nil
 }
 
-func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
-	releaseRequest *release.ReleaseRequestV2, rawChart *chart.Chart, valueOverride map[string]interface{},
+func (helmImpl *Helm) PauseOrRecoverRelease(paused bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error) {
+	getAction, err := helmImpl.getGetAction(oldReleaseInfo.Namespace)
+	if err != nil {
+		klog.Errorf("failed to get GetReleaseAction : %s", err.Error())
+		return nil, err
+	}
+
+	helmRel, err := getAction.Run(oldReleaseInfo.Name)
+	if err != nil {
+		klog.Errorf("failed to get release %s/%s from helm : %s", oldReleaseInfo.Namespace, oldReleaseInfo.Name, err.Error())
+		return nil, err
+	}
+
+	rawChart := helmRel.Chart
+
+	// merge pause release plugin
+	releasePlugins, err := mergePausePlugin(paused, oldReleaseInfo.Plugins)
+	if err != nil {
+		klog.Errorf("failed to merge pause plugin : %s", err.Error())
+		return nil, err
+	}
+
+	// add default plugin
+	releasePlugins = append(releasePlugins, &k8sModel.ReleasePlugin{
+		Name: plugins.ValidateReleaseConfigPluginName,
+	})
+
+	valueOverride := helmRel.Config
+	valueOverride[plugins.WalmPluginConfigKey] = releasePlugins
+
+	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(oldReleaseInfo.Namespace, oldReleaseInfo.Name, rawChart, valueOverride, true, false, releasePlugins)
+	if err != nil {
+		klog.Errorf("failed to update release from chart : %s", err.Error())
+		return nil, err
+	}
+	return releaseCache, nil
+}
+
+func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace, name string, rawChart *chart.Chart, valueOverride map[string]interface{},
 	update bool, dryRun bool, releasePlugins []*k8sModel.ReleasePlugin) (releaseCache *release.ReleaseCache, err error) {
 
 	releaseChan := make(chan *helmRelease.Release, 1)
@@ -440,9 +467,9 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 		action.MaxHistory = 3
 		action.ReleaseChan = releaseChan
 		action.ReleaseErrChan = releaseErrChan
-		helmRelease, err = action.Run(releaseRequest.Name, rawChart, valueOverride)
+		helmRelease, err = action.Run(name, rawChart, valueOverride)
 		if err != nil {
-			klog.Errorf("failed to upgrade release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
+			klog.Errorf("failed to upgrade release %s/%s from chart : %s", namespace, name, err.Error())
 			return nil, err
 		}
 	} else {
@@ -452,20 +479,20 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace string,
 		}
 		action.DryRun = dryRun
 		action.Namespace = namespace
-		action.ReleaseName = releaseRequest.Name
+		action.ReleaseName = name
 		action.ReleaseChan = releaseChan
 		action.ReleaseErrChan = releaseErrChan
 		helmRelease, err = action.Run(rawChart, valueOverride)
 		if err != nil {
-			klog.Errorf("failed to install release %s/%s from chart : %s", namespace, releaseRequest.Name, err.Error())
+			klog.Errorf("failed to install release %s/%s from chart : %s", namespace, name, err.Error())
 			if !dryRun {
 				action1, err1 := helmImpl.getDeleteAction(namespace)
 				if err1 != nil {
 					klog.Errorf("failed to get helm delete action : %s", err.Error())
 				} else {
-					_, err1 = action1.Run(releaseRequest.Name)
+					_, err1 = action1.Run(name)
 					if err1 != nil {
-						klog.Errorf("failed to rollback to delete release %s/%s : %s", namespace, releaseRequest.Name, err1.Error())
+						klog.Errorf("failed to rollback to delete release %s/%s : %s", namespace, name, err1.Error())
 					}
 				}
 			}
@@ -598,6 +625,14 @@ func buildMetaInfoValues(chart *chart.Chart, computedValues map[string]interface
 	}
 
 	return nil, nil
+}
+
+func (helmImpl *Helm) getGetAction(namespace string) (*action.Get, error) {
+	config, err := helmImpl.getActionConfig(namespace)
+	if err != nil {
+		return nil, err
+	}
+	return action.NewGet(config), nil
 }
 
 func (helmImpl *Helm) getInstallAction(namespace string) (*action.Install, error) {
