@@ -372,22 +372,20 @@ func (c *WalmctlClient) DeleteReleaseInProject(namespace string, projectName str
 	return resp, err
 }
 
-func (c *WalmctlClient) MigratePod(namespace string, pod string, mig string, migNamespace string, destHost string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + namespace + "/name/" + pod + "/mig/" + mig
+func (c *WalmctlClient) MigratePod(namespace string, pod string, mig k8sModel.Mig) (resp *resty.Response, err error) {
 
-	if migNamespace != "" {
-		fullUrl += "?migNamespace=" + migNamespace
-		if destHost != "" {
-			fullUrl += "&destHost=" + destHost
-		}
-	} else {
-		if destHost != "" {
-			fullUrl += "?destHost=" + destHost
-		}
+	mig.Spec.Namespace = namespace
+	mig.Spec.PodName = pod
+	migByte, err := json.Marshal(mig)
+	if err != nil {
+		return nil, err
 	}
+
+	fullUrl := walmctlClient.baseURL + "/crd/migration/pod"
 
 	resp, err = resty.R().
 		SetHeader("Content-Type", "application/json").
+		SetBody(string(migByte)).
 		Post(fullUrl)
 
 	if err != nil {
@@ -400,8 +398,25 @@ func (c *WalmctlClient) MigratePod(namespace string, pod string, mig string, mig
 	return resp, err
 }
 
-func (c *WalmctlClient) GetMigration(migNamespace string, mig string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/crd/migration/" + migNamespace + "/" + mig
+func (c *WalmctlClient) MigrateNode(migStr string) (resp *resty.Response, err error) {
+	fullUrl := walmctlClient.baseURL + "/crd/migration/node"
+
+	resp, err = resty.R().
+		SetHeader("Content-Type", "application/json").
+		SetBody(migStr).
+		Post(fullUrl)
+
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() != 200 {
+		return nil, errors.New(resp.String())
+	}
+	return resp, err
+}
+
+func (c *WalmctlClient) GetPodMigration(migNamespace string, mig string) (resp *resty.Response, err error) {
+	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + migNamespace + "/" + mig
 	resp, err = resty.R().
 		Get(fullUrl)
 
@@ -415,3 +430,17 @@ func (c *WalmctlClient) GetMigration(migNamespace string, mig string) (resp *res
 	return resp, err
 }
 
+func (c *WalmctlClient) GetNodeMigration(migNamespace string, mig string)  (resp *resty.Response, err error) {
+	fullUrl := walmctlClient.baseURL + "crd/migration/node" + migNamespace + "/" + mig
+	resp, err = resty.R().
+		Get(fullUrl)
+
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() != 200 {
+		return nil, errors.Errorf(resp.String())
+	}
+
+	return resp, err
+}

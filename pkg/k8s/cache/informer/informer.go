@@ -12,6 +12,8 @@ import (
 	migrationexternalversions "github.com/migration/pkg/client/informers/externalversions"
 	migrationv1beta1 "github.com/migration/pkg/client/listers/tos/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/informers"
@@ -349,32 +351,57 @@ func (informer *Informer) ListReleaseConfigs(namespace, labelSelectorStr string)
 	return releaseConfigs, nil
 }
 
-func (informer *Informer) GetMigration(namespace, name string) (*tosv1beta1.Mig, error){
-	resource, err := informer.migrationLister.Migs(namespace).Get(name)
+func (informer *Informer) GetNodeMigration(namespace string, name string) (*k8s.MigList, error) {
+	var migs []*k8s.Mig
+	selector, err := utils.ConvertLabelSelectorToSelector(&metav1.LabelSelector{
+		MatchLabels: map[string]string{"migType": "node", "migName": name},
+	})
 	if err != nil {
-		klog.Errorf("failed to get crd: %s", err.Error())
+		klog.Errorf("failed to convert label selector to selector: %s", err.Error())
 		return nil, err
 	}
-	return resource, nil
+	k8sMigs, err := informer.migrationLister.Migs(namespace).List(selector)
+	if err != nil {
+		klog.Errorf("failed to list pod migs of node: %s", err.Error())
+		return nil, err
+	}
+
+	for _, k8sMig := range k8sMigs {
+		mig, err := converter.ConvertMigFromK8s(k8sMig)
+		if err != nil {
+			klog.Errorf("failed to convert mig from k8s mig: %s", err.Error())
+			return nil, err
+		}
+		migs = append(migs, mig)
+	}
+	return &k8s.MigList{Items: migs}, nil
 }
 
-func (informer *Informer) ListMigrations(namespace, labelSelectorStr string) ([]*tosv1beta1.Mig, error) {
-	resource :=  []*tosv1beta1.Mig{}
+
+func (informer *Informer) ListMigrations(namespace, labelSelectorStr string) (*k8s.MigList, error) {
+	var k8sMigs []*tosv1beta1.Mig
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
 		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
 	if namespace == "" {
-		resource, err = informer.migrationLister.List(selector)
+		k8sMigs, err = informer.migrationLister.List(selector)
 	} else {
-		resource, err = informer.migrationLister.Migs(namespace).List(selector)
+		k8sMigs, err = informer.migrationLister.Migs(namespace).List(selector)
 	}
-	if err != nil {
-		klog.Errorf("failed to get all migrations: %s", err.Error())
-		return nil, err
+
+	var migs []*k8s.Mig
+	for _, k8sMig := range k8sMigs {
+		mig, err := converter.ConvertMigFromK8s(k8sMig)
+		if err != nil {
+			klog.Errorf("failed to convert mig from k8s: %s", err.Error())
+			return nil, err
+		}
+		migs = append(migs, mig)
 	}
-	return resource, nil
+
+	return &k8s.MigList{Items: migs}, nil
 }
 
 func (informer *Informer) GetResourceSet(releaseResourceMetas []release.ReleaseResourceMeta) (resourceSet *k8s.ResourceSet, err error) {
@@ -418,6 +445,8 @@ func (informer *Informer) GetResource(kind k8s.ResourceKind, namespace, name str
 		return informer.getStorageClass(namespace, name)
 	case k8s.InstanceKind:
 		return informer.getInstance(namespace, name)
+	case k8s.MigKind:
+		return informer.getMigration(namespace, name)
 	default:
 		return &k8s.DefaultResource{Meta: k8s.NewMeta(kind, namespace, name, k8s.NewState("Unknown", "NotSupportedKind", "Can not get this resource"))}, nil
 	}
