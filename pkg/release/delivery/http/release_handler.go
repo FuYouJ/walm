@@ -292,7 +292,7 @@ func (handler *ReleaseHandler) InstallRelease(request *restful.Request, response
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec, nil)
+	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to install release: %s", err.Error()))
 	}
@@ -323,7 +323,7 @@ func (handler *ReleaseHandler) InstallReleaseWithChart(request *restful.Request,
 	}
 	releaseRequest.Name = releaseName
 
-	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, false, 0, nil)
+	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, false, 0)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to install release: %s", err.Error()))
 	}
@@ -447,7 +447,7 @@ func (handler *ReleaseHandler) UpgradeRelease(request *restful.Request, response
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec, nil)
+	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to upgrade release: %s", err.Error()))
 	}
@@ -481,7 +481,7 @@ func (handler *ReleaseHandler) UpgradeReleaseWithChart(request *restful.Request,
 
 	releaseRequest.Name = releaseName
 
-	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, false, 0, nil)
+	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, false, 0)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to upgrade release: %s", err.Error()))
 	}
@@ -627,7 +627,7 @@ func (handler *ReleaseHandler) PauseRelease(request *restful.Request, response *
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("query param timeoutSec value is not valid : %s", err.Error()))
 		return
 	}
-	err = handler.usecase.PauseRelease(namespace, name, async, timeoutSec)
+	err = handler.usecase.PauseOrRecoverRelease(namespace, name, async, timeoutSec, true)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to pause release %s: %s", name, err.Error()))
 		return
@@ -648,7 +648,7 @@ func (handler *ReleaseHandler) RecoverRelease(request *restful.Request, response
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("query param timeoutSec value is not valid : %s", err.Error()))
 		return
 	}
-	err = handler.usecase.RecoverRelease(namespace, name, async, timeoutSec)
+	err = handler.usecase.PauseOrRecoverRelease(namespace, name, async, timeoutSec, false)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to recover release %s: %s", name, err.Error()))
 		return

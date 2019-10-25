@@ -7,7 +7,7 @@ import (
 )
 
 func (helm *Helm) DryRunRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) ([]map[string]interface{}, error) {
-	releaseCache, err := helm.doInstallUpgradeRelease(namespace, releaseRequest, chartFiles, true, nil)
+	releaseCache, err := helm.doInstallUpgradeRelease(namespace, releaseRequest, chartFiles, true)
 	if err != nil {
 		klog.Errorf("failed to dry run install release : %s", err.Error())
 		return nil, err
@@ -23,7 +23,7 @@ func (helm *Helm) DryRunRelease(namespace string, releaseRequest *release.Releas
 }
 
 func (helm *Helm) ComputeResourcesByDryRunRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (*release.ReleaseResources, error) {
-	r, err := helm.doInstallUpgradeRelease(namespace, releaseRequest, chartFiles, true, nil)
+	r, err := helm.doInstallUpgradeRelease(namespace, releaseRequest, chartFiles, true)
 	if err != nil {
 		klog.Errorf("failed to dry run install release : %s", err.Error())
 		return nil, err

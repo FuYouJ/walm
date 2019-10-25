@@ -104,7 +104,7 @@ func TestHelm_InstallUpgradeReleaseWithRetry(t *testing.T) {
 
 	for _, test := range tests {
 		test.initMock()
-		err := mockReleaseManager.InstallUpgradeReleaseWithRetry("test-ns", test.releaseRequest, nil, false, 0, nil)
+		err := mockReleaseManager.InstallUpgradeReleaseWithRetry("test-ns", test.releaseRequest, nil, false, 0)
 		assert.IsType(t, test.err, err)
 
 		mockReleaseCache.AssertExpectations(t)
@@ -203,7 +203,7 @@ func TestHelm_InstallUpgradeRelease(t *testing.T) {
 
 	for _, test := range tests {
 		test.initMock()
-		err := mockReleaseManager.InstallUpgradeRelease("test-ns", test.releaseRequest, nil, false, 0, nil)
+		err := mockReleaseManager.InstallUpgradeRelease("test-ns", test.releaseRequest, nil, false, 0)
 		assert.IsType(t, test.err, err)
 
 		mockReleaseCache.AssertExpectations(t)
@@ -261,7 +261,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(nil, errors.New(""))
+				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything).Return(nil, errors.New(""))
 			},
 			releaseRequest: &release.ReleaseRequestV2{},
 			err:            errors.New("failed"),
@@ -270,7 +270,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
+				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything).Return(&release.ReleaseCache{}, nil)
 			},
 			dryRun:         true,
 			releaseRequest: &release.ReleaseRequestV2{},
@@ -280,7 +280,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
+				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything).Return(&release.ReleaseCache{}, nil)
 				mockReleaseCache.On("CreateOrUpdateReleaseCache", mock.Anything).Return(errors.New(""))
 			},
 			dryRun:         false,
@@ -291,7 +291,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
+				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything).Return(&release.ReleaseCache{}, nil)
 				mockReleaseCache.On("CreateOrUpdateReleaseCache", mock.Anything).Return(nil)
 			},
 			dryRun:         false,
@@ -302,7 +302,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 
 	for _, test := range tests {
 		test.initMock()
-		_, err := mockReleaseManager.doInstallUpgradeRelease("test-ns", test.releaseRequest, nil, test.dryRun, nil)
+		_, err := mockReleaseManager.doInstallUpgradeRelease("test-ns", test.releaseRequest, nil, test.dryRun)
 		assert.IsType(t, test.err, err)
 
 		mockReleaseCache.AssertExpectations(t)
@@ -364,6 +364,16 @@ func Test_validateParams(t *testing.T) {
 				},
 			},
 			err: nil,
+		},
+		{
+			releaseRequest: &release.ReleaseRequestV2{
+				ReleaseRequest: release.ReleaseRequest{
+					Name:      "test",
+					ChartName: "test",
+				},
+				IsomateConfig: &k8s.IsomateConfig{},
+			},
+			err: errors.New(""),
 		},
 		{
 			releaseRequest: &release.ReleaseRequestV2{

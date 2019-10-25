@@ -110,13 +110,13 @@ func (_m *UseCase) GetRelease(namespace string, name string) (*release.ReleaseIn
 	return r0, r1
 }
 
-// InstallUpgradeRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, timeoutSec, paused
-func (_m *UseCase) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, paused *bool) error {
-	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec, paused)
+// InstallUpgradeRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, timeoutSec
+func (_m *UseCase) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
+	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64, *bool) error); ok {
-		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec, paused)
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64) error); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -125,12 +125,12 @@ func (_m *UseCase) InstallUpgradeRelease(namespace string, releaseRequest *relea
 }
 
 // InstallUpgradeReleaseWithRetry provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, timeoutSec, paused
-func (_m *UseCase) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, paused *bool) error {
-	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec, paused)
+func (_m *UseCase) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
+	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64, *bool) error); ok {
-		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec, paused)
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64) error); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -184,27 +184,13 @@ func (_m *UseCase) ListReleasesByLabels(namespace string, labelSelectorStr strin
 	return r0, r1
 }
 
-// PauseRelease provides a mock function with given fields: namespace, releaseName, async, timeoutSec
-func (_m *UseCase) PauseRelease(namespace string, releaseName string, async bool, timeoutSec int64) error {
-	ret := _m.Called(namespace, releaseName, async, timeoutSec)
+// PauseOrRecoverRelease provides a mock function with given fields: namespace, releaseName, async, timeoutSec, paused
+func (_m *UseCase) PauseOrRecoverRelease(namespace, releaseName string, async bool, timeoutSec int64, paused bool) error {
+	ret := _m.Called(namespace, releaseName, async, timeoutSec, paused)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, bool, int64) error); ok {
-		r0 = rf(namespace, releaseName, async, timeoutSec)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// RecoverRelease provides a mock function with given fields: namespace, releaseName, async, timeoutSec
-func (_m *UseCase) RecoverRelease(namespace string, releaseName string, async bool, timeoutSec int64) error {
-	ret := _m.Called(namespace, releaseName, async, timeoutSec)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, bool, int64) error); ok {
-		r0 = rf(namespace, releaseName, async, timeoutSec)
+	if rf, ok := ret.Get(0).(func(string, string, bool, int64, bool) error); ok {
+		r0 = rf(namespace, releaseName, async, timeoutSec, paused)
 	} else {
 		r0 = ret.Error(0)
 	}

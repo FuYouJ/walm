@@ -45,7 +45,7 @@ func (projectImpl *Project) upgradeRelease(namespace, projectName string, releas
 
 	setPrjLabelToReleaseParams(projectExists, projectInfo, releaseParams, projectName)
 
-	err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams, nil, false, 0, nil)
+	err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams, nil, false, 0)
 	if err != nil {
 		klog.Errorf("failed to upgrade release %s in project %s/%s : %s", releaseParams.Name, namespace, projectName, err.Error())
 		return
