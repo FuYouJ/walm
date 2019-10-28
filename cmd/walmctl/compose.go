@@ -117,7 +117,10 @@ func (compose *composeCmd) run() error {
 	}
 
 	_, err = client.CreateProject(namespace, "", compose.projectName, false, 300, configValues.ProjectConfigs)
-	_ = compose.generateGuardianKeytabSecrets(configValues.GuardianConfigs)
+	isSuccess := compose.generateGuardianKeytabSecrets(configValues.GuardianConfigs)
+	if !isSuccess {
+		return errors.New("generate key error")
+	}
 
 	return err
 }
@@ -176,6 +179,10 @@ func (compose *composeCmd) funcGetInstallId(releaseName string) (string, error) 
 }
 
 func (compose *composeCmd) generateGuardianKeytabSecrets(guardianConfigs []*composeGuardianConfig) bool {
+	if len(guardianConfigs) == 0 {
+		return true
+	}
+	klog.Infof("generate guardian key")
 	ch := make(chan bool, 1)
 	for _, guardianConfig := range guardianConfigs {
 		go func(config *composeGuardianConfig) {

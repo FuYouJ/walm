@@ -82,8 +82,8 @@ func (c *GuardianClient) Login() error {
 	}
 	if !resp.IsSuccess() {
 		errResp := GuardianErrorResponse{}
-		_ = json.Unmarshal(resp.Body(), &errResp)
-		return errors.New(fmt.Sprintf("Login Error, errResp %v", errResp))
+		err = json.Unmarshal(resp.Body(), &errResp)
+		return errors.New(fmt.Sprintf("Login %s Error, errResp %v error %v resp %s", fullUrl, errResp, err, resp.Body()))
 	}
 
 	client := resty.New()
@@ -142,8 +142,8 @@ func (c *GuardianClient) GetMultipleKeytabs(principals []string) ([]byte, error)
 	}
 	if !resp.IsSuccess() {
 		errResp := GuardianErrorResponse{}
-		_ = json.Unmarshal(resp.Body(), &errResp)
-		return []byte{}, errors.New(fmt.Sprintf("GetMultipleKeytabs Error, errResp %v", errResp))
+		err = json.Unmarshal(resp.Body(), &errResp)
+		return []byte{}, errors.New(fmt.Sprintf("GetMultipleKeytabs Error, errResp %v err %v body %s", errResp, err, resp.Body()))
 	}
 
 	return resp.Body(), nil

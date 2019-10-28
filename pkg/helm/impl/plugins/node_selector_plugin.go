@@ -1,12 +1,12 @@
 package plugins
 
 const (
-	BuiltInSelectorPluginName = "BuiltInSelector"
+	NodeSelectorPluginName = "NodeSelector"
 )
 
 func init() {
-	register(BuiltInSelectorPluginName, &WalmPluginRunner{
-		Run:  BuiltInSelectorTransform,
+	register(NodeSelectorPluginName, &WalmPluginRunner{
+		Run:  NodeSelectorTransform,
 		Type: Pre_Install,
 	})
 }
@@ -17,7 +17,7 @@ type BuiltInSelectorArgs struct {
 	ArchSelector bool              `json:"archSelector"`
 }
 
-func BuiltInSelectorTransform(context *PluginContext, args string) (err error) {
+func NodeSelectorTransform(context *PluginContext, args string) (err error) {
 	return
 }
 
