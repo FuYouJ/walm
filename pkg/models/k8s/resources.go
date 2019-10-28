@@ -129,6 +129,7 @@ type Pod struct {
 	Containers     []Container       `json:"containers" description:"pod containers"`
 	Age            string            `json:"age" description:"pod age"`
 	InitContainers []Container       `json:"initContainers" description:"pod init containers"`
+	NodeName       string            `json:"-" description:"node where pod is on"`
 }
 
 type Container struct {
@@ -291,6 +292,7 @@ type Node struct {
 	WarpDriveStorageList  []WarpDriveStorage        `json:"warpDriveStorageList" description:"warp drive storage list"`
 	UnifyUnitResourceInfo UnifyUnitNodeResourceInfo `json:"unifyUnitResourceInfo" description:"resource info with unified unit"`
 	Taints                []NodeTaint               `json:"taints" description:"node taint"`
+	UnSchedulable         bool						`json:"-" description:"schedule status"`
 }
 
 type WarpDriveStorage struct {

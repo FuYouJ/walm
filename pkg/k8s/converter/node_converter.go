@@ -24,6 +24,7 @@ func ConvertNodeFromK8s(oriNode *corev1.Node, podsOnNode *corev1.PodList) (walmN
 		Allocatable:          convertResourceListToMap(node.Status.Allocatable),
 		WarpDriveStorageList: []k8s.WarpDriveStorage{},
 		Taints:               make([]k8s.NodeTaint, 0),
+		UnSchedulable:        node.Spec.Unschedulable,
 	}
 
 	requestsAllocated, limitsAllocated := getTotalRequestsAndLimits(podsOnNode)
