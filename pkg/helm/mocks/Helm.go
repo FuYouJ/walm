@@ -158,12 +158,12 @@ func (_m *Helm) GetRepoList() *release.RepoInfoList {
 }
 
 // InstallOrCreateRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, paused
-func (_m *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, paused *bool) (*release.ReleaseCache, error) {
-	ret := _m.Called(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, paused)
+func (_m *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error) {
+	ret := _m.Called(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo)
 
 	var r0 *release.ReleaseCache
-	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, *release.ReleaseInfoV2, *bool) *release.ReleaseCache); ok {
-		r0 = rf(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, paused)
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, *release.ReleaseInfoV2) *release.ReleaseCache); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*release.ReleaseCache)
@@ -171,8 +171,31 @@ func (_m *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, *release.ReleaseInfoV2, *bool) error); ok {
-		r1 = rf(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, paused)
+	if rf, ok := ret.Get(1).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, *release.ReleaseInfoV2) error); ok {
+		r1 = rf(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// PauseOrRecoverRelease provides a mock function with given fields: paused, oldReleaseInfo
+func (_m *Helm) PauseOrRecoverRelease(paused bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error){
+	ret := _m.Called(paused, oldReleaseInfo)
+
+	var r0 *release.ReleaseCache
+	if rf, ok := ret.Get(0).(func(bool, *release.ReleaseInfoV2) *release.ReleaseCache); ok {
+		r0 = rf(paused, oldReleaseInfo)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*release.ReleaseCache)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(bool, *release.ReleaseInfoV2) error); ok {
+		r1 = rf(paused, oldReleaseInfo)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -47,7 +47,7 @@ func TestProject_doUpgradeRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMocks()
-				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(&project.ProjectTask{
 					Namespace: "test-ns",
 					Name:      "test-name",
@@ -77,7 +77,7 @@ func TestProject_doUpgradeRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMocks()
-				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
+				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
 				mockProjectCache.On("GetProjectTask", mock.Anything, mock.Anything).Return(&project.ProjectTask{
 					Namespace: "test-ns",
 					Name:      "test-name",

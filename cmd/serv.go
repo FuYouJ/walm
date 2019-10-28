@@ -10,7 +10,7 @@ import (
 	"k8s.io/klog"
 	"net/http"
 
-	migrationhttp "WarpCloud/walm/pkg/crd/delivery/http"
+	migrationhttp "WarpCloud/walm/pkg/crd/migration/delivery/http"
 	helmImpl "WarpCloud/walm/pkg/helm/impl"
 	cacheInformer "WarpCloud/walm/pkg/k8s/cache/informer"
 	"WarpCloud/walm/pkg/k8s/client"

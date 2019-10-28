@@ -47,7 +47,7 @@ func (helm *Helm) ReloadRelease(namespace, name string) error {
 
 	if utils.ConfigValuesDiff(oldDependenciesConfigValues, newDependenciesConfigValues) {
 		releaseRequest := releaseInfo.BuildReleaseRequestV2()
-		err = helm.InstallUpgradeRelease(namespace, releaseRequest, nil, false, 0, nil)
+		err = helm.InstallUpgradeRelease(namespace, releaseRequest, nil, false, 0)
 		if err != nil {
 			klog.Errorf("failed to upgrade release v2 %s/%s : %s", namespace, name, err.Error())
 			return err
@@ -105,6 +105,10 @@ func NewHelm(releaseCache release.Cache, helm helm.Helm, k8sCache k8s.Cache, k8s
 		return nil, err
 	}
 	err = h.registerDeleteReleaseTask()
+	if err != nil {
+		return nil, err
+	}
+	err = h.registerPauseOrRecoverReleaseTask()
 	if err != nil {
 		return nil, err
 	}

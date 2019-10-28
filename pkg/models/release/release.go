@@ -104,6 +104,7 @@ func (releaseInfo *ReleaseInfoV2) BuildReleaseRequestV2() *ReleaseRequestV2 {
 		ReleaseLabels: releaseInfo.ReleaseLabels,
 		Plugins:       releaseInfo.Plugins,
 		ChartImage:    releaseInfo.ChartImage,
+		IsomateConfig: releaseInfo.IsomateConfig,
 	}
 }
 

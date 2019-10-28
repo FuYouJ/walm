@@ -2,12 +2,15 @@ package main
 
 import (
 	"WarpCloud/walm/cmd/walmctl/util/walmctlclient"
+	"WarpCloud/walm/pkg/models/k8s"
+	"encoding/json"
+	corev1 "k8s.io/api/core/v1"
+
 	k8sclient "WarpCloud/walm/pkg/k8s/client"
-	"WarpCloud/walm/pkg/k8s/utils"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
-	v1 "k8s.io/api/core/v1"
+	"io/ioutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
@@ -15,22 +18,45 @@ import (
 )
 
 var longMigrateHelp = `
-1. migrate one pod to another node
-2.migrate all pods managed by statefulsets of one node to another node;
+struct mig file template like
+{
+  "labels": {},
+  "name": "string",
+  "namespace": "string",
+  "spec": {
+    "namespace": "string",
+    "podname": "string"
+  },
+  "srcHost": "string",
+  "destHost": "string",
+},
+
+for example, migrate test1/pod1 from node1 to node2, you can specify like
+{
+  "name": "mig-test",
+  "namespace": "mig-namespace",
+  "spec": {
+    "namespace": "test1",
+    "podname": "pod1"
+  },
+  "srcHost": "node1",
+  "destHost": "node2",
+}
+if schedule pods managed by sts on node1, you can specify easily like that
+{
+  "name": "mig-test",
+  "namespace": "mig-namespace",
+  "srcHost": "node1",
+}
 
 
 `
 
 type migrateOptions struct {
-	srcHost      string
-	destHost     string
-	migType      string
-	migName      string
-	migNamespace string
-	podName      string
-	podNamespace string
-	kubeconfig   string
-	out          io.Writer
+	migType    string
+	file       string
+	kubeconfig string
+	out        io.Writer
 }
 
 func newMigrationCmd(out io.Writer) *cobra.Command {
@@ -38,79 +64,97 @@ func newMigrationCmd(out io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "migrate",
-		Short: "migrate node nodeName, migrate pod podName",
+		Short: "migrate node, pod --file",
 		Long:  longMigrateHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 2 {
-				return errors.Errorf("use migrate node/pod nodeName/podName instead")
-			}
 
-			switch args[0] {
-			case "node":
-				migrate.srcHost = args[1]
-			case "pod":
-				migrate.podName = args[1]
-			default:
+			if args[0] != "pod" && args[0] != "node" {
 				return errors.Errorf("unsupport type: %s, pod or node support only", args[0])
 			}
-			migrate.migType = args[0]
 
+			migrate.migType = args[0]
 			return migrate.run()
 		},
 	}
-	cmd.PersistentFlags().StringVar(&migrate.migName, "migName", "", "name for migration crd, required")
-	cmd.PersistentFlags().StringVar(&migrate.migNamespace, "migNamespace", "", "namespace to store migration crd, not required")
-	cmd.PersistentFlags().StringVar(&migrate.podNamespace, "podNamespace", "", "pod namespace")
-	cmd.PersistentFlags().StringVar(&migrate.destHost, "destHost", "", "node you want to migrate to, not required")
+
+	cmd.PersistentFlags().StringVarP(&migrate.file, "file", "f", "", "file to specify migs, required")
 	cmd.PersistentFlags().StringVar(&migrate.kubeconfig, "kubeconfig", "kubeconfig", "kubeconfig path, required")
-	cmd.MarkPersistentFlagRequired("migName")
+	cmd.MarkPersistentFlagRequired("file")
 	cmd.MarkPersistentFlagRequired("kubeconfig")
 
 	return cmd
 }
 
 func (migrate *migrateOptions) run() error {
-	var (
-		err error
-		//resp *resty.Response
-	)
+
+	var mig k8s.Mig
+
+	path, err := filepath.Abs(migrate.file)
+	if err != nil {
+		return errors.Errorf("failed to load migs specified file: %s", err.Error())
+	}
+
+	migByte, err := ioutil.ReadFile(path)
+	if err != nil {
+		return errors.Errorf("failed to read file %s : %s", path, err.Error())
+	}
+
+	err = json.Unmarshal(migByte, &mig)
+	if err != nil {
+		return errors.Errorf("failed to unmarshal mig file to struct k8sModel.Mig: %s", err.Error())
+	}
 
 	client := walmctlclient.CreateNewClient(walmserver)
 	if err = client.ValidateHostConnect(); err != nil {
 		return err
 	}
 
+	kubeconfig, err := filepath.Abs(migrate.kubeconfig)
+	if err != nil {
+		klog.Errorf("get kubeconfig failed: %s", err.Error())
+		return err
+	}
+
+	k8sClient, err := k8sclient.NewClient("", kubeconfig)
+	if err != nil {
+		klog.Errorf("creates new Kubernetes Apiserver client failed: %s", err.Error())
+		return err
+	}
+
 	if migrate.migType == "pod" {
-		_, err = client.MigratePod(migrate.podNamespace, migrate.podName, migrate.migName, migrate.migNamespace, migrate.destHost)
+		if mig.Spec.PodName == "" || mig.Spec.Namespace == ""{
+			return errors.Errorf("spec.podname and spec.namespace must be set when migrate pod")
+		}
+
+		_, err = client.MigratePod(mig.Spec.Namespace, mig.Spec.PodName, mig)
 		if err != nil {
 			return errors.Errorf("failed to migrate pod: %s", err.Error())
 		}
 		return nil
 	}
 
-	migrate.kubeconfig, err = filepath.Abs(migrate.kubeconfig)
-	if err != nil {
-		klog.Errorf("get kubeconfig failed: %s", err.Error())
-		return err
-	}
-
-	k8sClient, err := k8sclient.NewClient("", migrate.kubeconfig)
-	if err != nil {
-		klog.Errorf("creates new Kubernetes Apiserver client failed: %s", err.Error())
-		return err
-	}
-
-	if err = envPreCheck(k8sClient, migrate.srcHost, migrate.destHost); err != nil {
+	if err = envPreCheck(k8sClient, mig.SrcHost, mig.DestHost); err != nil {
 		klog.Errorf("env pre-check error: %s", err.Error())
 		return err
 	}
 
-	podList, err := getPodListFromNode(k8sClient, migrate.srcHost)
+	podList, err := getPodListFromNode(k8sClient, mig.SrcHost)
 	if err != nil {
-		klog.Errorf("failed to get pods from node %s: %s", migrate.srcHost,  err.Error())
+		klog.Errorf("failed to get pods from node %s: %s", mig.SrcHost, err.Error())
 		return err
 	}
 
+	prefixName := mig.Name
+	for _, pod := range podList {
+		mig.Labels = map[string]string{"migType": "node", "migName": prefixName}
+		mig.Name = prefixName + "-" + pod.Namespace + "-" + pod.Name
+
+		_, err = client.MigratePod(pod.Namespace, pod.Name, mig)
+		if err != nil {
+			return errors.Errorf("failed to migrate pod: %s", err.Error())
+		}
+		return nil
+	}
 
 	// Todo: cordon pod
 
@@ -120,66 +164,35 @@ func (migrate *migrateOptions) run() error {
 
 	// Todo: return migrate status
 
-    // Todo: failed notification
-	for _, pod := range podList {
-		_, err := client.MigratePod(pod.Namespace, pod.Name, migrate.migName, migrate.migNamespace, migrate.destHost)
-		if err != nil {
-			klog.Errorf("failed to migrate pod: %s", err.Error())
-			return err
-		}
-	}
+	// Todo: failed notification
+
 	return nil
 }
 
-func getPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]v1.Pod, error) {
-
-	var pods []v1.Pod
-
-	// get namespace
-	namespaceList, err := k8sClient.CoreV1().Namespaces().List(metav1.ListOptions{})
+func getPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]corev1.Pod, error) {
+	podList := &corev1.PodList{
+		Items: []corev1.Pod{},
+	}
+	pods, err := k8sClient.CoreV1().Pods("").List(metav1.ListOptions{})
 	if err != nil {
-		klog.Errorf("failed to get namespace from node %s: %s", srcHost, err.Error())
+		klog.Errorf("failed to list pods: %s", err.Error())
 		return nil, err
 	}
 
-	for _, namespace := range namespaceList.Items {
-
-		// get all sts from namespace
-		stsList, err := k8sClient.AppsV1().StatefulSets(namespace.Name).List(metav1.ListOptions{})
-		if err != nil {
-			klog.Errorf("failed to get statefulsets from namespace %s: %s", namespace.Name, err.Error())
-			return nil, err
-		}
-
-		// get node's pod from sts
-		for _, sts := range stsList.Items {
-
-			labelSelector, err := utils.ConvertLabelSelectorToStr(sts.Spec.Selector)
-			if err != nil {
-				klog.Errorf("failed to convert statefulset %s labelselector to str: %s", sts.Name, err.Error())
-				return nil, err
-			}
-			podList, err := k8sClient.CoreV1().Pods(namespace.Name).List(metav1.ListOptions{
-				LabelSelector: labelSelector,
-			})
-			if err != nil {
-				klog.Errorf("failed to get pods from statefulsets %s: %s", sts.Name, err.Error())
-				return nil, err
-			}
-
-			for _, pod := range podList.Items {
-				if pod.Spec.NodeName != srcHost {
-					continue
+	for _, pod := range pods.Items {
+		if pod.Spec.NodeName == srcHost {
+			for _, ownerReference := range pod.OwnerReferences {
+				if ownerReference.Kind == "StatefulSet" {
+					podList.Items = append(podList.Items, pod)
 				}
-				pods = append(pods, pod)
 			}
 		}
 	}
-	return pods, nil
+	return podList.Items, nil
 }
 
 // Todo: Env Pre-Check
-func envPreCheck(k8sClient *kubernetes.Clientset, srcHost string, destHost string) error{
+func envPreCheck(k8sClient *kubernetes.Clientset, srcHost string, destHost string) error {
 
 	// Node Check
 	nodeList, err := k8sClient.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -205,7 +218,6 @@ func envPreCheck(k8sClient *kubernetes.Clientset, srcHost string, destHost strin
 		}
 	}
 
-	// Crd Check
 	// Todo: other check
 
 	return nil

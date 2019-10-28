@@ -13,8 +13,6 @@ import (
 	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-
 	"path/filepath"
 	"strings"
 
@@ -86,7 +84,7 @@ var _ = Describe("HelmRelease", func() {
 				},
 			}
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
 				"0.2.0", "7", 1)
@@ -114,7 +112,7 @@ var _ = Describe("HelmRelease", func() {
 				},
 			}
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, nil, false, false, nil, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, nil, false, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
 				"0.2.0", "7", 1)
@@ -140,7 +138,7 @@ var _ = Describe("HelmRelease", func() {
 				ChartImage: framework.GetTomcatChartImage(),
 			}
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, nil, false, false, nil, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, nil, false, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
 				"0.2.0", "7", 1)
@@ -174,7 +172,7 @@ var _ = Describe("HelmRelease", func() {
 			chartFiles, err := framework.LoadChartArchive(chartPath)
 			Expect(err).NotTo(HaveOccurred())
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, chartFiles, false, false, nil, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, chartFiles, false, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 			assertReleaseCacheBasic(releaseCache, namespace, "zookeeper-test", "", "zookeeper",
 				"6.1.0", "6.1", 1)
@@ -211,7 +209,7 @@ var _ = Describe("HelmRelease", func() {
 				},
 			}
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, true, false, nil, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, true, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 			manifest := fmt.Sprintf("\n---\napiVersion: v1\nkind: Service\nmetadata:\n  labels:\n    app: tomcat\n    chart: tomcat-0.2.0\n    heritage: Helm\n    release: tomcat-test\n  name: tomcat-test\n  namespace: %s\nspec:\n  ports:\n  - name: http\n    port: 80\n    protocol: TCP\n    targetPort: 8080\n  selector:\n    app: tomcat\n    release: tomcat-test\n  type: NodePort\n\n---\napiVersion: apps/v1beta2\nkind: Deployment\nmetadata:\n  labels:\n    app: tomcat\n    chart: tomcat-0.2.0\n    heritage: Helm\n    release: tomcat-test\n  name: tomcat-test\n  namespace: %s\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: tomcat\n      release: tomcat-test\n  template:\n    metadata:\n      labels:\n        app: tomcat\n        release: tomcat-test\n    spec:\n      containers:\n      - image: tomcat:7.0\n        imagePullPolicy: Always\n        livenessProbe:\n          httpGet:\n            path: /sample\n            port: 8080\n          initialDelaySeconds: 60\n          periodSeconds: 30\n        name: tomcat\n        ports:\n        - containerPort: 8080\n          hostPort: 8009\n        readinessProbe:\n          failureThreshold: 6\n          httpGet:\n            path: /sample\n            port: 8080\n          initialDelaySeconds: 60\n          periodSeconds: 30\n        resources:\n          limits:\n            cpu: 0.2\n            memory: 200Mi\n          requests:\n            cpu: 0.1\n            memory: 100Mi\n        volumeMounts:\n        - mountPath: /usr/local/tomcat/webapps\n          name: app-volume\n      initContainers:\n      - command:\n        - sh\n        - -c\n        - cp /*.war /app\n        image: ananwaresystems/webarchive:1.0\n        imagePullPolicy: Always\n        name: war\n        volumeMounts:\n        - mountPath: /app\n          name: app-volume\n      volumes:\n      - emptyDir: {}\n        name: app-volume\n\n---\napiVersion: apiextensions.transwarp.io/v1beta1\nkind: ReleaseConfig\nmetadata:\n  creationTimestamp: null\n  name: tomcat-test\n  namespace: %s\nspec:\n  chartAppVersion: \"7\"\n  chartImage: \"\"\n  chartName: tomcat\n  chartVersion: 0.2.0\n  configValues: {}\n  dependencies: null\n  dependenciesConfigValues: {}\n  isomateConfig: null\n  outputConfig: {}\n  repo: \"\"\nstatus: {}\n",
 				namespace, namespace, namespace)
@@ -237,7 +235,7 @@ var _ = Describe("HelmRelease", func() {
 				},
 			}
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
 				"0.2.0", "7", 1)
@@ -265,7 +263,7 @@ var _ = Describe("HelmRelease", func() {
 				ReleaseLabels: map[string]string{"walm-test": "true"},
 			}
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
 				"0.2.0", "7", 1)
@@ -296,7 +294,7 @@ var _ = Describe("HelmRelease", func() {
 				},
 			}
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
 				"0.2.0", "7", 1)
@@ -366,7 +364,7 @@ var _ = Describe("HelmRelease", func() {
 				chartFiles, err := framework.LoadChartArchive(chartPath)
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = helm.InstallOrCreateRelease(fixedNamespace1, releaseRequest, chartFiles, false, false, nil, nil)
+				_, err = helm.InstallOrCreateRelease(fixedNamespace1, releaseRequest, chartFiles, false, false, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				By("install kafka which depends on zookeeper")
@@ -386,11 +384,11 @@ var _ = Describe("HelmRelease", func() {
 				chartFiles, err = framework.LoadChartArchive(chartPath)
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = helm.InstallOrCreateRelease(fixedNamespace1, releaseRequest, chartFiles, false, false, nil, nil)
+				_, err = helm.InstallOrCreateRelease(fixedNamespace1, releaseRequest, chartFiles, false, false, nil)
 				Expect(err).To(HaveOccurred())
 
 				releaseRequest.Dependencies = map[string]string{"zookeeper": "zookeeper-test"}
-				releaseCache, err := helm.InstallOrCreateRelease(fixedNamespace1, releaseRequest, chartFiles, false, false, nil, nil)
+				releaseCache, err := helm.InstallOrCreateRelease(fixedNamespace1, releaseRequest, chartFiles, false, false, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				assertReleaseCacheBasic(releaseCache, fixedNamespace1, "kafka-test", "", "kafka",
@@ -426,7 +424,7 @@ var _ = Describe("HelmRelease", func() {
 					},
 				}
 
-				releaseCache, err = helm.InstallOrCreateRelease(fixedNamespace2, releaseRequest, chartFiles, false, false, nil, nil)
+				releaseCache, err = helm.InstallOrCreateRelease(fixedNamespace2, releaseRequest, chartFiles, false, false, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				assertReleaseCacheBasic(releaseCache, fixedNamespace2, "kafka-test", "", "kafka",
@@ -464,7 +462,7 @@ var _ = Describe("HelmRelease", func() {
 				},
 			}
 
-			_, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil, nil)
+			_, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			releaseRequest.ConfigValues = map[string]interface{}{
@@ -472,7 +470,7 @@ var _ = Describe("HelmRelease", func() {
 			}
 			releaseInfo := &release.ReleaseInfoV2{}
 
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, true, releaseInfo, nil)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, true, releaseInfo)
 			Expect(err).NotTo(HaveOccurred())
 
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
@@ -497,7 +495,7 @@ var _ = Describe("HelmRelease", func() {
 			releaseInfo.ConfigValues = map[string]interface{}{
 				"replicaCount": 2,
 			}
-			releaseCache, err = helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, true, releaseInfo, nil)
+			releaseCache, err = helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, true, releaseInfo)
 			Expect(err).NotTo(HaveOccurred())
 
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
@@ -510,19 +508,26 @@ var _ = Describe("HelmRelease", func() {
 		})
 
 		It("test release pause", func() {
-			By("install release with paused enable")
+			By("install release")
 			releaseRequest := &release.ReleaseRequestV2{
 				ReleaseRequest: release.ReleaseRequest{
 					Name: "tomcat-test",
 				},
 			}
 
-			paused := true
-			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil, &paused)
+			releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			By("pause release")
+			oldReleaseInfo := &release.ReleaseInfoV2{}
+			oldReleaseInfo.Namespace = releaseCache.Namespace
+			oldReleaseInfo.Name = releaseCache.Name
+
+			releaseCache, err = helm.PauseOrRecoverRelease(true, oldReleaseInfo)
 			Expect(err).NotTo(HaveOccurred())
 
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
-				"0.2.0", "7", 1)
+				"0.2.0", "7", 2)
 
 			tomcatComputedValues = util.MergeValues(tomcatComputedValues, map[string]interface{}{
 				plugins.WalmPluginConfigKey: []*k8s.ReleasePlugin{
@@ -546,20 +551,18 @@ var _ = Describe("HelmRelease", func() {
 			mataInfoParams := getTomcatChartDefaultMetaInfoParams()
 			Expect(releaseCache.MetaInfoValues).To(Equal(mataInfoParams))
 
-			By("update release with paused disable")
-			paused = false
-			releaseInfo := &release.ReleaseInfoV2{}
-			releaseInfo.Plugins = []*k8s.ReleasePlugin{
+			By("recover release")
+			oldReleaseInfo.Plugins = []*k8s.ReleasePlugin{
 				{
 					Version: "1.0",
 					Name:    plugins.PauseReleasePluginName,
 				},
 			}
-			releaseCache, err = helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, true, releaseInfo, &paused)
+			releaseCache, err = helm.PauseOrRecoverRelease(false, oldReleaseInfo)
 			Expect(err).NotTo(HaveOccurred())
 
 			assertReleaseCacheBasic(releaseCache, namespace, "tomcat-test", "", "tomcat",
-				"0.2.0", "7", 2)
+				"0.2.0", "7", 3)
 
 			tomcatComputedValues = util.MergeValues(tomcatComputedValues, map[string]interface{}{
 				plugins.WalmPluginConfigKey: []*k8s.ReleasePlugin{
@@ -575,7 +578,7 @@ var _ = Describe("HelmRelease", func() {
 			}, false)
 			assertYamlConfigValues(releaseCache.ComputedValues, tomcatComputedValues)
 
-			manifest = fmt.Sprintf("\n---\napiVersion: v1\nkind: Service\nmetadata:\n  labels:\n    app: tomcat\n    chart: tomcat-0.2.0\n    heritage: Helm\n    release: tomcat-test\n  name: tomcat-test\n  namespace: %s\nspec:\n  ports:\n  - name: http\n    port: 80\n    protocol: TCP\n    targetPort: 8080\n  selector:\n    app: tomcat\n    release: tomcat-test\n  type: NodePort\n\n---\napiVersion: apps/v1beta2\nkind: Deployment\nmetadata:\n  labels:\n    app: tomcat\n    chart: tomcat-0.2.0\n    heritage: Helm\n    release: tomcat-test\n  name: tomcat-test\n  namespace: %s\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: tomcat\n      release: tomcat-test\n  template:\n    metadata:\n      labels:\n        app: tomcat\n        release: tomcat-test\n    spec:\n      containers:\n      - image: tomcat:7.0\n        imagePullPolicy: Always\n        livenessProbe:\n          httpGet:\n            path: /sample\n            port: 8080\n          initialDelaySeconds: 60\n          periodSeconds: 30\n        name: tomcat\n        ports:\n        - containerPort: 8080\n          hostPort: 8009\n        readinessProbe:\n          failureThreshold: 6\n          httpGet:\n            path: /sample\n            port: 8080\n          initialDelaySeconds: 60\n          periodSeconds: 30\n        resources:\n          limits:\n            cpu: 0.2\n            memory: 200Mi\n          requests:\n            cpu: 0.1\n            memory: 100Mi\n        volumeMounts:\n        - mountPath: /usr/local/tomcat/webapps\n          name: app-volume\n      initContainers:\n      - command:\n        - sh\n        - -c\n        - cp /*.war /app\n        image: ananwaresystems/webarchive:1.0\n        imagePullPolicy: Always\n        name: war\n        volumeMounts:\n        - mountPath: /app\n          name: app-volume\n      volumes:\n      - emptyDir: {}\n        name: app-volume\n\n---\napiVersion: apiextensions.transwarp.io/v1beta1\nkind: ReleaseConfig\nmetadata:\n  creationTimestamp: null\n  name: tomcat-test\n  namespace: %s\nspec:\n  chartAppVersion: \"7\"\n  chartImage: \"\"\n  chartName: tomcat\n  chartVersion: 0.2.0\n  configValues: {}\n  dependencies: {}\n  dependenciesConfigValues: {}\n  isomateConfig: null\n  outputConfig: {}\n  repo: \"\"\nstatus: {}\n",
+			manifest = fmt.Sprintf("\n---\napiVersion: v1\nkind: Service\nmetadata:\n  labels:\n    app: tomcat\n    chart: tomcat-0.2.0\n    heritage: Helm\n    release: tomcat-test\n  name: tomcat-test\n  namespace: %s\nspec:\n  ports:\n  - name: http\n    port: 80\n    protocol: TCP\n    targetPort: 8080\n  selector:\n    app: tomcat\n    release: tomcat-test\n  type: NodePort\n\n---\napiVersion: apps/v1beta2\nkind: Deployment\nmetadata:\n  labels:\n    app: tomcat\n    chart: tomcat-0.2.0\n    heritage: Helm\n    release: tomcat-test\n  name: tomcat-test\n  namespace: %s\nspec:\n  replicas: 1\n  selector:\n    matchLabels:\n      app: tomcat\n      release: tomcat-test\n  template:\n    metadata:\n      labels:\n        app: tomcat\n        release: tomcat-test\n    spec:\n      containers:\n      - image: tomcat:7.0\n        imagePullPolicy: Always\n        livenessProbe:\n          httpGet:\n            path: /sample\n            port: 8080\n          initialDelaySeconds: 60\n          periodSeconds: 30\n        name: tomcat\n        ports:\n        - containerPort: 8080\n          hostPort: 8009\n        readinessProbe:\n          failureThreshold: 6\n          httpGet:\n            path: /sample\n            port: 8080\n          initialDelaySeconds: 60\n          periodSeconds: 30\n        resources:\n          limits:\n            cpu: 0.2\n            memory: 200Mi\n          requests:\n            cpu: 0.1\n            memory: 100Mi\n        volumeMounts:\n        - mountPath: /usr/local/tomcat/webapps\n          name: app-volume\n      initContainers:\n      - command:\n        - sh\n        - -c\n        - cp /*.war /app\n        image: ananwaresystems/webarchive:1.0\n        imagePullPolicy: Always\n        name: war\n        volumeMounts:\n        - mountPath: /app\n          name: app-volume\n      volumes:\n      - emptyDir: {}\n        name: app-volume\n\n---\napiVersion: apiextensions.transwarp.io/v1beta1\nkind: ReleaseConfig\nmetadata:\n  creationTimestamp: null\n  name: tomcat-test\n  namespace: %s\nspec:\n  chartAppVersion: \"7\"\n  chartImage: \"\"\n  chartName: tomcat\n  chartVersion: 0.2.0\n  configValues: {}\n  dependencies: null\n  dependenciesConfigValues: {}\n  isomateConfig: null\n  outputConfig: {}\n  repo: \"\"\nstatus: {}\n",
 				namespace, namespace, namespace)
 			Expect(releaseCache.Manifest).To(Equal(manifest))
 
@@ -609,10 +612,10 @@ var _ = Describe("HelmRelease", func() {
 					},
 				}
 
-				_, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil, nil)
+				_, err := helm.InstallOrCreateRelease(namespace, releaseRequest, tomcatChartFiles, false, false, nil)
 				Expect(err).NotTo(HaveOccurred())
 
-				_, err = helm.InstallOrCreateRelease(anotherNamespace, releaseRequest, tomcatChartFiles, false, false, nil, nil)
+				_, err = helm.InstallOrCreateRelease(anotherNamespace, releaseRequest, tomcatChartFiles, false, false, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				releaseCaches, err := helm.ListAllReleases()
@@ -717,7 +720,7 @@ var _ = Describe("HelmRelease", func() {
 					},
 				}
 
-				releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, zookeeperChartFiles, false, false, nil, nil)
+				releaseCache, err := helm.InstallOrCreateRelease(namespace, releaseRequest, zookeeperChartFiles, false, false, nil)
 				Expect(err).NotTo(HaveOccurred())
 				assertReleaseCacheBasic(releaseCache, namespace, "zookeeper-test", "", "zookeeper",
 					"5.2.0", "5.2", 1)
@@ -737,7 +740,6 @@ var _ = Describe("HelmRelease", func() {
 			//
 			//// Todo: // List v1 Release. Create configmap get release from configmap
 			Describe("test list & delete v1 release", func() {
-				var releaseConfigMap *corev1.ConfigMap
 				var anotherNamespace string
 
 				BeforeEach(func() {
@@ -762,16 +764,13 @@ var _ = Describe("HelmRelease", func() {
 					_, err = framework.CreateCustomConfigMap(anotherNamespace, entrypointConfigMapPath)
 					Expect(err).NotTo(HaveOccurred())
 
-					releaseConfigMap, err = framework.CreateCustomConfigMap("kube-system", releaseConfigMapPath)
+					_, err = framework.CreateCustomConfigMap(anotherNamespace, releaseConfigMapPath)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				AfterEach(func() {
 					By("delete test namespace")
 					err = framework.DeleteNamespace(anotherNamespace)
-					Expect(err).NotTo(HaveOccurred())
-
-					err = framework.DeleteConfigMap("kube-system", releaseConfigMap.Name)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("list & delete v1 release", func() {

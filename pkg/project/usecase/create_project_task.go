@@ -63,7 +63,7 @@ func (projectImpl *Project) doCreateProject(namespace string, name string, proje
 		return err
 	}
 	for _, releaseParams := range releaseList {
-		err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams, nil, false, 0, nil)
+		err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams, nil, false, 0)
 		if err != nil {
 			klog.Errorf("failed to create project release %s/%s : %s", namespace, releaseParams.Name, err)
 			return err

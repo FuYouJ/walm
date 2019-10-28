@@ -251,6 +251,24 @@ func (informer *Informer) getInstance(namespace, name string) (k8s.Resource, err
 	return converter.ConvertInstanceFromK8s(resource, instanceModules, dependencyMeta)
 }
 
+func (informer *Informer) getMigration(namespace string, name string) (k8s.Resource, error) {
+	notFoundResource := &k8s.Mig{
+		Meta: k8s.NewNotFoundMeta(k8s.MigKind, namespace, name),
+	}
+	if informer.migrationLister == nil {
+		return notFoundResource , errorModel.NotFoundError{}
+	}
+
+	k8sMig, err := informer.migrationLister.Migs(namespace).Get(name)
+	if err != nil {
+		return convertResourceError(err, &k8s.Mig{
+			Meta: k8s.NewNotFoundMeta(k8s.MigKind, namespace, name),
+		})
+	}
+
+	return converter.ConvertMigFromK8s(k8sMig)
+}
+
 func convertInstanceModulesToResourceMetas(references []v1beta1.ResourceReference) []release.ReleaseResourceMeta {
 	res := []release.ReleaseResourceMeta{}
 	for _, ref := range references {

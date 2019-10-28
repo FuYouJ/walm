@@ -17,6 +17,7 @@ const (
 	NamespaceKind             ResourceKind = "Namespace"
 	ReleaseConfigKind         ResourceKind = "ReleaseConfig"
 	InstanceKind              ResourceKind = "ApplicationInstance"
+	MigKind                   ResourceKind = "Mig"
 )
 
 type ResourceKind string
@@ -128,6 +129,7 @@ type Pod struct {
 	Containers     []Container       `json:"containers" description:"pod containers"`
 	Age            string            `json:"age" description:"pod age"`
 	InitContainers []Container       `json:"initContainers" description:"pod init containers"`
+	NodeName       string            `json:"-" description:"node where pod is on"`
 }
 
 type Container struct {
@@ -290,6 +292,7 @@ type Node struct {
 	WarpDriveStorageList  []WarpDriveStorage        `json:"warpDriveStorageList" description:"warp drive storage list"`
 	UnifyUnitResourceInfo UnifyUnitNodeResourceInfo `json:"unifyUnitResourceInfo" description:"resource info with unified unit"`
 	Taints                []NodeTaint               `json:"taints" description:"node taint"`
+	UnSchedulable         bool						`json:"-" description:"schedule status"`
 }
 
 type WarpDriveStorage struct {
@@ -455,6 +458,27 @@ type ApplicationInstance struct {
 	InstanceId     string            `json:"instanceId"`
 	Modules        *ResourceSet      `json:"resourceSet"`
 	DependencyMeta *DependencyMeta   `json:"dependencyMeta"`
+}
+
+type MigList struct {
+	Items []*Mig `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+type Mig struct {
+	Meta
+	Labels              map[string]string `json:"labels" description:"labels"`
+	Spec                MigSpec           `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	SrcHost             string            `json:"srcHost,omitempty"`
+	DestHost            string            `json:"destHost,omitempty"`
+}
+
+func (resource *Mig) AddToResourceSet(resourceSet *ResourceSet) {
+}
+
+// MigSpec defines the desired state of Mig
+type MigSpec struct {
+	PodName    string `json:"podname,omitempty"`
+	Namespace  string `json:"namespace,omitempty"`
 }
 
 type DependencyMeta struct {

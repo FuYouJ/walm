@@ -19,6 +19,8 @@ import (
 	"WarpCloud/walm/pkg/util"
 	"WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/k8s/converter"
+	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/models/common"
 )
 
 const (
@@ -102,18 +104,16 @@ type AppHelmValues struct {
 func buildConfigValuesToRender(
 	rawChart *chart.Chart, namespace, name string,
 	userConfigs, dependencyConfigs map[string]interface{}, dependencies map[string]string,
-) (configValues map[string]interface{}, err error) {
+	isomateConfigValue map[string]interface{}) (configValues map[string]interface{}, err error) {
 	configValues = map[string]interface{}{}
 	util.MergeValues(configValues, rawChart.Values, false)
-	//TODO merge system values
-
 	util.MergeValues(configValues, dependencyConfigs, false)
 
 	//config TosVersion can be override by user configs
 	configValues["TosVersion"] = "1.9"
 
 	util.MergeValues(configValues, userConfigs, false)
-
+	util.MergeValues(configValues, isomateConfigValue, false)
 	// the configs below can not be override by user configs
 	configValues["helmReleaseName"] = name
 	configValues["helmReleaseNamespace"] = namespace
@@ -143,6 +143,30 @@ func buildConfigValuesToRender(
 	return configValues, nil
 }
 
+func ProcessChart(chartInfo *release.ChartDetailInfo, releaseRequest *release.ReleaseRequestV2, rawChart *chart.Chart,
+	namespace string, configValues, dependencyConfigs map[string]interface{}, dependencies, releaseLabels map[string]string, isomateConfigValue map[string]interface{}) (err error) {
+	if chartInfo.WalmVersion == common.WalmVersionV2 {
+		err = ProcessJsonnetChart(
+			releaseRequest.RepoName, rawChart, namespace,
+			releaseRequest.Name, configValues, dependencyConfigs,
+			dependencies, releaseLabels, releaseRequest.ChartImage, releaseRequest.IsomateConfig, isomateConfigValue)
+		if err != nil {
+			klog.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
+			return
+		}
+	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
+		err = ProcessJsonnetChartV1(
+			releaseRequest.RepoName, rawChart, namespace,
+			releaseRequest.Name, configValues, dependencyConfigs,
+			dependencies, releaseLabels, releaseRequest.ChartImage, releaseRequest.IsomateConfig, isomateConfigValue)
+		if err != nil {
+			klog.Errorf("failed to ProcessJsonnetChart v1: %s", err.Error())
+			return
+		}
+	}
+	return
+}
+
 // convert jsonnet chart to native chart
 // 1. load jsonnet template files to render
 //     a. load common jsonnet lib
@@ -155,7 +179,7 @@ func buildConfigValuesToRender(
 // 3. render jsonnet template files to generate native chart templates
 func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace,
 releaseName string, userConfigs, dependencyConfigs map[string]interface{},
-	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig) error {
+	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig, isomateConfigValue map[string]interface{}) error {
 	jsonnetTemplateFiles := make(map[string]string, 0)
 	var rawChartFiles []*chart.File
 	for _, f := range rawChart.Files {
@@ -201,7 +225,7 @@ releaseName string, userConfigs, dependencyConfigs map[string]interface{},
 
 	loadCommonJsonnetLib(jsonnetTemplateFiles)
 
-	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs, dependencies)
+	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs, dependencies, isomateConfigValue)
 	if err != nil {
 		klog.Errorf("failed to build config values to render jsonnet template files : %s", err.Error())
 		return err
@@ -230,7 +254,8 @@ releaseName string, userConfigs, dependencyConfigs map[string]interface{},
 func ProcessJsonnetChartV1(
 	repo string, rawChart *chart.Chart, releaseNamespace,
 	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
-	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig) error {
+	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig,
+	isomateConfigValue map[string]interface{}) error {
 	jsonnetTemplateFiles := make(map[string]string, 0)
 	var rawChartFiles []*chart.File
 	for _, f := range rawChart.Files {
@@ -268,7 +293,7 @@ func ProcessJsonnetChartV1(
 		return nil
 	}
 
-	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs, dependencies)
+	configValues, err := buildConfigValuesToRender(rawChart, releaseNamespace, releaseName, userConfigs, dependencyConfigs, dependencies, isomateConfigValue)
 	if err != nil {
 		klog.Errorf("failed to build config values to render jsonnet template files : %s", err.Error())
 		return err
@@ -333,4 +358,3 @@ func buildAutoGenReleaseConfig(releaseNamespace, releaseName, repo, chartName, c
 	}
 	return releaseConfigBytes, nil
 }
-

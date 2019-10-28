@@ -12,7 +12,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
 	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
 	"github.com/pkg/errors"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
@@ -33,9 +32,9 @@ const (
 )
 
 type Operator struct {
-	client      *kubernetes.Clientset
-	k8sCache    k8s.Cache
-	kubeClients *helm.Client
+	client             *kubernetes.Clientset
+	k8sCache           k8s.Cache
+	kubeClients        *helm.Client
 	k8sMigrationClient *migrationclientset.Clientset
 }
 
@@ -78,100 +77,72 @@ func (op *Operator) RestartPod(namespace string, name string) error {
 	return nil
 }
 
-func (op *Operator) MigratePod(namespace string, name string, mig string, migNamespace string, destHost string) error {
-	k8sMigrationClient := op.k8sMigrationClient
-	if k8sMigrationClient == nil {
-		return errors.Errorf("failed to get migration client, check config.CrdConfig.EnableMigrationCRD")
+func (op *Operator) MigratePod(namespace string, name string, mig *k8sModel.Mig, fromNode bool) error {
+
+	if mig.Name == "" {
+		return errors.Errorf("name for Mig must be set")
 	}
 
-	if migNamespace == "" {
-		migNamespace = namespace
+	if mig.Namespace == "" {
+		klog.Warningf("mig namespace is empty, set as %s default", namespace)
+		mig.Namespace = namespace
 	}
 
-	_, err := op.k8sMigrationClient.ApiextensionsV1beta1().Migs(namespace).Create(&tosv1beta1.Mig{
+	mig.Spec.Namespace = namespace
+	mig.Spec.PodName = name
 
-		ObjectMeta: metav1.ObjectMeta{
-			Name: mig,
-			Namespace: migNamespace,
-		},
-		Spec: tosv1beta1.MigSpec{
-			PodName:    name,
-			Namespace:  namespace,
-		},
-		Status: tosv1beta1.MigStatus{
-			DestHost: destHost,
-		},
-	})
+	k8sMig, err := converter.ConvertMigToK8s(mig)
 	if err != nil {
-		klog.Errorf("failed to migrate pod %s/%s: %s", namespace, name, err.Error())
-		return err
+		return errors.Errorf("failed to convert mig to k8sMigration: %s", err.Error())
+	}
+
+	if fromNode {
+		k8sMig.Labels = map[string]string{"migType": "node", "migName": mig.Name}
+		k8sMig.Name = mig.Name + "-" + mig.Spec.Namespace + "-" + mig.Spec.PodName
+	}
+
+	_, err = op.k8sMigrationClient.ApiextensionsV1beta1().Migs(mig.Namespace).Create(k8sMig)
+	if err != nil {
+		return errors.Errorf("failed to migrate pod %s/%s: %s", namespace, name, err.Error())
 	}
 	return nil
 }
 
-func (op *Operator) MigrateNode(srcHost string, destHost string, mig string, migNamespace string) error {
+func (op *Operator) MigrateNode(mig *k8sModel.Mig) error {
 
 	k8sMigrationClient := op.k8sMigrationClient
 	if k8sMigrationClient == nil {
 		return errors.Errorf("failed to get migration client, check config.CrdConfig.EnableMigrationCRD")
 	}
 
-	nodeList, err := op.client.CoreV1().Nodes().List(metav1.ListOptions{})
+	srcNode, err := op.k8sCache.GetResource(k8sModel.NodeKind, "", mig.SrcHost)
 	if err != nil {
-		klog.Errorf("failed to get nodes: %s", err.Error())
+		klog.Errorf("failed to get node %s: %s", mig.SrcHost, err.Error())
 		return err
 	}
 
-	if len(nodeList.Items) < 2 {
-		return errors.Errorf("only one node, migration make no sense")
+	newSrcNode := srcNode.(*k8sModel.Node)
+	if newSrcNode.UnSchedulable {
+		return errors.Errorf("node is unschedulable, please wait")
 	}
 
-	_, err = op.client.CoreV1().Nodes().Get(srcHost, metav1.GetOptions{})
+	statefulsets, err := op.k8sCache.ListStatefulSets("", "")
 	if err != nil {
-		klog.Errorf("failed to get node %s: %s", srcHost, err.Error())
-		return err
-	}
-
-	if destHost != "" {
-		_, err = op.client.CoreV1().Nodes().Get(destHost, metav1.GetOptions{})
-		if err != nil {
-			klog.Errorf("failed to get node %s: %s", srcHost, err.Error())
-			return err
-		}
-	}
-
-	namespaceList, err := op.client.CoreV1().Namespaces().List(metav1.ListOptions{})
-	if err != nil {
-		klog.Errorf("failed to get namespace: %s", err.Error())
+		klog.Errorf("failed to get sts: %s", err.Error())
 		return err
 	}
 
 	var podList []*k8sModel.Pod
-
-	for _, namespace := range namespaceList.Items {
-		statefulsets, err := op.k8sCache.ListStatefulSets(namespace.Name, "")
-		if err != nil {
-			klog.Errorf("failed to get statefulsets of namespace %s: %s", namespace.Name, err.Error())
-			return err
-		}
-		for _, statefulset := range statefulsets {
-			pods := statefulset.Pods
-			for _, pod := range pods {
-				podInfo, err := op.client.CoreV1().Pods(namespace.Name).Get(pod.Name, metav1.GetOptions{})
-				if err != nil {
-					klog.Errorf("failed to get pod %s: %s", pod.Name, err.Error())
-					return err
-				}
-				if podInfo.Spec.NodeName != srcHost {
-					continue
-				}
+	for _, sts := range statefulsets {
+		for _, pod := range sts.Pods {
+			if pod.NodeName == mig.SrcHost {
 				podList = append(podList, pod)
 			}
 		}
 	}
 
 	for _, pod := range podList {
-		err = op.MigratePod(pod.Namespace, pod.Name, mig, migNamespace, destHost)
+		err = op.MigratePod(pod.Namespace, pod.Name, mig, true)
 		if err != nil {
 			return err
 		}
@@ -485,7 +456,7 @@ func (op *Operator) CreateNamespace(namespace *k8sModel.Namespace) error {
 	return nil
 }
 
-func (op *Operator) UpdateNamespace(namespace *k8sModel.Namespace) (error) {
+func (op *Operator) UpdateNamespace(namespace *k8sModel.Namespace) error {
 	k8sNamespace, err := converter.ConvertNamespaceToK8s(namespace)
 	if err != nil {
 		klog.Errorf("failed to convert namespace : %s", err.Error())
@@ -871,9 +842,9 @@ func (op *Operator) UpdateConfigMap(namespace, configMapName string, requestBody
 
 func NewOperator(client *kubernetes.Clientset, k8sCache k8s.Cache, kubeClients *helm.Client, k8sMigrationClient *migrationclientset.Clientset) *Operator {
 	return &Operator{
-		client:      client,
-		k8sCache:    k8sCache,
-		kubeClients: kubeClients,
+		client:             client,
+		k8sCache:           k8sCache,
+		kubeClients:        kubeClients,
 		k8sMigrationClient: k8sMigrationClient,
 	}
 }

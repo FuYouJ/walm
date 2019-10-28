@@ -23,6 +23,7 @@ func ConvertPodFromK8s(oriPod *corev1.Pod) (*k8s.Pod, error) {
 		Containers:  buildWalmPodContainers(pod),
 		Age:         duration.ShortHumanDuration(time.Since(pod.CreationTimestamp.Time)),
 		InitContainers: buildWalmPodInitContainers(pod),
+		NodeName:    pod.Spec.NodeName,
 	}
 	if len(pod.Labels) > 0 {
 		walmPod.Labels = pod.Labels
