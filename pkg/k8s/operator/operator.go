@@ -32,9 +32,9 @@ const (
 )
 
 type Operator struct {
-	client      *kubernetes.Clientset
-	k8sCache    k8s.Cache
-	kubeClients *helm.Client
+	client             *kubernetes.Clientset
+	k8sCache           k8s.Cache
+	kubeClients        *helm.Client
 	k8sMigrationClient *migrationclientset.Clientset
 }
 
@@ -79,7 +79,6 @@ func (op *Operator) RestartPod(namespace string, name string) error {
 
 func (op *Operator) MigratePod(namespace string, name string, mig *k8sModel.Mig, fromNode bool) error {
 
-
 	if mig.Name == "" {
 		return errors.Errorf("name for Mig must be set")
 	}
@@ -92,14 +91,13 @@ func (op *Operator) MigratePod(namespace string, name string, mig *k8sModel.Mig,
 	mig.Spec.Namespace = namespace
 	mig.Spec.PodName = name
 
-
 	k8sMig, err := converter.ConvertMigToK8s(mig)
 	if err != nil {
 		return errors.Errorf("failed to convert mig to k8sMigration: %s", err.Error())
 	}
 
 	if fromNode {
-		k8sMig.Labels = map[string]string{"migType":"node", "migName": mig.Name}
+		k8sMig.Labels = map[string]string{"migType": "node", "migName": mig.Name}
 		k8sMig.Name = mig.Name + "-" + mig.Spec.Namespace + "-" + mig.Spec.PodName
 	}
 
@@ -117,24 +115,15 @@ func (op *Operator) MigrateNode(mig *k8sModel.Mig) error {
 		return errors.Errorf("failed to get migration client, check config.CrdConfig.EnableMigrationCRD")
 	}
 
-	nodeList, err := op.k8sCache.GetNodes("")
+	srcNode, err := op.k8sCache.GetResource(k8sModel.NodeKind, "", mig.SrcHost)
 	if err != nil {
 		klog.Errorf("failed to get node %s: %s", mig.SrcHost, err.Error())
 		return err
 	}
 
-	findNode := false
-	for _, node := range nodeList {
-		if mig.SrcHost == node.Name {
-			if node.UnSchedulable {
-				return errors.Errorf("node is unschedulable, please wait")
-			}
-			findNode = true
-			break
-		}
-	}
-	if !findNode {
-		return errors.Errorf("node %s not exist.", mig.SrcHost)
+	newSrcNode := srcNode.(*k8sModel.Node)
+	if newSrcNode.UnSchedulable {
+		return errors.Errorf("node is unschedulable, please wait")
 	}
 
 	statefulsets, err := op.k8sCache.ListStatefulSets("", "")
@@ -467,7 +456,7 @@ func (op *Operator) CreateNamespace(namespace *k8sModel.Namespace) error {
 	return nil
 }
 
-func (op *Operator) UpdateNamespace(namespace *k8sModel.Namespace) (error) {
+func (op *Operator) UpdateNamespace(namespace *k8sModel.Namespace) error {
 	k8sNamespace, err := converter.ConvertNamespaceToK8s(namespace)
 	if err != nil {
 		klog.Errorf("failed to convert namespace : %s", err.Error())
@@ -853,9 +842,9 @@ func (op *Operator) UpdateConfigMap(namespace, configMapName string, requestBody
 
 func NewOperator(client *kubernetes.Clientset, k8sCache k8s.Cache, kubeClients *helm.Client, k8sMigrationClient *migrationclientset.Clientset) *Operator {
 	return &Operator{
-		client:      client,
-		k8sCache:    k8sCache,
-		kubeClients: kubeClients,
+		client:             client,
+		k8sCache:           k8sCache,
+		kubeClients:        kubeClients,
 		k8sMigrationClient: k8sMigrationClient,
 	}
 }
