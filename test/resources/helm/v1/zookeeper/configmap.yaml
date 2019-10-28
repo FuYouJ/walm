@@ -11,6 +11,6 @@ metadata:
     STATUS: DEPLOYED
     VERSION: "1"
   name: helmreleasetest-zk.v1
-  namespace: kube-system
-  selfLink: /api/v1/namespaces/kube-system/configmaps/helmreleasetest-zk.v1
+  namespace: helmreleasetest-t2295
+  selfLink: /api/v1/namespaces/helmreleasetest-t2295/configmaps/helmreleasetest-zk.v1
   uid: f7cd35ca-ebf4-11e9-99f8-d61387db2e94

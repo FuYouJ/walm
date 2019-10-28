@@ -13,8 +13,6 @@ import (
 	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-
 	"path/filepath"
 	"strings"
 
@@ -742,7 +740,6 @@ var _ = Describe("HelmRelease", func() {
 			//
 			//// Todo: // List v1 Release. Create configmap get release from configmap
 			Describe("test list & delete v1 release", func() {
-				var releaseConfigMap *corev1.ConfigMap
 				var anotherNamespace string
 
 				BeforeEach(func() {
@@ -767,16 +764,13 @@ var _ = Describe("HelmRelease", func() {
 					_, err = framework.CreateCustomConfigMap(anotherNamespace, entrypointConfigMapPath)
 					Expect(err).NotTo(HaveOccurred())
 
-					releaseConfigMap, err = framework.CreateCustomConfigMap("kube-system", releaseConfigMapPath)
+					_, err = framework.CreateCustomConfigMap(anotherNamespace, releaseConfigMapPath)
 					Expect(err).NotTo(HaveOccurred())
 				})
 
 				AfterEach(func() {
 					By("delete test namespace")
 					err = framework.DeleteNamespace(anotherNamespace)
-					Expect(err).NotTo(HaveOccurred())
-
-					err = framework.DeleteConfigMap("kube-system", releaseConfigMap.Name)
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("list & delete v1 release", func() {
