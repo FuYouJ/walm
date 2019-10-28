@@ -17,7 +17,6 @@ import (
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	batchv1 "k8s.io/api/batch/v1"
 	"k8s.io/api/core/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -118,36 +117,42 @@ func (op *Operator) MigrateNode(mig *k8sModel.Mig) error {
 		return errors.Errorf("failed to get migration client, check config.CrdConfig.EnableMigrationCRD")
 	}
 
-	srcNode, err := op.client.CoreV1().Nodes().Get(mig.SrcHost, metav1.GetOptions{})
+	nodeList, err := op.k8sCache.GetNodes("")
 	if err != nil {
 		klog.Errorf("failed to get node %s: %s", mig.SrcHost, err.Error())
 		return err
 	}
-	if srcNode.Spec.Unschedulable == true {
-		return errors.Errorf("node is unschedulable, please wait")
+
+	findNode := false
+	for _, node := range nodeList {
+		if mig.SrcHost == node.Name {
+			if node.UnSchedulable {
+				return errors.Errorf("node is unschedulable, please wait")
+			}
+			findNode = true
+			break
+		}
+	}
+	if !findNode {
+		return errors.Errorf("node %s not exist.", mig.SrcHost)
 	}
 
-	// Todo: cordon node
-	podList := &corev1.PodList{
-		Items: []corev1.Pod{},
-	}
-	pods, err := op.client.CoreV1().Pods("").List(metav1.ListOptions{})
+	statefulsets, err := op.k8sCache.ListStatefulSets("", "")
 	if err != nil {
-		klog.Errorf("failed to list pods: %s", err.Error())
+		klog.Errorf("failed to get sts: %s", err.Error())
 		return err
 	}
 
-	for _, pod := range pods.Items {
-		if pod.Spec.NodeName == mig.SrcHost {
-			for _, ownerReference := range pod.OwnerReferences {
-				if ownerReference.Kind == "StatefulSet" {
-					podList.Items = append(podList.Items, pod)
-				}
+	var podList []*k8sModel.Pod
+	for _, sts := range statefulsets {
+		for _, pod := range sts.Pods {
+			if pod.NodeName == mig.SrcHost {
+				podList = append(podList, pod)
 			}
 		}
 	}
 
-	for _, pod := range podList.Items {
+	for _, pod := range podList {
 		err = op.MigratePod(pod.Namespace, pod.Name, mig, true)
 		if err != nil {
 			return err
