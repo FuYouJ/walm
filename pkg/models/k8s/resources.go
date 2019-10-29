@@ -16,6 +16,7 @@ const (
 	StorageClassKind          ResourceKind = "StorageClass"
 	NamespaceKind             ResourceKind = "Namespace"
 	ReleaseConfigKind         ResourceKind = "ReleaseConfig"
+	ReplicaSetKind            ResourceKind = "ReplicaSet"
 	InstanceKind              ResourceKind = "ApplicationInstance"
 	MigKind                   ResourceKind = "Mig"
 )
@@ -107,6 +108,7 @@ type EventList struct {
 
 type Deployment struct {
 	Meta
+	UID 			  string 			`json:"uid,omitempty" description:"uid"`
 	Labels            map[string]string `json:"labels" description:"deployment labels"`
 	Annotations       map[string]string `json:"annotations" description:"deployment annotations"`
 	ExpectedReplicas  int32             `json:"expectedReplicas" description:"expected replicas"`
@@ -166,6 +168,7 @@ type ServicePort struct {
 
 type StatefulSet struct {
 	Meta
+	UID 			 string 		   `json:"uid,omitempty" description:"uid"`
 	Labels           map[string]string `json:"labels" description:"stateful set labels"`
 	Annotations      map[string]string `json:"annotations" description:"stateful set annotations"`
 	ExpectedReplicas int32             `json:"expectedReplicas" description:"expected replicas"`
@@ -182,6 +185,7 @@ func (resource *StatefulSet) AddToResourceSet(resourceSet *ResourceSet) {
 
 type DaemonSet struct {
 	Meta
+	UID 			       string 			 `json:"uid,omitempty" description:"uid"`
 	Labels                 map[string]string `json:"labels" description:"daemon set labels"`
 	Annotations            map[string]string `json:"annotations" description:"daemon set annotations"`
 	DesiredNumberScheduled int32             `json:"desiredNumberScheduled" description:"desired number scheduled"`
@@ -196,6 +200,7 @@ func (resource *DaemonSet) AddToResourceSet(resourceSet *ResourceSet) {
 
 type Job struct {
 	Meta
+	UID 			   string 			 `json:"uid,omitempty" description:"uid"`
 	Labels             map[string]string `json:"labels" description:"job labels"`
 	Annotations        map[string]string `json:"annotations" description:"job annotations"`
 	ExpectedCompletion int32             `json:"expectedCompletion" description:"expected num which is succeeded"`
@@ -292,7 +297,7 @@ type Node struct {
 	WarpDriveStorageList  []WarpDriveStorage        `json:"warpDriveStorageList" description:"warp drive storage list"`
 	UnifyUnitResourceInfo UnifyUnitNodeResourceInfo `json:"unifyUnitResourceInfo" description:"resource info with unified unit"`
 	Taints                []NodeTaint               `json:"taints" description:"node taint"`
-	UnSchedulable         bool						`json:"-" description:"schedule status"`
+	UnSchedulable         bool                      `json:"-" description:"schedule status"`
 }
 
 type WarpDriveStorage struct {
@@ -460,16 +465,77 @@ type ApplicationInstance struct {
 	DependencyMeta *DependencyMeta   `json:"dependencyMeta"`
 }
 
+type ReplicaSet struct {
+	Meta
+	UID 			string 			  `json:"uid,omitempty"`
+	Replicas        *int32            `json:"replicas,omitempty"`
+	Labels          map[string]string `json:"labels"`
+	OwnerReferences []OwnerReference  `json:"ownerReferences,omitempty"`
+	Status          ReplicaSetStatus  `json:"status,omitempty"`
+}
+
+// ReplicaSetStatus represents the current status of a ReplicaSet.
+type ReplicaSetStatus struct {
+	// Replicas is the most recently oberved number of replicas.
+	Replicas int32 `json:"replicas"`
+
+	// The number of pods that have labels matching the labels of the pod template of the replicaset.
+	FullyLabeledReplicas int32 `json:"fullyLabeledReplicas,omitempty"`
+
+	// The number of ready replicas for this replica set.
+	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
+
+	// The number of available replicas (ready for at least minReadySeconds) for this replica set.
+	AvailableReplicas int32 `json:"availableReplicas,omitempty"`
+
+	// ObservedGeneration reflects the generation of the most recently observed ReplicaSet.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// Represents the latest available observations of a replica set's current state.
+	Conditions []ReplicaSetCondition `json:"conditions,omitempty"`
+}
+
+// ReplicaSetCondition describes the state of a replica set at a certain point.
+type ReplicaSetCondition struct {
+	// Type of replica set condition.
+	Type string `json:"type"`
+	// Status of the condition, one of True, False, Unknown.
+	Status string `json:"status"`
+	// The reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty"`
+	// A human readable message indicating details about the transition.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
+func (resource *ReplicaSet) AddToResourceSet(resourceSet *ResourceSet) {
+}
+
+type OwnerReference struct {
+	Kind string `json:"kind" description:"kind"`
+	// Name of the referent.
+	// More info: http://kubernetes.io/docs/user-guide/identifiers#names
+	Name string `json:"name" description:"name"`
+	// UID of the referent.
+	// More info: http://kubernetes.io/docs/user-guide/identifiers#uids
+	UID string `json:"uid" description:"uid"`
+	//UID types.UID `json:"uid" protobuf:"bytes,4,opt,name=uid,casttype=k8s.io/apimachinery/pkg/types.UID"`
+	// If true, this reference points to the managing controller.
+	// +optional
+	Controller *bool `json:"controller,omitempty" description:"controller"`
+}
+
 type MigList struct {
 	Items []*Mig `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 type Mig struct {
 	Meta
-	Labels              map[string]string `json:"labels" description:"labels"`
-	Spec                MigSpec           `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-	SrcHost             string            `json:"srcHost,omitempty"`
-	DestHost            string            `json:"destHost,omitempty"`
+	Labels   map[string]string `json:"labels" description:"labels"`
+	Spec     MigSpec           `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+	SrcHost  string            `json:"srcHost,omitempty"`
+	DestHost string            `json:"destHost,omitempty"`
 }
 
 func (resource *Mig) AddToResourceSet(resourceSet *ResourceSet) {
@@ -477,8 +543,8 @@ func (resource *Mig) AddToResourceSet(resourceSet *ResourceSet) {
 
 // MigSpec defines the desired state of Mig
 type MigSpec struct {
-	PodName    string `json:"podname,omitempty"`
-	Namespace  string `json:"namespace,omitempty"`
+	PodName   string `json:"podname,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
 }
 
 type DependencyMeta struct {

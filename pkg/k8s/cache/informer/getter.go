@@ -5,11 +5,11 @@ import (
 	"WarpCloud/walm/pkg/k8s/utils"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/release"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"transwarp/application-instance/pkg/apis/transwarp/v1beta1"
-	"WarpCloud/walm/pkg/models/release"
 )
 
 func (informer *Informer) getReleaseConfig(namespace, name string) (k8s.Resource, error) {
@@ -53,6 +53,10 @@ func (informer *Informer) getDaemonSet(namespace, name string) (k8s.Resource, er
 	if err != nil {
 		return nil, err
 	}
+	pods, err = informer.filterPodsByOwnerRef(k8s.DaemonSetKind, pods)
+	if err != nil {
+		return nil, err
+	}
 	return converter.ConvertDaemonSetFromK8s(resource, pods)
 }
 
@@ -64,6 +68,10 @@ func (informer *Informer) getDeployment(namespace, name string) (k8s.Resource, e
 		})
 	}
 	pods, err := informer.listPods(namespace, resource.Spec.Selector, false)
+	if err != nil {
+		return nil, err
+	}
+	pods, err = informer.filterPodsByOwnerRef(k8s.DeploymentKind, pods)
 	if err != nil {
 		return nil, err
 	}
@@ -88,6 +96,10 @@ func (informer *Informer) getJob(namespace, name string) (k8s.Resource, error) {
 		})
 	}
 	pods, err := informer.listPods(namespace, resource.Spec.Selector, true)
+	if err != nil {
+		return nil, err
+	}
+	pods, err = informer.filterPodsByOwnerRef(k8s.JobKind, pods)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +142,95 @@ func (informer *Informer) getStatefulSet(namespace, name string) (k8s.Resource, 
 	if err != nil {
 		return nil, err
 	}
+	pods, err = informer.filterPodsByOwnerRef(k8s.StatefulSetKind, pods)
+	if err != nil {
+
+		return nil, err
+	}
 	return converter.ConvertStatefulSetFromK8s(resource, pods)
+}
+
+func (informer *Informer) filterPodsByOwnerRef(resKind k8s.ResourceKind, pods []*corev1.Pod) ([]*corev1.Pod, error) {
+
+	var podList []*corev1.Pod
+
+	switch resKind {
+	case k8s.DeploymentKind:
+		for _, pod := range pods {
+			for _, ownerRef := range pod.OwnerReferences {
+
+				isFind := false
+				if ownerRef.Kind != string(k8s.ReplicaSetKind) {
+					continue
+				}
+				replicaSet, err := informer.replicaSetLister.ReplicaSets(pod.Namespace).Get(ownerRef.Name)
+				if err != nil {
+					return nil, err
+				}
+
+				if ownerRef.UID != replicaSet.UID {
+					continue
+				}
+				for _, rsOwnerRef := range replicaSet.OwnerReferences {
+					if rsOwnerRef.Kind == string(k8s.DeploymentKind) {
+						deployment, err := informer.deploymentLister.Deployments(replicaSet.Namespace).Get(rsOwnerRef.Name)
+						if err != nil {
+							return nil, err
+						}
+						if rsOwnerRef.UID != deployment.UID {
+							break
+						}
+						isFind = true
+						break
+					}
+				}
+				if isFind {
+					podList = append(podList, pod)
+					break
+				}
+			}
+		}
+	case k8s.StatefulSetKind, k8s.DaemonSetKind, k8s.JobKind:
+		for _, pod := range pods {
+			for _, ownerRef := range pod.OwnerReferences {
+				if string(resKind) == ownerRef.Kind {
+
+					if resKind == k8s.StatefulSetKind {
+						resource, err := informer.statefulSetLister.StatefulSets(pod.Namespace).Get(ownerRef.Name)
+						if err != nil {
+							return nil, err
+						}
+						if resource.UID != ownerRef.UID {
+							continue
+						}
+
+					} else if resKind == k8s.DaemonSetKind {
+						resource, err := informer.daemonSetLister.DaemonSets(pod.Namespace).Get(ownerRef.Name)
+						if err != nil {
+							return nil, err
+						}
+						if resource.UID != ownerRef.UID {
+							continue
+						}
+					} else {
+						resource, err := informer.jobLister.Jobs(pod.Namespace).Get(ownerRef.Name)
+						if err != nil {
+							return nil, err
+						}
+						if resource.UID != ownerRef.UID {
+							continue
+						}
+					}
+
+					podList = append(podList, pod)
+					break
+				}
+			}
+		}
+	default:
+
+	}
+	return pods, nil
 }
 
 func (informer *Informer) listPods(namespace string, labelSelector *metav1.LabelSelector, fromJob bool) ([]*corev1.Pod, error) {
@@ -228,7 +328,7 @@ func (informer *Informer) getInstance(namespace, name string) (k8s.Resource, err
 		Meta: k8s.NewNotFoundMeta(k8s.InstanceKind, namespace, name),
 	}
 	if informer.instanceLister == nil {
-		return notFoundResource , errorModel.NotFoundError{}
+		return notFoundResource, errorModel.NotFoundError{}
 	}
 	resource, err := informer.instanceLister.ApplicationInstances(namespace).Get(name)
 	if err != nil {
@@ -251,12 +351,30 @@ func (informer *Informer) getInstance(namespace, name string) (k8s.Resource, err
 	return converter.ConvertInstanceFromK8s(resource, instanceModules, dependencyMeta)
 }
 
+func (informer *Informer) getReplicaSet(namespace, name string) (k8s.Resource, error) {
+	notFoundResource := &k8s.ReplicaSet{
+		Meta: k8s.NewNotFoundMeta(k8s.ReplicaSetKind, namespace, name),
+	}
+	if informer.replicaSetLister == nil {
+		return notFoundResource, errorModel.NotFoundError{}
+	}
+
+	k8sReplicaSet, err := informer.replicaSetLister.ReplicaSets(namespace).Get(name)
+	if err != nil {
+		return convertResourceError(err, &k8s.ReplicaSet{
+			Meta: k8s.NewNotFoundMeta(k8s.ReplicaSetKind, namespace, name),
+		})
+	}
+
+	return converter.ConvertReplicaSetFromK8s(k8sReplicaSet)
+}
+
 func (informer *Informer) getMigration(namespace string, name string) (k8s.Resource, error) {
 	notFoundResource := &k8s.Mig{
 		Meta: k8s.NewNotFoundMeta(k8s.MigKind, namespace, name),
 	}
 	if informer.migrationLister == nil {
-		return notFoundResource , errorModel.NotFoundError{}
+		return notFoundResource, errorModel.NotFoundError{}
 	}
 
 	k8sMig, err := informer.migrationLister.Migs(namespace).Get(name)
@@ -273,9 +391,9 @@ func convertInstanceModulesToResourceMetas(references []v1beta1.ResourceReferenc
 	res := []release.ReleaseResourceMeta{}
 	for _, ref := range references {
 		res = append(res, release.ReleaseResourceMeta{
-			Name: ref.ResourceRef.Name,
+			Name:      ref.ResourceRef.Name,
 			Namespace: ref.ResourceRef.Namespace,
-			Kind: k8s.ResourceKind(ref.ResourceRef.Kind),
+			Kind:      k8s.ResourceKind(ref.ResourceRef.Kind),
 		})
 	}
 	return res
