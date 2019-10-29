@@ -18,36 +18,9 @@ func ConvertReplicaSetFromK8s(oriReplicaSet *appsv1.ReplicaSet) (walmReplicaSet 
 		UID:      string(replicaSet.UID),
 		Replicas: replicaSet.Spec.Replicas,
 		Labels:   replicaSet.Labels,
-		OwnerReferences: []k8s.OwnerReference{
-			{
-
-			},
-		},
-		Status: k8s.ReplicaSetStatus{
-			Replicas:             replicaSet.Status.Replicas,
-			FullyLabeledReplicas: replicaSet.Status.FullyLabeledReplicas,
-			ReadyReplicas:        replicaSet.Status.ReadyReplicas,
-			AvailableReplicas:    replicaSet.Status.AvailableReplicas,
-			ObservedGeneration:   replicaSet.Status.ObservedGeneration,
-		},
 	}
-
 	walmReplicaSet.OwnerReferences = buildWalmOwnerRef(replicaSet.OwnerReferences)
-	walmReplicaSet.Status.Conditions = buildWalmReplicaSetConditons(replicaSet.Status.Conditions)
 	return
-}
-
-func buildWalmReplicaSetConditons(conditions []appsv1.ReplicaSetCondition) []k8s.ReplicaSetCondition {
-	var walmRsConditions []k8s.ReplicaSetCondition
-	for _, condition := range conditions {
-		walmRsConditions = append(walmRsConditions, k8s.ReplicaSetCondition{
-			Type:    string(condition.Type),
-			Status:  string(condition.Status),
-			Reason:  condition.Reason,
-			Message: condition.Message,
-		})
-	}
-	return walmRsConditions
 }
 
 func buildWalmOwnerRef(ownerRefs []v1.OwnerReference) []k8s.OwnerReference {

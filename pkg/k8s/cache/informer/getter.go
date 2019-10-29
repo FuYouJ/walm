@@ -8,6 +8,7 @@ import (
 	"WarpCloud/walm/pkg/models/release"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"transwarp/application-instance/pkg/apis/transwarp/v1beta1"
 )
@@ -53,7 +54,7 @@ func (informer *Informer) getDaemonSet(namespace, name string) (k8s.Resource, er
 	if err != nil {
 		return nil, err
 	}
-	pods, err = informer.filterPodsByOwnerRef(k8s.DaemonSetKind, pods)
+	pods, err = informer.filterPodsByOwnerRef(k8s.DaemonSetKind, resource.UID, pods)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +72,7 @@ func (informer *Informer) getDeployment(namespace, name string) (k8s.Resource, e
 	if err != nil {
 		return nil, err
 	}
-	pods, err = informer.filterPodsByOwnerRef(k8s.DeploymentKind, pods)
+	pods, err = informer.filterPodsByOwnerRef(k8s.DeploymentKind, resource.UID, pods)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +100,7 @@ func (informer *Informer) getJob(namespace, name string) (k8s.Resource, error) {
 	if err != nil {
 		return nil, err
 	}
-	pods, err = informer.filterPodsByOwnerRef(k8s.JobKind, pods)
+	pods, err = informer.filterPodsByOwnerRef(k8s.JobKind, resource.UID, pods)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +143,7 @@ func (informer *Informer) getStatefulSet(namespace, name string) (k8s.Resource, 
 	if err != nil {
 		return nil, err
 	}
-	pods, err = informer.filterPodsByOwnerRef(k8s.StatefulSetKind, pods)
+	pods, err = informer.filterPodsByOwnerRef(k8s.StatefulSetKind, resource.UID, pods)
 	if err != nil {
 
 		return nil, err
@@ -150,10 +151,8 @@ func (informer *Informer) getStatefulSet(namespace, name string) (k8s.Resource, 
 	return converter.ConvertStatefulSetFromK8s(resource, pods)
 }
 
-func (informer *Informer) filterPodsByOwnerRef(resKind k8s.ResourceKind, pods []*corev1.Pod) ([]*corev1.Pod, error) {
-
+func (informer *Informer) filterPodsByOwnerRef(resKind k8s.ResourceKind, resId types.UID, pods []*corev1.Pod) ([]*corev1.Pod, error) {
 	var podList []*corev1.Pod
-
 	switch resKind {
 	case k8s.DeploymentKind:
 		for _, pod := range pods {
@@ -172,14 +171,7 @@ func (informer *Informer) filterPodsByOwnerRef(resKind k8s.ResourceKind, pods []
 					continue
 				}
 				for _, rsOwnerRef := range replicaSet.OwnerReferences {
-					if rsOwnerRef.Kind == string(k8s.DeploymentKind) {
-						deployment, err := informer.deploymentLister.Deployments(replicaSet.Namespace).Get(rsOwnerRef.Name)
-						if err != nil {
-							return nil, err
-						}
-						if rsOwnerRef.UID != deployment.UID {
-							break
-						}
+					if rsOwnerRef.Kind == string(k8s.DeploymentKind) && rsOwnerRef.UID == resId {
 						isFind = true
 						break
 					}
@@ -193,35 +185,7 @@ func (informer *Informer) filterPodsByOwnerRef(resKind k8s.ResourceKind, pods []
 	case k8s.StatefulSetKind, k8s.DaemonSetKind, k8s.JobKind:
 		for _, pod := range pods {
 			for _, ownerRef := range pod.OwnerReferences {
-				if string(resKind) == ownerRef.Kind {
-
-					if resKind == k8s.StatefulSetKind {
-						resource, err := informer.statefulSetLister.StatefulSets(pod.Namespace).Get(ownerRef.Name)
-						if err != nil {
-							return nil, err
-						}
-						if resource.UID != ownerRef.UID {
-							continue
-						}
-
-					} else if resKind == k8s.DaemonSetKind {
-						resource, err := informer.daemonSetLister.DaemonSets(pod.Namespace).Get(ownerRef.Name)
-						if err != nil {
-							return nil, err
-						}
-						if resource.UID != ownerRef.UID {
-							continue
-						}
-					} else {
-						resource, err := informer.jobLister.Jobs(pod.Namespace).Get(ownerRef.Name)
-						if err != nil {
-							return nil, err
-						}
-						if resource.UID != ownerRef.UID {
-							continue
-						}
-					}
-
+				if string(resKind) == ownerRef.Kind  && ownerRef.UID == resId {
 					podList = append(podList, pod)
 					break
 				}

@@ -108,7 +108,7 @@ type EventList struct {
 
 type Deployment struct {
 	Meta
-	UID 			  string 			`json:"uid,omitempty" description:"uid"`
+	UID 			  string 			`json:"-"`
 	Labels            map[string]string `json:"labels" description:"deployment labels"`
 	Annotations       map[string]string `json:"annotations" description:"deployment annotations"`
 	ExpectedReplicas  int32             `json:"expectedReplicas" description:"expected replicas"`
@@ -168,7 +168,7 @@ type ServicePort struct {
 
 type StatefulSet struct {
 	Meta
-	UID 			 string 		   `json:"uid,omitempty" description:"uid"`
+	UID 			 string 		   `json:"-"`
 	Labels           map[string]string `json:"labels" description:"stateful set labels"`
 	Annotations      map[string]string `json:"annotations" description:"stateful set annotations"`
 	ExpectedReplicas int32             `json:"expectedReplicas" description:"expected replicas"`
@@ -185,7 +185,7 @@ func (resource *StatefulSet) AddToResourceSet(resourceSet *ResourceSet) {
 
 type DaemonSet struct {
 	Meta
-	UID 			       string 			 `json:"uid,omitempty" description:"uid"`
+	UID 			       string 			 `json:"-"`
 	Labels                 map[string]string `json:"labels" description:"daemon set labels"`
 	Annotations            map[string]string `json:"annotations" description:"daemon set annotations"`
 	DesiredNumberScheduled int32             `json:"desiredNumberScheduled" description:"desired number scheduled"`
@@ -200,7 +200,7 @@ func (resource *DaemonSet) AddToResourceSet(resourceSet *ResourceSet) {
 
 type Job struct {
 	Meta
-	UID 			   string 			 `json:"uid,omitempty" description:"uid"`
+	UID 			   string 			 `json:"-"`
 	Labels             map[string]string `json:"labels" description:"job labels"`
 	Annotations        map[string]string `json:"annotations" description:"job annotations"`
 	ExpectedCompletion int32             `json:"expectedCompletion" description:"expected num which is succeeded"`
@@ -467,46 +467,10 @@ type ApplicationInstance struct {
 
 type ReplicaSet struct {
 	Meta
-	UID 			string 			  `json:"uid,omitempty"`
+	UID 			string 			  `json:"-"`
 	Replicas        *int32            `json:"replicas,omitempty"`
 	Labels          map[string]string `json:"labels"`
 	OwnerReferences []OwnerReference  `json:"ownerReferences,omitempty"`
-	Status          ReplicaSetStatus  `json:"status,omitempty"`
-}
-
-// ReplicaSetStatus represents the current status of a ReplicaSet.
-type ReplicaSetStatus struct {
-	// Replicas is the most recently oberved number of replicas.
-	Replicas int32 `json:"replicas"`
-
-	// The number of pods that have labels matching the labels of the pod template of the replicaset.
-	FullyLabeledReplicas int32 `json:"fullyLabeledReplicas,omitempty"`
-
-	// The number of ready replicas for this replica set.
-	ReadyReplicas int32 `json:"readyReplicas,omitempty"`
-
-	// The number of available replicas (ready for at least minReadySeconds) for this replica set.
-	AvailableReplicas int32 `json:"availableReplicas,omitempty"`
-
-	// ObservedGeneration reflects the generation of the most recently observed ReplicaSet.
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-
-	// Represents the latest available observations of a replica set's current state.
-	Conditions []ReplicaSetCondition `json:"conditions,omitempty"`
-}
-
-// ReplicaSetCondition describes the state of a replica set at a certain point.
-type ReplicaSetCondition struct {
-	// Type of replica set condition.
-	Type string `json:"type"`
-	// Status of the condition, one of True, False, Unknown.
-	Status string `json:"status"`
-	// The reason for the condition's last transition.
-	// +optional
-	Reason string `json:"reason,omitempty"`
-	// A human readable message indicating details about the transition.
-	// +optional
-	Message string `json:"message,omitempty"`
 }
 
 func (resource *ReplicaSet) AddToResourceSet(resourceSet *ResourceSet) {
