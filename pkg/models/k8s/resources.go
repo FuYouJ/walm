@@ -469,7 +469,6 @@ type ReplicaSet struct {
 	Meta
 	UID 			string 			  `json:"-"`
 	Replicas        *int32            `json:"replicas,omitempty"`
-	Labels          map[string]string `json:"labels"`
 	OwnerReferences []OwnerReference  `json:"ownerReferences,omitempty"`
 }
 

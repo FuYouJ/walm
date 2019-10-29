@@ -17,7 +17,6 @@ func ConvertReplicaSetFromK8s(oriReplicaSet *appsv1.ReplicaSet) (walmReplicaSet 
 		Meta:     k8s.NewEmptyStateMeta(k8s.ReplicaSetKind, replicaSet.Namespace, replicaSet.Name),
 		UID:      string(replicaSet.UID),
 		Replicas: replicaSet.Spec.Replicas,
-		Labels:   replicaSet.Labels,
 	}
 	walmReplicaSet.OwnerReferences = buildWalmOwnerRef(replicaSet.OwnerReferences)
 	return
