@@ -15,6 +15,7 @@ func ConvertJobFromK8s(oriJob *batchv1.Job, pods []*v1.Pod) (walmJob *k8s.Job, e
 
 	walmJob = &k8s.Job{
 		Meta:        k8s.NewEmptyStateMeta(k8s.JobKind, job.Namespace, job.Name),
+		UID:         string(job.UID),
 		Labels:      job.Labels,
 		Annotations: job.Annotations,
 		Succeeded:   job.Status.Succeeded,

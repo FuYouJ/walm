@@ -13,6 +13,7 @@ import (
 	migrationv1beta1 "github.com/migration/pkg/client/listers/tos/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1 "k8s.io/client-go/listers/apps/v1"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -59,7 +60,7 @@ type Informer struct {
 	storageClassLister          storagev1.StorageClassLister
 	endpointsLister             v1.EndpointsLister
 	limitRangeLister            v1.LimitRangeLister
-
+	replicaSetLister            appsv1.ReplicaSetLister
 	releaseConifgFactory releaseconfigexternalversions.SharedInformerFactory
 	releaseConfigLister  releaseconfigv1beta1.ReleaseConfigLister
 
@@ -445,6 +446,8 @@ func (informer *Informer) GetResource(kind k8s.ResourceKind, namespace, name str
 		return informer.getStorageClass(namespace, name)
 	case k8s.InstanceKind:
 		return informer.getInstance(namespace, name)
+	case k8s.ReplicaSetKind:
+		return informer.getReplicaSet(namespace, name)
 	case k8s.MigKind:
 		return informer.getMigration(namespace, name)
 	default:
@@ -524,7 +527,7 @@ func NewInformer(
 	informer.storageClassLister = informer.factory.Storage().V1().StorageClasses().Lister()
 	informer.endpointsLister = informer.factory.Core().V1().Endpoints().Lister()
 	informer.limitRangeLister = informer.factory.Core().V1().LimitRanges().Lister()
-
+	informer.replicaSetLister = informer.factory.Apps().V1().ReplicaSets().Lister()
 	informer.releaseConifgFactory = releaseconfigexternalversions.NewSharedInformerFactory(releaseConfigClient, resyncPeriod)
 	informer.releaseConfigLister = informer.releaseConifgFactory.Transwarp().V1beta1().ReleaseConfigs().Lister()
 

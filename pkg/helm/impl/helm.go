@@ -39,6 +39,7 @@ import (
 
 const (
 	compatibleNamespace = "kube-system"
+	releaseMaxHistory = 10
 )
 
 type ChartRepository struct {
@@ -464,7 +465,7 @@ func (helmImpl *Helm) doInstallUpgradeReleaseFromChart(namespace, name string, r
 		}
 		action.DryRun = dryRun
 		action.Namespace = namespace
-		action.MaxHistory = 3
+		action.MaxHistory = releaseMaxHistory
 		action.ReleaseChan = releaseChan
 		action.ReleaseErrChan = releaseErrChan
 		helmRelease, err = action.Run(name, rawChart, valueOverride)

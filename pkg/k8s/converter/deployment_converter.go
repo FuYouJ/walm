@@ -14,6 +14,7 @@ func ConvertDeploymentFromK8s(oriDeployment *extv1beta1.Deployment, pods []*v1.P
 
 	walmDeployment = &k8s.Deployment{
 		Meta:              k8s.NewEmptyStateMeta(k8s.DeploymentKind, deployment.Namespace, deployment.Name),
+		UID:               string(deployment.UID),
 		Labels:            deployment.Labels,
 		Annotations:       deployment.Annotations,
 		UpdatedReplicas:   deployment.Status.UpdatedReplicas,

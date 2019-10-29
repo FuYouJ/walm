@@ -16,6 +16,7 @@ func ConvertStatefulSetFromK8s(oriStatefulSet *appsv1beta1.StatefulSet, pods []*
 
 	walmStatefulSet = &k8s.StatefulSet{
 		Meta:       k8s.NewEmptyStateMeta(k8s.StatefulSetKind, statefulSet.Namespace, statefulSet.Name),
+		UID:            string(statefulSet.UID),
 		Labels:         statefulSet.Labels,
 		Annotations:    statefulSet.Annotations,
 		ReadyReplicas:  statefulSet.Status.ReadyReplicas,

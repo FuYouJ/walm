@@ -14,6 +14,7 @@ func ConvertDaemonSetFromK8s(oriDaemonSet *extv1beta1.DaemonSet, pods []*v1.Pod)
 
 	walmDaemonSet = &k8s.DaemonSet{
 		Meta:               k8s.NewEmptyStateMeta(k8s.DaemonSetKind, daemonSet.Namespace, daemonSet.Name),
+		UID:                    string(daemonSet.UID),
 		Labels:                 daemonSet.Labels,
 		Annotations:            daemonSet.Annotations,
 		DesiredNumberScheduled: daemonSet.Status.DesiredNumberScheduled,
