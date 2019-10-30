@@ -2,6 +2,7 @@ package converter
 
 import (
 	"WarpCloud/walm/pkg/models/k8s"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -9,7 +10,7 @@ import (
 func ConvertReplicaSetFromK8s(oriReplicaSet *appsv1.ReplicaSet) (walmReplicaSet *k8s.ReplicaSet, err error) {
 
 	if oriReplicaSet == nil {
-		return nil, nil
+		return nil, errors.Errorf("oriReplicaSet is nil, invalid memory address or nil pointer dereference")
 	}
 	replicaSet := oriReplicaSet.DeepCopy()
 
