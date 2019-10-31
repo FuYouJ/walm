@@ -129,9 +129,9 @@ func (file *manifestFile) sort(result *result) error {
 			return errors.Wrapf(err, "YAML parse error on %s", file.path)
 		}
 
-		if entry.Version != "" && !file.apis.Has(entry.Version) {
-			return errors.Errorf("apiVersion %q in %s is not available", entry.Version, file.path)
-		}
+		//if entry.Version != "" && !file.apis.Has(entry.Version) {
+		//	return errors.Errorf("apiVersion %q in %s is not available", entry.Version, file.path)
+		//}
 
 		if !hasAnyAnnotation(entry) {
 			result.generic = append(result.generic, Manifest{

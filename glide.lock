@@ -1,5 +1,5 @@
-hash: 54edb496d381853c231fef6d06caaab2d805c8720eae0d4aaf2a3b8299c97d90
-updated: 2019-10-14T15:13:24.176214821+08:00
+hash: bf7d2f28766bd06d4908e73fa0d16b701c0c56c53f05a6ef0de0b1aa66f80c14
+updated: 2019-10-30T20:16:38.819525195+08:00
 imports:
 - name: github.com/aokoli/goutils
   version: 3391d3790d23d03408670993e957e8f408993c34
@@ -80,6 +80,10 @@ imports:
   - remotes/docker/schema1
   - sys
   - version
+- name: github.com/containerd/continuity
+  version: 75bee3e2ccb6402e3a986ab8bd3b17003fc0fdec
+  subpackages:
+  - pathdriver
 - name: github.com/davecgh/go-spew
   version: 8991bc29aa16c548c550c7ff78260e27b9ab7c73
   subpackages:
@@ -95,7 +99,7 @@ imports:
 - name: github.com/dgrijalva/jwt-go
   version: 06ea1031745cb8b3dab3f6a236daf2b0aa468b7e
 - name: github.com/docker/cli
-  version: 5d85cdacd2571284468622d1baac78e3d3dd0602
+  version: 6318939f30e01585b34eb6a68a54b890a8d54eb0
   subpackages:
   - cli/config
   - cli/config/configfile
@@ -131,10 +135,14 @@ imports:
   - api/types/swarm/runtime
   - api/types/versions
   - errdefs
+  - pkg/homedir
+  - pkg/idtools
   - pkg/ioutils
   - pkg/jsonmessage
   - pkg/longpath
+  - pkg/mount
   - pkg/stringid
+  - pkg/system
   - pkg/tarsum
   - pkg/term
   - pkg/term/windows
@@ -264,7 +272,7 @@ imports:
   - compiler
   - extensions
 - name: github.com/gorilla/mux
-  version: 884b5ffcbd3a11b730f0b75f5c86ac408753c34d
+  version: f395758b854c4efa789b8c1e9b73479704c548cb
 - name: github.com/gosuri/uitable
   version: 36ee7e946282a3fb1cfecd476ddc9b35d8847e42
   subpackages:
@@ -355,6 +363,11 @@ imports:
   - client/clientset/versioned
   - client/clientset/versioned/scheme
   - client/clientset/versioned/typed/tos/v1beta1
+  - client/informers/externalversions
+  - client/informers/externalversions/internalinterfaces
+  - client/informers/externalversions/tos
+  - client/informers/externalversions/tos/v1beta1
+  - client/listers/tos/v1beta1
 - name: github.com/mitchellh/go-wordwrap
   version: ad45545899c7b13c020ea92b2072220eefad42b8
 - name: github.com/modern-go/concurrent
@@ -407,7 +420,7 @@ imports:
   - specs-go
   - specs-go/v1
 - name: github.com/opencontainers/runc
-  version: c1485a1e88f853e9c2cd3d51eac6d410fed24df4
+  version: d239ca84254c579a964101b4f8049b860fbfc135
   subpackages:
   - libcontainer/system
   - libcontainer/user
@@ -419,7 +432,7 @@ imports:
 - name: github.com/peterbourgon/diskv
   version: 5f041e8faa004a95c88a202771f4cc3e991971e6
 - name: github.com/pierrec/lz4
-  version: 0554902aa74a6a41b367c6352ebcc922b26782b1
+  version: fbc25c327aad997d35fac5699403cbf02ba275cc
   subpackages:
   - internal/xxh32
 - name: github.com/pkg/errors
@@ -505,7 +518,7 @@ imports:
 - name: github.com/xeipuuv/gojsonreference
   version: bd5ef7bd5415a7ac448318e64f11a24cd21e594b
 - name: github.com/xeipuuv/gojsonschema
-  version: 66521ed8df07c4f32aa6e40c4e919cbd4c2d267f
+  version: 82fcdeb203eb6ab2a67d0a623d9c19e5e5a64927
 - name: golang.org/x/crypto
   version: e84da0312774c21d64ee2317962ef669b27ffb41
   subpackages:
@@ -622,7 +635,7 @@ imports:
 - name: gopkg.in/yaml.v2
   version: f221b8435cfb71e54062f6c6e99e9ade30b124d5
 - name: helm.sh/helm
-  version: 2c18d48d7cf7b0d922a3a29ed97e4edc6862b89d
+  version: 0f8d421452b61d9cd80ea80063775f3081ec1c22
   repo: ssh://git@172.16.1.41:10022/k8s/helm.git
   subpackages:
   - internal/experimental/registry
@@ -700,7 +713,7 @@ imports:
   - storage/v1alpha1
   - storage/v1beta1
 - name: k8s.io/apiextensions-apiserver
-  version: 38012382f145eb7c979daa39b6ed77cd0a79296c
+  version: 6b6acca910e3e9ad2467b9053aa099b24833e4e3
   subpackages:
   - pkg/apis/apiextensions
   - pkg/apis/apiextensions/v1beta1
@@ -968,7 +981,7 @@ imports:
   - pkg/util/proto
   - pkg/util/proto/validation
 - name: k8s.io/kubernetes
-  version: 20c265fef0741dd71a66480e35bd69f18351daea
+  version: 0f71449be978a5e9efca3e7431941cc90211b339
   subpackages:
   - pkg/api/legacyscheme
   - pkg/api/service
@@ -1059,8 +1072,11 @@ imports:
   - pkg/client/informers/externalversions/transwarp
   - pkg/client/informers/externalversions/transwarp/v1beta1
   - pkg/client/listers/transwarp/v1beta1
+- name: transwarp/cachex
+  version: 9db63c60be1c16eeef63b78fb75cfa1e9896b2c4
+  repo: ssh://git@172.16.1.41:10022/app/cachex.git
 - name: transwarp/release-config
-  version: 02454f8c053d3a03cde18cd17329ee24f0f366e6
+  version: 2a07e5b2f1cd2080cdbcfca23899661e7698dc8f
   repo: https://github.com/WarpCloud/release-config.git
   subpackages:
   - pkg/apis/transwarp
