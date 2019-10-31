@@ -17,6 +17,7 @@ limitations under the License.
 package action
 
 import (
+	"fmt"
 	"path"
 	"regexp"
 	"time"
@@ -143,7 +144,9 @@ func (c *Configuration) releaseContent(name string, version int) (*release.Relea
 // GetVersionSet retrieves a set of available k8s API versions
 func GetVersionSet(client discovery.ServerResourcesInterface) (chartutil.VersionSet, error) {
 	groups, resources, err := client.ServerGroupsAndResources()
-	if err != nil {
+	if err != nil && discovery.IsGroupDiscoveryFailedError(err) {
+		fmt.Printf("warning: Failed get versionset %v, backoff DefaultVersionSet", err)
+	} else {
 		return chartutil.DefaultVersionSet, err
 	}
 

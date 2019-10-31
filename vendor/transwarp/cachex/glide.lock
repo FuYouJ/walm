@@ -1,0 +1,40 @@
+hash: 36f9015336e2b36c784da84a1c597f7f1a0ea3429c69aa12240a3ca88bc4c106
+updated: 2019-10-30T16:31:03.761325+08:00
+imports:
+- name: github.com/golang/mock
+  version: 0b73a1dbc3e1197079e9b9db31ab2879a5c9a095
+  subpackages:
+  - gomock
+- name: github.com/golang/protobuf
+  version: ed6926b37a637426117ccab59282c3839528a700
+  subpackages:
+  - proto
+- name: github.com/gomodule/redigo
+  version: 4f569a4708584d192c9b2e49bb2d9936341f1e68
+  subpackages:
+  - redis
+- name: github.com/jinzhu/copier
+  version: b57f9002281ac48ed8cbc489b1e91121e1a0824c
+- name: github.com/vmihailenco/msgpack
+  version: 935c5b540faab4d4922ae6f1fddcf77a726f259c
+  subpackages:
+  - codes
+  - v4
+- name: golang.org/x/net
+  version: fe3aa8a4527195a6057b3fad46619d7d090e99b5
+  subpackages:
+  - context
+- name: google.golang.org/appengine
+  version: 16bce7d3dc4e458f2f6f56a1349cbbfcdc8a8fdf
+  subpackages:
+  - datastore
+  - datastore/internal/cloudkey
+  - datastore/internal/cloudpb
+  - internal
+  - internal/app_identity
+  - internal/base
+  - internal/datastore
+  - internal/log
+  - internal/modules
+  - internal/remote_api
+testImports: []

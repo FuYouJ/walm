@@ -1,0 +1,11 @@
+package: transwarp/cachex
+import:
+- package: github.com/golang/mock
+  subpackages:
+  - gomock
+- package: github.com/gomodule/redigo
+  subpackages:
+  - redis
+- package: github.com/jinzhu/copier
+- package: github.com/vmihailenco/msgpack/v4
+  version: v4.0.0

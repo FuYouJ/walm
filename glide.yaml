@@ -1,5 +1,7 @@
 package: WarpCloud/walm
 import:
+- package: transwarp/cachex
+  repo: ssh://git@172.16.1.41:10022/app/cachex.git
 - package: transwarp/application-instance
   repo: ssh://git@172.16.1.41:10022/k8s/application-instance.git
   version: release-1.15
