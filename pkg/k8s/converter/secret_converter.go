@@ -3,6 +3,7 @@ package converter
 import (
 	corev1 "k8s.io/api/core/v1"
 	"WarpCloud/walm/pkg/models/k8s"
+	"encoding/base64"
 )
 
 func ConvertSecretFromK8s(oriSecret *corev1.Secret) (*k8s.Secret, error) {
@@ -21,7 +22,7 @@ func ConvertSecretFromK8s(oriSecret *corev1.Secret) (*k8s.Secret, error) {
 func convertDataToStringData(data map[string][]byte) (stringData map[string]string) {
 	stringData = map[string]string{}
 	for key, value := range data {
-		stringData[key] = string(value)
+		stringData[key] = base64.StdEncoding.EncodeToString(value)
 	}
 	return
 }
