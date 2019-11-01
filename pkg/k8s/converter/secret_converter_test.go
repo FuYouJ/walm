@@ -25,7 +25,7 @@ func TestConvertSecretFromK8s(t *testing.T) {
 					Namespace: "test-namespace",
 				},
 				Type: "Opaque",
-				Data: map[string][]byte{"username": []byte("admin"), "password": []byte("1f2d1e2e67df")},
+				Data: map[string][]byte{"username": []byte("admin"), "password": []byte("testpwd")},
 			},
 			secret:   &k8s.Secret{
 				Meta: k8s.Meta{
@@ -38,7 +38,7 @@ func TestConvertSecretFromK8s(t *testing.T) {
 						Message: "",
 					},
 				},
-				Data: map[string]string{"username": "admin", "password": "1f2d1e2e67df"},
+				Data: map[string]string{"username": "YWRtaW4=", "password": "dGVzdHB3ZA=="},
 				Type: "Opaque",
 			},
 			err: nil,
