@@ -38,7 +38,7 @@ func TestHelm_ReloadRelease(t *testing.T) {
 		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
 
 		var err error
-		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask)
+		mockReleaseManager, err = NewHelm(mockReleaseCache, nil, mockHelm, mockK8sCache, mockK8sOperator, mockTask)
 		assert.IsType(t, err, nil)
 	}
 
@@ -261,7 +261,7 @@ func TestHelm_validateReleaseTask(t *testing.T) {
 		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
 
 		var err error
-		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask)
+		mockReleaseManager, err = NewHelm(mockReleaseCache, nil,  mockHelm, mockK8sCache, mockK8sOperator, mockTask)
 		assert.IsType(t, err, nil)
 	}
 
