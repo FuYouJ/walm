@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"testing"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
+	"WarpCloud/walm/pkg/models/common"
 )
 
 func TestConvertReleaseConfigFromK8s(t *testing.T) {
@@ -45,6 +46,7 @@ func TestConvertReleaseConfigFromK8s(t *testing.T) {
 							},
 						},
 					},
+					ChartWalmVersion: "v1",
 				},
 			},
 			releaseConfig: &k8s.ReleaseConfig{
@@ -79,6 +81,7 @@ func TestConvertReleaseConfigFromK8s(t *testing.T) {
 						},
 					},
 				},
+				ChartWalmVersion: common.WalmVersionV1,
 			},
 		},
 		{

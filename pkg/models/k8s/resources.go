@@ -1,5 +1,7 @@
 package k8s
 
+import "WarpCloud/walm/pkg/models/common"
+
 const (
 	DeploymentKind            ResourceKind = "Deployment"
 	ServiceKind               ResourceKind = "Service"
@@ -108,7 +110,7 @@ type EventList struct {
 
 type Deployment struct {
 	Meta
-	UID 			  string 			`json:"-"`
+	UID               string            `json:"-"`
 	Labels            map[string]string `json:"labels" description:"deployment labels"`
 	Annotations       map[string]string `json:"annotations" description:"deployment annotations"`
 	ExpectedReplicas  int32             `json:"expectedReplicas" description:"expected replicas"`
@@ -168,7 +170,7 @@ type ServicePort struct {
 
 type StatefulSet struct {
 	Meta
-	UID 			 string 		   `json:"-"`
+	UID              string            `json:"-"`
 	Labels           map[string]string `json:"labels" description:"stateful set labels"`
 	Annotations      map[string]string `json:"annotations" description:"stateful set annotations"`
 	ExpectedReplicas int32             `json:"expectedReplicas" description:"expected replicas"`
@@ -185,7 +187,7 @@ func (resource *StatefulSet) AddToResourceSet(resourceSet *ResourceSet) {
 
 type DaemonSet struct {
 	Meta
-	UID 			       string 			 `json:"-"`
+	UID                    string            `json:"-"`
 	Labels                 map[string]string `json:"labels" description:"daemon set labels"`
 	Annotations            map[string]string `json:"annotations" description:"daemon set annotations"`
 	DesiredNumberScheduled int32             `json:"desiredNumberScheduled" description:"desired number scheduled"`
@@ -200,7 +202,7 @@ func (resource *DaemonSet) AddToResourceSet(resourceSet *ResourceSet) {
 
 type Job struct {
 	Meta
-	UID 			   string 			 `json:"-"`
+	UID                string            `json:"-"`
 	Labels             map[string]string `json:"labels" description:"job labels"`
 	Annotations        map[string]string `json:"annotations" description:"job annotations"`
 	ExpectedCompletion int32             `json:"expectedCompletion" description:"expected num which is succeeded"`
@@ -402,6 +404,7 @@ type ReleaseConfig struct {
 	Repo                     string                 `json:"repo" description:"chart repo"`
 	ChartImage               string                 `json:"chartImage" description:"chart image"`
 	IsomateConfig            *IsomateConfig         `json:"isomateConfig" description:"isomate config"`
+	ChartWalmVersion         common.WalmVersion     `json:"chartWalmVersion" description:"chart walm version: v1, v2"`
 }
 
 func (resource *ReleaseConfig) AddToResourceSet(resourceSet *ResourceSet) {
@@ -467,9 +470,9 @@ type ApplicationInstance struct {
 
 type ReplicaSet struct {
 	Meta
-	UID 			string 			  `json:"-"`
-	Replicas        *int32            `json:"replicas,omitempty"`
-	OwnerReferences []OwnerReference  `json:"ownerReferences,omitempty"`
+	UID             string           `json:"-"`
+	Replicas        *int32           `json:"replicas,omitempty"`
+	OwnerReferences []OwnerReference `json:"ownerReferences,omitempty"`
 }
 
 func (resource *ReplicaSet) AddToResourceSet(resourceSet *ResourceSet) {

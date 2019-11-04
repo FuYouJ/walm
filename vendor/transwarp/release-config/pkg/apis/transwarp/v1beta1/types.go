@@ -43,6 +43,7 @@ type ReleaseConfigSpec struct {
 	Repo                     string                 `json:"repo" description:"chart repo"`
 	ChartImage               string                 `json:"chartImage" description:"chart image"`
 	IsomateConfig            *IsomateConfig         `json:"isomateConfig" description:"isomate config"`
+	ChartWalmVersion         string                 `json:"chartWalmVersion" description:"chart walm version: v1, v2"`
 }
 
 type IsomateConfig struct {
