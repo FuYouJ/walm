@@ -53,6 +53,8 @@ func ConvertReleaseConfigDataFromRelease(r *release.ReleaseInfoV2) *release.Rele
 			ChartAppVersion:          r.ChartAppVersion,
 			Repo:                     r.RepoName,
 			DependenciesConfigValues: r.DependenciesConfigValues,
+			IsomateConfig:            r.IsomateConfig,
+			ChartWalmVersion:         r.ChartWalmVersion,
 		},
 		ReleaseWalmVersion: r.ReleaseWarmVersion,
 	}

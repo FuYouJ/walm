@@ -3,6 +3,7 @@ package converter
 import (
 	"WarpCloud/walm/pkg/models/k8s"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
+	"WarpCloud/walm/pkg/models/common"
 )
 
 func ConvertReleaseConfigFromK8s(oriReleaseConfig *v1beta1.ReleaseConfig) (*k8s.ReleaseConfig, error) {
@@ -23,6 +24,7 @@ func ConvertReleaseConfigFromK8s(oriReleaseConfig *v1beta1.ReleaseConfig) (*k8s.
 		Repo:                     releaseConfig.Spec.Repo,
 		DependenciesConfigValues: releaseConfig.Spec.DependenciesConfigValues,
 		IsomateConfig:            convertIsomateConfigFromK8s(releaseConfig.Spec.IsomateConfig),
+		ChartWalmVersion:         common.WalmVersion(releaseConfig.Spec.ChartWalmVersion),
 	}, nil
 }
 
