@@ -2,16 +2,16 @@ package helm
 
 import (
 	walmHelm "WarpCloud/walm/pkg/helm"
+	k8sutils "WarpCloud/walm/pkg/k8s/utils"
+	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	releaseModel "WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/util/transwarpjsonnet"
 	"errors"
 	"fmt"
 	"k8s.io/klog"
 	"sync"
-	"WarpCloud/walm/pkg/models/common"
-	k8sutils "WarpCloud/walm/pkg/k8s/utils"
-	"WarpCloud/walm/pkg/util/transwarpjsonnet"
 )
 
 const (
@@ -188,6 +188,18 @@ func (helm *Helm) buildReleaseInfo(releaseCache *releaseModel.ReleaseCache) (rel
 	}
 
 	return
+}
+
+func (helm *Helm) GetReleaseEvents(namespace, name string) (k8sModel.EventList , error) {
+
+	key := namespace + "/" + name
+	var eventList k8sModel.EventList
+	err := helm.releaseCachex.Get(key, &eventList)
+	if err != nil {
+		klog.Errorf("failed to get release events: %s", err.Error())
+		return k8sModel.EventList{}, err
+	}
+	return eventList, nil
 }
 
 func (helm *Helm) ListReleases(namespace, filter string) ([]*releaseModel.ReleaseInfoV2, error) {

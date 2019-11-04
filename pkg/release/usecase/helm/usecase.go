@@ -10,14 +10,16 @@ import (
 	"WarpCloud/walm/pkg/task"
 	"fmt"
 	"k8s.io/klog"
+	"transwarp/cachex"
 )
 
 type Helm struct {
-	releaseCache release.Cache
-	helm         helm.Helm
-	k8sCache     k8s.Cache
-	k8sOperator  k8s.Operator
-	task         task.Task
+	releaseCache  release.Cache
+	releaseCachex *cachex.Cachex
+	helm          helm.Helm
+	k8sCache      k8s.Cache
+	k8sOperator   k8s.Operator
+	task          task.Task
 }
 
 // reload dependencies config values, if changes, upgrade release
@@ -92,9 +94,10 @@ func (helm *Helm) validateReleaseTask(namespace, name string, allowReleaseTaskNo
 	return
 }
 
-func NewHelm(releaseCache release.Cache, helm helm.Helm, k8sCache k8s.Cache, k8sOperator k8s.Operator, task task.Task) (*Helm, error) {
+func NewHelm(releaseCache release.Cache, releaseCachex *cachex.Cachex, helm helm.Helm, k8sCache k8s.Cache, k8sOperator k8s.Operator, task task.Task) (*Helm, error) {
 	h := &Helm{
 		releaseCache: releaseCache,
+		releaseCachex: releaseCachex,
 		helm:         helm,
 		k8sCache:     k8sCache,
 		k8sOperator:  k8sOperator,

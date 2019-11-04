@@ -27,6 +27,29 @@ func (_m *Cache) AddServiceHandler(OnAdd func(interface{}), OnUpdate func(interf
 	_m.Called(OnAdd, OnUpdate, OnDelete)
 }
 
+// GetDeploymentEventList provides a mock function with given fields: namespace, name
+func (_m *Cache) GetDeploymentEventList(namespace string, name string) (*modelsk8s.EventList, error) {
+	ret := _m.Called(namespace, name)
+
+	var r0 *modelsk8s.EventList
+	if rf, ok := ret.Get(0).(func(string, string) *modelsk8s.EventList); ok {
+		r0 = rf(namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*modelsk8s.EventList)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetNodeMigration provides a mock function with given fields: namespace, name
 func (_m *Cache) GetNodeMigration(namespace string, name string) (*modelsk8s.MigList, error) {
 	ret := _m.Called(namespace, name)
@@ -156,6 +179,29 @@ func (_m *Cache) GetResourceSet(releaseResourceMetas []release.ReleaseResourceMe
 	var r1 error
 	if rf, ok := ret.Get(1).(func([]release.ReleaseResourceMeta) error); ok {
 		r1 = rf(releaseResourceMetas)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetStatefulSetEventList provides a mock function with given fields: namespace, name
+func (_m *Cache) GetStatefulSetEventList(namespace string, name string) (*modelsk8s.EventList, error) {
+	ret := _m.Called(namespace, name)
+
+	var r0 *modelsk8s.EventList
+	if rf, ok := ret.Get(0).(func(string, string) *modelsk8s.EventList); ok {
+		r0 = rf(namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*modelsk8s.EventList)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, name)
 	} else {
 		r1 = ret.Error(1)
 	}

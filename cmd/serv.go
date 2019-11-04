@@ -1,15 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful-openapi"
-	"github.com/go-openapi/spec"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"k8s.io/klog"
-	"net/http"
-
 	migrationhttp "WarpCloud/walm/pkg/crd/migration/delivery/http"
 	helmImpl "WarpCloud/walm/pkg/helm/impl"
 	cacheInformer "WarpCloud/walm/pkg/k8s/cache/informer"
@@ -19,6 +10,7 @@ import (
 	"WarpCloud/walm/pkg/k8s/operator"
 	kafkaimpl "WarpCloud/walm/pkg/kafka/impl"
 	httpModel "WarpCloud/walm/pkg/models/http"
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	nodehttp "WarpCloud/walm/pkg/node/delivery/http"
 	podhttp "WarpCloud/walm/pkg/pod/delivery/http"
 	projectcache "WarpCloud/walm/pkg/project/cache/redis"
@@ -40,14 +32,25 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-openapi"
+	"github.com/go-openapi/spec"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/thoas/stats"
+	"k8s.io/klog"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
-	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+	"transwarp/cachex"
+	"transwarp/cachex/rdscache"
 )
 
 const servDesc = `
@@ -170,7 +173,49 @@ func (sc *ServCmd) run() error {
 	redisClient := impl.NewRedisClient(config.RedisConfig)
 	redis := impl.NewRedis(redisClient)
 	releaseCache := releasecache.NewCache(redis)
-	releaseUseCase, err := releaseusecase.NewHelm(releaseCache, helm, k8sCache, k8sOperator, task)
+	// Todo: TTL ReSize
+	storage := rdscache.NewRdsCache("tcp", config.RedisConfig.Addr, rdscache.PoolConfig{DB: config.RedisConfig.DB, Password: config.RedisConfig.Password}, rdscache.RdsKeyPrefixOption("events"), rdscache.RdsDefaultTTLOption(time.Second * 30))
+	query := func(key interface{}, value interface{}) error {
+		eventList := value.(*k8sModel.EventList)
+		token := strings.Split(fmt.Sprintf("%v", key), "/")
+		if len(token) != 2 {
+			return errors.New("invalid redis key")
+		}
+
+		releaseTask, err := releaseCache.GetReleaseTask(token[0], token[1])
+		if err != nil {
+			return err
+		}
+		releaseCache, err := releaseCache.GetReleaseCache(releaseTask.Namespace, releaseTask.Name)
+		if err != nil {
+			return err
+		}
+
+		for _, releaseResourceMeta := range releaseCache.ReleaseResourceMetas {
+
+			switch releaseResourceMeta.Kind {
+			case k8sModel.StatefulSetKind:
+				statefulSetEvents, err := k8sCache.GetStatefulSetEventList(releaseResourceMeta.Namespace, releaseResourceMeta.Name)
+				if err != nil {
+					klog.Errorf("failed to get statefulsets events: %s", err.Error())
+					return err
+				}
+				eventList.Events = append(eventList.Events, statefulSetEvents.Events...)
+			case k8sModel.DeploymentKind:
+				deploymentEvents, err := k8sCache.GetDeploymentEventList(releaseResourceMeta.Namespace, releaseResourceMeta.Name)
+				if err != nil {
+					klog.Errorf("failed to get deployment events: %s", err.Error())
+					return err
+				}
+				eventList.Events = append(eventList.Events, deploymentEvents.Events...)
+			default:
+
+			}
+		}
+		return nil
+	}
+	releaseCachex := cachex.NewCachex(storage, cachex.QueryFunc(query))
+	releaseUseCase, err := releaseusecase.NewHelm(releaseCache, releaseCachex , helm, k8sCache, k8sOperator, task)
 	if err != nil {
 		klog.Errorf("failed to new release use case : %s", err.Error())
 		return err
