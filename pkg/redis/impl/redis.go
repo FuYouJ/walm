@@ -63,7 +63,9 @@ func (redis *Redis) GetFieldValuesByNames(key string, fieldNames ... string) (va
 	}
 	values = []string{}
 	for _, object := range objects {
-		values = append(values, object.(string))
+		if object != nil {
+			values = append(values, object.(string))
+		}
 	}
 	return
 }
