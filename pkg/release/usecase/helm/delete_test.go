@@ -1,6 +1,7 @@
 package helm
 
 import (
+	redisExMocks "WarpCloud/walm/pkg/redis/mocks"
 	"testing"
 	"WarpCloud/walm/pkg/models/release"
 	"errors"
@@ -22,6 +23,7 @@ func TestHelm_DeleteReleaseWithRetry(t *testing.T) {
 	var mockK8sCache *k8sMocks.Cache
 	var mockTask *taskMocks.Task
 	var mockReleaseManager *Helm
+	var mockRedisEx *redisExMocks.RedisEx
 
 	var mockTaskState *taskMocks.TaskState
 
@@ -31,13 +33,15 @@ func TestHelm_DeleteReleaseWithRetry(t *testing.T) {
 		mockK8sOperator = &k8sMocks.Operator{}
 		mockK8sCache = &k8sMocks.Cache{}
 		mockTask = &taskMocks.Task{}
+		mockRedisEx = &redisExMocks.RedisEx{}
 
 		mockTaskState = &taskMocks.TaskState{}
 
 		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
+		mockRedisEx.On("Init", mock.Anything).Return(nil)
 
 		var err error
-		mockReleaseManager, err = NewHelm(mockReleaseCache, nil, mockHelm, mockK8sCache, mockK8sOperator, mockTask)
+		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask, mockRedisEx)
 		assert.IsType(t, err, nil)
 	}
 
@@ -108,7 +112,7 @@ func TestHelm_DeleteRelease(t *testing.T) {
 	var mockK8sCache *k8sMocks.Cache
 	var mockTask *taskMocks.Task
 	var mockReleaseManager *Helm
-
+	var mockRedisEx *redisExMocks.RedisEx
 	var mockTaskState *taskMocks.TaskState
 
 	refreshMocks := func() {
@@ -117,13 +121,13 @@ func TestHelm_DeleteRelease(t *testing.T) {
 		mockK8sOperator = &k8sMocks.Operator{}
 		mockK8sCache = &k8sMocks.Cache{}
 		mockTask = &taskMocks.Task{}
-
+		mockRedisEx = &redisExMocks.RedisEx{}
 		mockTaskState = &taskMocks.TaskState{}
 
 		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
-
+		mockRedisEx.On("Init", mock.Anything).Return(nil)
 		var err error
-		mockReleaseManager, err = NewHelm(mockReleaseCache, nil, mockHelm, mockK8sCache, mockK8sOperator, mockTask)
+		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask, mockRedisEx)
 		assert.IsType(t, err, nil)
 	}
 
@@ -190,6 +194,8 @@ func TestHelm_doDeleteRelease(t *testing.T) {
 	var mockK8sCache *k8sMocks.Cache
 	var mockTask *taskMocks.Task
 	var mockReleaseManager *Helm
+	var mockRedisEx *redisExMocks.RedisEx
+
 
 	var mockTaskState *taskMocks.TaskState
 
@@ -203,9 +209,11 @@ func TestHelm_doDeleteRelease(t *testing.T) {
 		mockTaskState = &taskMocks.TaskState{}
 
 		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
+		mockRedisEx = &redisExMocks.RedisEx{}
+		mockRedisEx.On("Init", mock.Anything).Return(nil)
 
 		var err error
-		mockReleaseManager, err = NewHelm(mockReleaseCache, nil, mockHelm, mockK8sCache, mockK8sOperator, mockTask)
+		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask, mockRedisEx)
 		assert.IsType(t, err, nil)
 	}
 

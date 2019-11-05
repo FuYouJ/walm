@@ -1,17 +1,18 @@
 package helm
 
 import (
-	"testing"
-	"errors"
-	"github.com/stretchr/testify/assert"
 	helmMocks "WarpCloud/walm/pkg/helm/mocks"
 	k8sMocks "WarpCloud/walm/pkg/k8s/mocks"
-	taskMocks "WarpCloud/walm/pkg/task/mocks"
-	"github.com/stretchr/testify/mock"
-	"WarpCloud/walm/pkg/release/mocks"
 	errorModel "WarpCloud/walm/pkg/models/error"
-	"encoding/json"
 	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/release/mocks"
+	taskMocks "WarpCloud/walm/pkg/task/mocks"
+	redisExMocks "WarpCloud/walm/pkg/redis/mocks"
+	"encoding/json"
+	"errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"testing"
 )
 
 func TestHelm_createReleaseTask(t *testing.T) {
@@ -23,6 +24,7 @@ func TestHelm_createReleaseTask(t *testing.T) {
 	var mockReleaseManager *Helm
 
 	var mockTaskState *taskMocks.TaskState
+	var mockRedisEx *redisExMocks.RedisEx
 
 	refreshMocks := func() {
 		mockReleaseCache = &mocks.Cache{}
@@ -35,8 +37,10 @@ func TestHelm_createReleaseTask(t *testing.T) {
 
 		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
 
+		mockRedisEx = &redisExMocks.RedisEx{}
+		mockRedisEx.On("Init", mock.Anything).Return(nil)
 		var err error
-		mockReleaseManager, err = NewHelm(mockReleaseCache, nil, mockHelm, mockK8sCache, mockK8sOperator, mockTask)
+		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask, mockRedisEx)
 		assert.IsType(t, err, nil)
 	}
 

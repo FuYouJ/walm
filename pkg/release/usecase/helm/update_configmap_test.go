@@ -1,6 +1,7 @@
 package helm
 
 import (
+	redisExMocks "WarpCloud/walm/pkg/redis/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"testing"
@@ -22,6 +23,7 @@ func TestHelm_UpdateReleaseConfigMap(t *testing.T) {
 	var mockK8sCache *k8sMocks.Cache
 	var mockTask *taskMocks.Task
 	var mockReleaseManager *Helm
+	var mockRedisEx *redisExMocks.RedisEx
 
 	var mockTaskState *taskMocks.TaskState
 
@@ -33,11 +35,13 @@ func TestHelm_UpdateReleaseConfigMap(t *testing.T) {
 		mockTask = &taskMocks.Task{}
 
 		mockTaskState = &taskMocks.TaskState{}
+		mockRedisEx = &redisExMocks.RedisEx{}
 
 		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
+		mockRedisEx.On("Init", mock.Anything).Return(nil)
 
 		var err error
-		mockReleaseManager, err = NewHelm(mockReleaseCache, nil, mockHelm, mockK8sCache, mockK8sOperator, mockTask)
+		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask, mockRedisEx)
 		assert.IsType(t, err, nil)
 	}
 

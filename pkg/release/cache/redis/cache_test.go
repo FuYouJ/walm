@@ -73,21 +73,21 @@ func TestCache_GetReleaseCaches(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMocks()
-				mockRedis.On("GetFieldValues", redis.WalmReleasesKey, "testns").Return(nil, errors.New(""))
+				mockRedis.On("GetFieldValues", redis.WalmReleasesKey, "testns", "").Return(nil, errors.New(""))
 			},
 			err: errors.New(""),
 		},
 		{
 			initMock: func() {
 				refreshMocks()
-				mockRedis.On("GetFieldValues", redis.WalmReleasesKey, "testns").Return([]string{"notvalid"}, nil)
+				mockRedis.On("GetFieldValues", redis.WalmReleasesKey, "testns", "").Return([]string{"notvalid"}, nil)
 			},
 			err: &json.SyntaxError{},
 		},
 		{
 			initMock: func() {
 				refreshMocks()
-				mockRedis.On("GetFieldValues", redis.WalmReleasesKey, "testns").Return([]string{"{}"}, nil)
+				mockRedis.On("GetFieldValues", redis.WalmReleasesKey, "testns", "").Return([]string{"{}"}, nil)
 			},
 			err: nil,
 		},
@@ -324,21 +324,21 @@ func TestCache_GetReleaseTasks(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMocks()
-				mockRedis.On("GetFieldValues", redis.WalmReleaseTasksKey, "testns").Return(nil, errors.New(""))
+				mockRedis.On("GetFieldValues", redis.WalmReleaseTasksKey, "testns", "").Return(nil, errors.New(""))
 			},
 			err: errors.New(""),
 		},
 		{
 			initMock: func() {
 				refreshMocks()
-				mockRedis.On("GetFieldValues", redis.WalmReleaseTasksKey, "testns").Return([]string{"notvalid"}, nil)
+				mockRedis.On("GetFieldValues", redis.WalmReleaseTasksKey, "testns", "").Return([]string{"notvalid"}, nil)
 			},
 			err: &json.SyntaxError{},
 		},
 		{
 			initMock: func() {
 				refreshMocks()
-				mockRedis.On("GetFieldValues", redis.WalmReleaseTasksKey, "testns").Return([]string{"{}"}, nil)
+				mockRedis.On("GetFieldValues", redis.WalmReleaseTasksKey, "testns", "").Return([]string{"{}"}, nil)
 			},
 			err: nil,
 		},

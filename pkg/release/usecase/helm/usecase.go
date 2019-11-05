@@ -4,22 +4,25 @@ import (
 	"WarpCloud/walm/pkg/helm"
 	"WarpCloud/walm/pkg/k8s"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	releaseModel "WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/redis"
 	"WarpCloud/walm/pkg/release"
 	"WarpCloud/walm/pkg/release/utils"
 	"WarpCloud/walm/pkg/task"
+	"errors"
 	"fmt"
 	"k8s.io/klog"
-	"transwarp/cachex"
+	"strings"
 )
 
 type Helm struct {
-	releaseCache  release.Cache
-	releaseCachex *cachex.Cachex
-	helm          helm.Helm
-	k8sCache      k8s.Cache
-	k8sOperator   k8s.Operator
-	task          task.Task
+	releaseCache release.Cache
+	helm         helm.Helm
+	k8sCache     k8s.Cache
+	k8sOperator  k8s.Operator
+	task         task.Task
+	redisEx      redis.RedisEx
 }
 
 // reload dependencies config values, if changes, upgrade release
@@ -94,15 +97,49 @@ func (helm *Helm) validateReleaseTask(namespace, name string, allowReleaseTaskNo
 	return
 }
 
-func NewHelm(releaseCache release.Cache, releaseCachex *cachex.Cachex, helm helm.Helm, k8sCache k8s.Cache, k8sOperator k8s.Operator, task task.Task) (*Helm, error) {
+func (helm *Helm) loadQueryRlsEventsFunc(key interface{}, value interface{}) error {
+	eventList := value.(*k8sModel.EventList)
+	token := strings.Split(fmt.Sprintf("%v", key), "/")
+	if len(token) != 2 {
+		return errors.New("invalid redis key")
+	}
+
+	releaseInfo, err := helm.GetRelease(token[0], token[1])
+	if err != nil {
+		return err
+	}
+
+	for _, statefulSet := range releaseInfo.Status.StatefulSets {
+		statefulSetEvents, err := helm.k8sCache.GetStatefulSetEventList(statefulSet.Namespace, statefulSet.Name)
+		if err != nil {
+			klog.Errorf("failed to get statefulsets events: %s", err.Error())
+			return err
+		}
+		eventList.Events = append(eventList.Events, statefulSetEvents.Events...)
+	}
+
+	for _, deployment := range releaseInfo.Status.Deployments {
+		deploymentEvents, err := helm.k8sCache.GetDeploymentEventList(deployment.Namespace, deployment.Name)
+		if err != nil {
+			klog.Errorf("failed to get deployment events: %s", err.Error())
+			return err
+		}
+		eventList.Events = append(eventList.Events, deploymentEvents.Events...)
+	}
+	return nil
+}
+
+func NewHelm(releaseCache release.Cache, helm helm.Helm, k8sCache k8s.Cache, k8sOperator k8s.Operator, task task.Task, redisEx redis.RedisEx) (*Helm, error) {
+
 	h := &Helm{
 		releaseCache: releaseCache,
-		releaseCachex: releaseCachex,
 		helm:         helm,
 		k8sCache:     k8sCache,
 		k8sOperator:  k8sOperator,
 		task:         task,
+		redisEx:      redisEx,
 	}
+	h.redisEx.Init(h.loadQueryRlsEventsFunc)
 	err := h.registerCreateReleaseTask()
 	if err != nil {
 		return nil, err

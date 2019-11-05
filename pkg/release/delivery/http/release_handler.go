@@ -69,8 +69,8 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.PathParameter("release", "Release名字").DataType("string")).
-		Writes(k8s.EventList{}).
-		Returns(200, "OK", k8s.EventList{}).
+		Writes(&k8s.EventList{}).
+		Returns(200, "OK", &k8s.EventList{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.PUT("/{namespace}").To(releaseHandler.UpgradeRelease).
@@ -705,7 +705,6 @@ func (handler *ReleaseHandler) UpdateReleaseConfigMap(request *restful.Request, 
 func (handler *ReleaseHandler) GetReleaseEvents(request *restful.Request, response *restful.Response) {
 	namespace := request.PathParameter("namespace")
 	name := request.PathParameter("release")
-
 	events, err := handler.usecase.GetReleaseEvents(namespace, name)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get pod events %s: %s", name, err.Error()))

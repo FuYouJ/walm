@@ -114,14 +114,16 @@ func (_m *UseCase) GetRelease(namespace string, name string) (*release.ReleaseIn
 }
 
 // GetReleaseEvents provides a mock function with given fields: namespace, name
-func (_m *UseCase) GetReleaseEvents(namespace string, name string) (k8s.EventList, error) {
+func (_m *UseCase) GetReleaseEvents(namespace string, name string) (*k8s.EventList, error) {
 	ret := _m.Called(namespace, name)
 
-	var r0 k8s.EventList
-	if rf, ok := ret.Get(0).(func(string, string) k8s.EventList); ok {
+	var r0 *k8s.EventList
+	if rf, ok := ret.Get(0).(func(string, string) *k8s.EventList); ok {
 		r0 = rf(namespace, name)
 	} else {
-		r0 = ret.Get(0).(k8s.EventList)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*k8s.EventList)
+		}
 	}
 
 	var r1 error
