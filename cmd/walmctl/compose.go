@@ -1,6 +1,7 @@
 package main
 
 import (
+	"WarpCloud/walm/cmd/walmctl/util"
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
@@ -116,7 +117,12 @@ func (compose *composeCmd) run() error {
 		return err
 	}
 
-	_, err = client.CreateProject(namespace, "", compose.projectName, false, 300, configValues.ProjectConfigs)
+	projectConfigs, err := util.SmartProjectConfigValues(configValues.ProjectConfigs)
+	if err != nil {
+		klog.Errorf("convert project config file %s error %v", compose.file, err)
+		return err
+	}
+	_, err = client.CreateProject(namespace, "", compose.projectName, false, 300, projectConfigs)
 	isSuccess := compose.generateGuardianKeytabSecrets(configValues.GuardianConfigs)
 	if !isSuccess {
 		return errors.New("generate key error")

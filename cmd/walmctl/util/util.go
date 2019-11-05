@@ -1,16 +1,17 @@
 package util
 
 import (
+	"WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/util"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"k8s.io/klog"
 	"strconv"
-	"WarpCloud/walm/pkg/models/k8s"
 )
 
 var PLUGINS_KEY = "plugins"
+var RELEASES_KEY = "releases"
 var METAINFO_KEY = "metaInfoParams"
 var METAINFOPARAMS_KEY = "params"
 
@@ -132,6 +133,36 @@ func convertMetaInfoParams(metaInfoParamsBytes []byte) ([]*release.MetaCommonCon
 		metaInfoParams = append(metaInfoParams, &metaInfoParam)
 	}
 	return metaInfoParams, nil
+}
+
+func SmartProjectConfigValues(projectConfigValues map[string]interface{}) (map[string]interface{}, error) {
+	destConfigValues := make(map[string]interface{}, 0)
+	util.MergeValues(destConfigValues, projectConfigValues, false)
+
+	if releasesConfigValues, ok := destConfigValues[RELEASES_KEY].([]interface{}); ok {
+		destReleasesValues := make([]interface{}, 0)
+		for _, releaseValues := range releasesConfigValues {
+			if releaseMap, ok := releaseValues.(map[string]interface{}); ok {
+				if releaseMap[PLUGINS_KEY] != nil {
+					pluginValuesBytes, err := json.Marshal(releaseMap[PLUGINS_KEY])
+					if err != nil {
+						klog.Errorf("json Marshal error %v", err)
+						return nil, err
+					}
+					releasePlugins, err := convertReleasePlugins(pluginValuesBytes)
+					if err != nil {
+						klog.Errorf("json convert release plugins error %v", err)
+						return nil, err
+					}
+					releaseMap[PLUGINS_KEY] = releasePlugins
+				}
+			}
+			destReleasesValues = append(destReleasesValues, releaseValues)
+		}
+		destConfigValues[RELEASES_KEY] = destReleasesValues
+	}
+
+	return destConfigValues, nil
 }
 
 func SmartConfigValues(configValues map[string]interface{}) (destConfigValues map[string]interface{}, metaInfoParamParams []*release.MetaCommonConfigValue, releasePlugins []*k8s.ReleasePlugin, retErr error) {

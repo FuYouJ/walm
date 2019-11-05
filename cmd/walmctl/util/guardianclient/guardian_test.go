@@ -6,7 +6,7 @@ import (
 )
 
 func getTestClient() *GuardianClient {
-	guardianClient := NewClient("https://172.16.3.231/tdc/guardian", "admin", "transwarp123")
+	guardianClient := NewClient("https://172.16.1.70/integ1/guardian/guardian", "admin", "123")
 
 	return guardianClient
 }
