@@ -2,7 +2,6 @@ package impl
 
 import (
 	errorModel "WarpCloud/walm/pkg/models/error"
-	"WarpCloud/walm/pkg/models/k8s"
 	walmRedis "WarpCloud/walm/pkg/redis"
 	"WarpCloud/walm/pkg/setting"
 	"encoding/json"
@@ -22,14 +21,14 @@ type RedisEx struct {
 	clientEx *cachex.Cachex
 }
 
-func (redisEx *RedisEx) GetFieldValue(key string) (interface{}, error) {
-	value := k8s.EventList{}
-	err := redisEx.clientEx.Get(key, &value)
+func (redisEx *RedisEx) GetFieldValue(key string, value interface{}) error{
+
+	err := redisEx.clientEx.Get(key, value)
 	if err != nil {
 		klog.Errorf("failed to get value of key %s from redisEx: %s", key, err.Error())
-		return nil, err
+		return err
 	}
-	return &value, nil
+	return nil
 }
 
 func (redisEx *RedisEx) Init(loadFunc func(key, value interface{}) error) error {

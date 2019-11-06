@@ -69,8 +69,8 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.PathParameter("release", "Release名字").DataType("string")).
-		Writes(&k8s.EventList{}).
-		Returns(200, "OK", &k8s.EventList{}).
+		Writes(k8s.EventList{}).
+		Returns(200, "OK", k8s.EventList{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.PUT("/{namespace}").To(releaseHandler.UpgradeRelease).

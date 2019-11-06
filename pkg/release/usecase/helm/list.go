@@ -193,13 +193,15 @@ func (helm *Helm) buildReleaseInfo(releaseCache *releaseModel.ReleaseCache) (rel
 func (helm *Helm) GetReleaseEvents(namespace, name string) (*k8sModel.EventList , error) {
 
 	key := namespace + "/" + name
-	value, err := helm.redisEx.GetFieldValue(key)
-	eventList := value.(*k8sModel.EventList)
+	var eventList k8sModel.EventList
+	err := helm.redisEx.GetFieldValue(key, &eventList)
+	//res := value.(*k8sModel.EventList)
+
 	if err != nil {
 		klog.Errorf("failed to get release events: %s", err.Error())
 		return nil, err
 	}
-	return eventList, nil
+	return &eventList, nil
 }
 
 func (helm *Helm) ListReleases(namespace, filter string) ([]*releaseModel.ReleaseInfoV2, error) {
