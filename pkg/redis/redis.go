@@ -19,6 +19,6 @@ func BuildFieldName(namespace, name string) string {
 }
 
 type RedisEx interface {
-	GetFieldValue(key string) (interface{}, error)
+	GetFieldValue(key string, value interface{}) error
 	Init(loadQueryRlsEventsFunc func(key, value interface{}) error) error
 }

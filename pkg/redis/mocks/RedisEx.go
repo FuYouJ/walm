@@ -9,27 +9,18 @@ type RedisEx struct {
 	mock.Mock
 }
 
-// GetFieldValue provides a mock function with given fields: key
-func (_m *RedisEx) GetFieldValue(key string) (interface{}, error) {
-	ret := _m.Called(key)
+// GetFieldValue provides a mock function with given fields: key, value
+func (_m *RedisEx) GetFieldValue(key string, value interface{}) error {
+	ret := _m.Called(key, value)
 
-	var r0 interface{}
-	if rf, ok := ret.Get(0).(func(string) interface{}); ok {
-		r0 = rf(key)
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, interface{}) error); ok {
+		r0 = rf(key, value)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(interface{})
-		}
+		r0 = ret.Error(0)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(key)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
+	return r0
 }
 
 // Init provides a mock function with given fields: loadQueryRlsEventsFunc
