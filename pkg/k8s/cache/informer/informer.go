@@ -180,6 +180,82 @@ func (informer *Informer) GetPodEventList(namespace string, name string) (*k8s.E
 	return &k8s.EventList{Events: walmEvents}, nil
 }
 
+func (informer *Informer) GetDeploymentEventList(namespace string, name string) (*k8s.EventList, error) {
+	deployment, err := informer.deploymentLister.Deployments(namespace).Get(name)
+	if err != nil {
+		klog.Errorf("failed to get deployment : %s", err.Error())
+		return nil, err
+	}
+
+	ref := &corev1.ObjectReference{
+		Kind:            deployment.Kind,
+		Namespace:       deployment.Namespace,
+		Name:            deployment.Name,
+		UID:             deployment.UID,
+		APIVersion:      deployment.APIVersion,
+		ResourceVersion: deployment.ResourceVersion,
+	}
+	deploymentEvents, err := informer.searchEvents(deployment.Namespace, ref)
+	if err != nil {
+		klog.Errorf("failed to get Events : %s", err.Error())
+		return nil, err
+	}
+	sort.Sort(utils.SortableEvents(deploymentEvents.Items))
+
+	walmEvents := []k8s.Event{}
+	for _, event := range deploymentEvents.Items {
+		walmEvent := k8s.Event{
+			Type:           event.Type,
+			Reason:         event.Reason,
+			Message:        event.Message,
+			Count:          event.Count,
+			FirstTimestamp: event.FirstTimestamp.String(),
+			LastTimestamp:  event.LastTimestamp.String(),
+			From:           utils.FormatEventSource(event.Source),
+		}
+		walmEvents = append(walmEvents, walmEvent)
+	}
+	return &k8s.EventList{Events: walmEvents}, nil
+}
+
+func (informer *Informer) GetStatefulSetEventList(namespace string, name string) (*k8s.EventList, error) {
+	statefulSet, err := informer.statefulSetLister.StatefulSets(namespace).Get(name)
+	if err != nil {
+		klog.Errorf("failed to get statefulSet : %s", err.Error())
+		return nil, err
+	}
+
+	ref := &corev1.ObjectReference{
+		Kind:            statefulSet.Kind,
+		Namespace:       statefulSet.Namespace,
+		Name:            statefulSet.Name,
+		UID:             statefulSet.UID,
+		APIVersion:      statefulSet.APIVersion,
+		ResourceVersion: statefulSet.ResourceVersion,
+	}
+	statefulSetEvents, err := informer.searchEvents(statefulSet.Namespace, ref)
+	if err != nil {
+		klog.Errorf("failed to get Events : %s", err.Error())
+		return nil, err
+	}
+	sort.Sort(utils.SortableEvents(statefulSetEvents.Items))
+
+	walmEvents := []k8s.Event{}
+	for _, event := range statefulSetEvents.Items {
+		walmEvent := k8s.Event{
+			Type:           event.Type,
+			Reason:         event.Reason,
+			Message:        event.Message,
+			Count:          event.Count,
+			FirstTimestamp: event.FirstTimestamp.String(),
+			LastTimestamp:  event.LastTimestamp.String(),
+			From:           utils.FormatEventSource(event.Source),
+		}
+		walmEvents = append(walmEvents, walmEvent)
+	}
+	return &k8s.EventList{Events: walmEvents}, nil
+}
+
 func (informer *Informer) ListSecrets(namespace string, labelSelectorStr string) (*k8s.SecretList, error) {
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {

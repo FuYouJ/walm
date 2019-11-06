@@ -24,6 +24,9 @@ type Cache interface {
 	ListStatefulSets(namespace string, labelSelectorStr string) ([]*k8s.StatefulSet, error)
 
 	GetPodEventList(namespace string, name string) (*k8s.EventList, error)
+    GetDeploymentEventList(namespace string, name string) (*k8s.EventList, error)
+	GetStatefulSetEventList(namespace string, name string) (*k8s.EventList, error)
+	//GetReleaseEventList(namespace string, name string) (*k8s.EventList, error)
 	GetPodLogs(namespace string, podName string, containerName string, tailLines int64) (string, error)
 
 	ListSecrets(namespace string, name string) (*k8s.SecretList, error)

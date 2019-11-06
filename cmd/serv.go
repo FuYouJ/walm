@@ -1,15 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/emicklei/go-restful"
-	"github.com/emicklei/go-restful-openapi"
-	"github.com/go-openapi/spec"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"k8s.io/klog"
-	"net/http"
-
 	migrationhttp "WarpCloud/walm/pkg/crd/migration/delivery/http"
 	helmImpl "WarpCloud/walm/pkg/helm/impl"
 	cacheInformer "WarpCloud/walm/pkg/k8s/cache/informer"
@@ -40,14 +31,22 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/emicklei/go-restful"
+	"github.com/emicklei/go-restful-openapi"
+	"github.com/go-openapi/spec"
+	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/thoas/stats"
+	"k8s.io/klog"
+	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
-	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
 )
 
 const servDesc = `
@@ -169,8 +168,9 @@ func (sc *ServCmd) run() error {
 	}
 	redisClient := impl.NewRedisClient(config.RedisConfig)
 	redis := impl.NewRedis(redisClient)
+	redisEx := impl.NewRedisEx(config.RedisConfig, time.Second * 30)
 	releaseCache := releasecache.NewCache(redis)
-	releaseUseCase, err := releaseusecase.NewHelm(releaseCache, helm, k8sCache, k8sOperator, task)
+	releaseUseCase, err := releaseusecase.NewHelm(releaseCache, helm, k8sCache, k8sOperator, task, redisEx)
 	if err != nil {
 		klog.Errorf("failed to new release use case : %s", err.Error())
 		return err

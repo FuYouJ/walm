@@ -44,9 +44,9 @@ func (_m *Redis) GetFieldValue(key string, namespace string, name string) (strin
 	return r0, r1
 }
 
-// GetFieldValues provides a mock function with given fields: key, namespace
+// GetFieldValues provides a mock function with given fields: key, namespace, filter
 func (_m *Redis) GetFieldValues(key string, namespace string, filter string) ([]string, error) {
-	ret := _m.Called(key, namespace)
+	ret := _m.Called(key, namespace, filter)
 
 	var r0 []string
 	if rf, ok := ret.Get(0).(func(string, string, string) []string); ok {

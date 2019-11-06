@@ -17,3 +17,8 @@ type Redis interface {
 func BuildFieldName(namespace, name string) string {
 	return namespace + "/" + name
 }
+
+type RedisEx interface {
+	GetFieldValue(key string) (interface{}, error)
+	Init(loadQueryRlsEventsFunc func(key, value interface{}) error) error
+}

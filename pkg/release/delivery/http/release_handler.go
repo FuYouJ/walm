@@ -64,6 +64,15 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Returns(404, "Not Found", http.ErrorMessageResponse{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
+	ws.Route(ws.GET("/{namespace}/name/{release}/events").To(releaseHandler.GetReleaseEvents).
+		Doc("获取对应Release的Events信息").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Writes(&k8s.EventList{}).
+		Returns(200, "OK", &k8s.EventList{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
 	ws.Route(ws.PUT("/{namespace}").To(releaseHandler.UpgradeRelease).
 		Doc("升级一个Release").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
@@ -691,4 +700,15 @@ func (handler *ReleaseHandler) UpdateReleaseConfigMap(request *restful.Request, 
 		_ = httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to update configMap release %s: %s", name, err.Error()))
 		return
 	}
+}
+
+func (handler *ReleaseHandler) GetReleaseEvents(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	events, err := handler.usecase.GetReleaseEvents(namespace, name)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get pod events %s: %s", name, err.Error()))
+		return
+	}
+	response.WriteEntity(events)
 }
