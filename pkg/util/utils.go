@@ -50,3 +50,21 @@ func UnifyConfigValue(config map[string]interface{}) (map[string]interface{}, er
 	}
 	return result, nil
 }
+
+func ConvertObjectToJsonMap(obj interface{}) (map[string]interface{}, error) {
+	if obj != nil{
+		res := map[string]interface{}{}
+		objBytes, err := json.Marshal(obj)
+		if err != nil {
+			klog.Errorf("failed marshal obj : %s", err.Error())
+			return nil, err
+		}
+		if err := json.Unmarshal(objBytes, &res); err != nil {
+			klog.Errorf("Fail to unmarshal obj : %s", err.Error())
+			return nil, err
+		}
+		return res, nil
+	}
+
+	return nil, nil
+}
