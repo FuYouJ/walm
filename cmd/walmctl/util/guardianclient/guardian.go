@@ -44,9 +44,6 @@ type GuardianUsers struct {
 	UidNumber       string `json:"uidNumber"`
 }
 
-type GuardianKeytabs struct {
-}
-
 var guardianClient *GuardianClient
 
 func NewClient(baseURL, username, password string) *GuardianClient {
@@ -145,6 +142,5 @@ func (c *GuardianClient) GetMultipleKeytabs(principals []string) ([]byte, error)
 		err = json.Unmarshal(resp.Body(), &errResp)
 		return []byte{}, errors.New(fmt.Sprintf("GetMultipleKeytabs Error, errResp %v err %v body %s", errResp, err, resp.Body()))
 	}
-
 	return resp.Body(), nil
 }
