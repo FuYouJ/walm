@@ -536,7 +536,7 @@ func (projectImpl *Project) sendProjectTask(namespace, projectName, taskName str
 	return nil
 }
 
-func (projectImpl *Project) autoCreateReleaseDependencies(projectParams *projectModel.ProjectParams) ([]*releaseModel.ReleaseRequestV2, error) {
+func (projectImpl *Project) autoCreateReleaseDependencies(projectParams *projectModel.ProjectParams, namespace string, installRelease bool) ([]*releaseModel.ReleaseRequestV2, error) {
 	projectParamsMap := make(map[string]*releaseModel.ReleaseRequestV2)
 	releaseParsed := make([]*releaseModel.ReleaseRequestV2, 0)
 	var g dag.AcyclicGraph
@@ -572,9 +572,7 @@ func (projectImpl *Project) autoCreateReleaseDependencies(projectParams *project
 	}
 
 	var lock sync.Mutex
-	err = g.Walk(func(v dag.Vertex) error {
-		lock.Lock()
-		defer lock.Unlock()
+	g.Walk(func(v dag.Vertex) error {
 		releaseRequest := v.(*releaseModel.ReleaseRequestV2)
 		for _, dv := range g.DownEdges(releaseRequest).List() {
 			releaseInfo := dv.(*releaseModel.ReleaseRequestV2)
@@ -583,6 +581,19 @@ func (projectImpl *Project) autoCreateReleaseDependencies(projectParams *project
 			}
 			releaseRequest.Dependencies[releaseInfo.ChartName] = releaseInfo.Name
 		}
+		if installRelease {
+			klog.V(2).Infof("start to create project release %s/%s", namespace, releaseRequest.Name)
+			err1 := projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseRequest, nil, false, 0)
+			if err1 != nil {
+				klog.Errorf("failed to create project release %s/%s : %s", namespace, releaseRequest.Name, err1.Error())
+				err = err1
+				return err1
+			}
+			klog.V(2).Infof("succeed to create project release %s/%s", namespace, releaseRequest.Name)
+		}
+
+		lock.Lock()
+		defer lock.Unlock()
 		releaseParsed = append(releaseParsed, releaseRequest)
 		return nil
 	})

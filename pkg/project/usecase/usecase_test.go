@@ -1348,7 +1348,7 @@ func TestProject_autoCreateReleaseDependencies(t *testing.T) {
 
 	for _, test := range tests {
 		test.initMock()
-		releaseRequests, err := mockProjectManager.autoCreateReleaseDependencies(test.projectParams)
+		releaseRequests, err := mockProjectManager.autoCreateReleaseDependencies(test.projectParams, "", false)
 		assert.IsType(t, test.err, err)
 		assert.ElementsMatch(t, test.releaseRequests, releaseRequests)
 
