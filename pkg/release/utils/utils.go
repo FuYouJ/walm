@@ -7,6 +7,7 @@ import (
 	"strings"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/util"
 )
 
 const (
@@ -18,7 +19,9 @@ func ConfigValuesDiff(configValue1 map[string]interface{}, configValue2 map[stri
 	if len(configValue1) == 0 && len(configValue2) == 0 {
 		return false
 	}
-	return !reflect.DeepEqual(configValue1, configValue2)
+	unifiedConfigValue1, _ := util.UnifyConfigValue(configValue1)
+	unifiedConifgValue2, _ := util.UnifyConfigValue(configValue2)
+	return !reflect.DeepEqual(unifiedConfigValue1, unifiedConifgValue2)
 }
 
 func ParseDependedRelease(dependingReleaseNamespace, dependedRelease string) (namespace, name string, err error) {
