@@ -51,7 +51,7 @@ func (projectImpl *Project) doAddRelease(namespace, name string, projectParams *
 		releaseParams.ConfigValues = util.MergeValues(releaseParams.ConfigValues, projectParams.CommonValues, false)
 	}
 
-	releaseList, err := projectImpl.autoCreateReleaseDependencies(projectParams)
+	releaseList, err := projectImpl.autoCreateReleaseDependencies(projectParams, namespace, false)
 	if err != nil {
 		klog.Errorf("failed to parse project charts dependency relation  : %s", err.Error())
 		return err
