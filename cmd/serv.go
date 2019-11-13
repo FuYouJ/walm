@@ -36,6 +36,8 @@ import (
 	"github.com/emicklei/go-restful-openapi"
 	"github.com/go-openapi/spec"
 	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/thoas/stats"
@@ -65,6 +67,11 @@ const DefaultElectionId = "walm-election-id"
 type ServCmd struct {
 	cfgFile string
 }
+
+var (
+	HTTPReqDuration *prometheus.HistogramVec
+	HTTPReqTotal    *prometheus.CounterVec
+)
 
 func NewServCmd() *cobra.Command {
 	inst := &ServCmd{}
@@ -229,6 +236,21 @@ func (sc *ServCmd) run() error {
 	klog.Info("Start to elect leader")
 	go elector.Run(ctx)
 
+	HTTPReqDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "http_request_duration_seconds",
+		Help:        "The HTTP request latencies represent with seconds.",
+		Buckets:     nil,
+	}, []string{"method", "path"})
+
+	HTTPReqTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Total number of HTTP requests made.",
+	}, []string{"method", "path", "status"})
+
+	prometheus.MustRegister(
+		HTTPReqTotal,
+		HTTPReqDuration,
+	)
 	restful.DefaultRequestContentType(restful.MIME_JSON)
 	restful.DefaultResponseContentType(restful.MIME_JSON)
 	// gzip if accepted
@@ -258,6 +280,7 @@ func (sc *ServCmd) run() error {
 		APIPath:                       "/apidocs.json",
 		PostBuildSwaggerObjectHandler: enrichSwaggerObject}
 	restful.DefaultContainer.Add(restfulspec.NewOpenAPIService(restConfig))
+	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/swagger-ui/", http.StripPrefix("/swagger-ui/", http.FileServer(http.Dir("swagger-ui/dist"))))
 	http.Handle("/swagger/", http.RedirectHandler("/swagger-ui/?url=/apidocs.json", http.StatusFound))
 	klog.Infof("ready to serve on port %d", setting.Config.HttpConfig.HTTPPort)
@@ -300,7 +323,19 @@ func (sc *ServCmd) run() error {
 func RouteLogging(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
 	now := time.Now()
 	chain.ProcessFilter(req, resp)
-	klog.Infof("[route-filter (logger)] CLIENT %s OP %s URI %s COST %v RESP %d", req.Request.Host, req.Request.Method, req.Request.URL, time.Now().Sub(now), resp.StatusCode())
+
+	duration := time.Now().Sub(now)
+	HTTPReqTotal.With(prometheus.Labels{
+		"method": req.Request.Method,
+		"path":   req.Request.URL.Path,
+		"status": string(resp.StatusCode()),
+	}).Inc()
+//	float64(time.Since(tBegin)) / float64(time.Millisecond)
+	HTTPReqDuration.With(prometheus.Labels{
+		"method": req.Request.Method,
+		"path":   req.Request.URL.Path,
+	}).Observe(float64(duration)/float64(time.Second))
+	klog.Infof("[route-filter (logger)] CLIENT %s OP %s URI %s COST %v RESP %d", req.Request.Host, req.Request.Method, req.Request.URL, duration, resp.StatusCode())
 }
 
 var ServerStats = stats.New()
