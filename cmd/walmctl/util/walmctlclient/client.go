@@ -1,6 +1,7 @@
 package walmctlclient
 
 import (
+	errModels "WarpCloud/walm/pkg/models/error"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/util"
 	"encoding/json"
@@ -21,6 +22,7 @@ type WalmctlClient struct {
 }
 
 var walmctlClient *WalmctlClient
+var NotFoundError errModels.NotFoundError
 
 func CreateNewClient(hostURL string) *WalmctlClient {
 	if walmctlClient == nil {
@@ -372,20 +374,18 @@ func (c *WalmctlClient) DeleteReleaseInProject(namespace string, projectName str
 	return resp, err
 }
 
-func (c *WalmctlClient) MigratePod(namespace string, pod string, mig k8sModel.Mig) (resp *resty.Response, err error) {
+func (c *WalmctlClient) MigratePod(namespace string, resourceMig *k8sModel.ResourceMig) (resp *resty.Response, err error) {
 
-	mig.Spec.Namespace = namespace
-	mig.Spec.PodName = pod
-	migByte, err := json.Marshal(mig)
+	rsMigByte, err := json.Marshal(resourceMig)
 	if err != nil {
 		return nil, err
 	}
 
-	fullUrl := walmctlClient.baseURL + "/crd/migration/pod"
+	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + namespace
 
 	resp, err = resty.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(string(migByte)).
+		SetBody(string(rsMigByte)).
 		Post(fullUrl)
 
 	if err != nil {
@@ -398,12 +398,17 @@ func (c *WalmctlClient) MigratePod(namespace string, pod string, mig k8sModel.Mi
 	return resp, err
 }
 
-func (c *WalmctlClient) MigrateNode(migStr string) (resp *resty.Response, err error) {
+func (c *WalmctlClient) MigrateNode(resourceMig *k8sModel.ResourceMig) (resp *resty.Response, err error) {
+	rsMigByte, err := json.Marshal(resourceMig)
+	if err != nil {
+		return nil, err
+	}
+
 	fullUrl := walmctlClient.baseURL + "/crd/migration/node"
 
 	resp, err = resty.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(migStr).
+		SetBody(string(rsMigByte)).
 		Post(fullUrl)
 
 	if err != nil {
@@ -415,23 +420,36 @@ func (c *WalmctlClient) MigrateNode(migStr string) (resp *resty.Response, err er
 	return resp, err
 }
 
-func (c *WalmctlClient) GetPodMigration(migNamespace string, mig string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + migNamespace + "/" + mig
+func (c *WalmctlClient) GetPodMigration(namespace string, name string) (resp *resty.Response, err error) {
+	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + namespace + "/name/" + name
 	resp, err = resty.R().
 		Get(fullUrl)
 
 	if err != nil {
-		return  nil, err
+		return nil, err
+	}
+	if resp.StatusCode() != 200 {
+		return nil, errors.New(resp.String())
+	}
+	return resp, err
+}
+
+func (c *WalmctlClient) DeletePodMigration(namespace string, name string) (resp *resty.Response, err error) {
+	fullUrl := walmctlClient.baseURL + "/crd/migration/pod" + namespace + "/name/" + name
+	resp, err = resty.R().
+		Delete(fullUrl)
+
+	if err != nil {
+		return nil, err
 	}
 	if resp.StatusCode() != 200 {
 		return nil, errors.Errorf(resp.String())
 	}
-
 	return resp, err
 }
 
-func (c *WalmctlClient) GetNodeMigration(migNamespace string, mig string)  (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "crd/migration/node" + migNamespace + "/" + mig
+func (c *WalmctlClient) GetNodeMigration(name string)  (resp *resty.Response, err error) {
+	fullUrl := walmctlClient.baseURL + "crd/migration/node/" + name
 	resp, err = resty.R().
 		Get(fullUrl)
 

@@ -173,6 +173,20 @@ func (_m *Operator) DeletePod(namespace string, name string) error {
 	return r0
 }
 
+// DeletePodMigration provides a mock function with given fields: namespace, name
+func (_m *Operator) DeletePodMigration(namespace string, name string) error {
+	ret := _m.Called(namespace, name)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeletePvc provides a mock function with given fields: namespace, name
 func (_m *Operator) DeletePvc(namespace string, name string) error {
 	ret := _m.Called(namespace, name)
@@ -243,13 +257,13 @@ func (_m *Operator) LabelNode(name string, labelsToAdd map[string]string, labels
 	return r0
 }
 
-// MigrateNode provides a mock function with given fields: mig
-func (_m *Operator) MigrateNode(mig *modelsk8s.Mig) error {
-	ret := _m.Called(mig)
+// MigrateNode provides a mock function with given fields: srcNode, destNode
+func (_m *Operator) MigrateNode(srcNode string, destNode string) error {
+	ret := _m.Called(srcNode, destNode)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*modelsk8s.Mig) error); ok {
-		r0 = rf(mig)
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(srcNode, destNode)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -257,13 +271,13 @@ func (_m *Operator) MigrateNode(mig *modelsk8s.Mig) error {
 	return r0
 }
 
-// MigratePod provides a mock function with given fields: namespace, name, mig, fromNode
-func (_m *Operator) MigratePod(namespace string, name string, mig *modelsk8s.Mig, fromNode bool) error {
-	ret := _m.Called(namespace, name, mig, fromNode)
+// MigratePod provides a mock function with given fields: mig
+func (_m *Operator) MigratePod(mig *modelsk8s.Mig) error {
+	ret := _m.Called(mig)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, *modelsk8s.Mig, bool) error); ok {
-		r0 = rf(namespace, name, mig, fromNode)
+	if rf, ok := ret.Get(0).(func(*modelsk8s.Mig) error); ok {
+		r0 = rf(mig)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"reflect"
+	"strings"
 )
 
 const (
@@ -77,53 +78,56 @@ func (op *Operator) RestartPod(namespace string, name string) error {
 	return nil
 }
 
-func (op *Operator) MigratePod(namespace string, name string, mig *k8sModel.Mig, fromNode bool) error {
+func (op *Operator) MigratePod(mig *k8sModel.Mig) error {
 
-	if mig.Name == "" {
-		return errors.Errorf("name for Mig must be set")
+	err := op.DeletePodMigration(mig.Spec.Namespace, mig.Spec.PodName)
+	if err != nil {
+		return err
 	}
-
-	if mig.Namespace == "" {
-		klog.Warningf("mig namespace is empty, set as %s default", namespace)
-		mig.Namespace = namespace
-	}
-
-	mig.Spec.Namespace = namespace
-	mig.Spec.PodName = name
-
 	k8sMig, err := converter.ConvertMigToK8s(mig)
 	if err != nil {
 		return errors.Errorf("failed to convert mig to k8sMigration: %s", err.Error())
 	}
 
-	if fromNode {
-		k8sMig.Labels = map[string]string{"migType": "node", "migName": mig.Name}
-		k8sMig.Name = mig.Name + "-" + mig.Spec.Namespace + "-" + mig.Spec.PodName
-	}
-
 	_, err = op.k8sMigrationClient.ApiextensionsV1beta1().Migs(mig.Namespace).Create(k8sMig)
 	if err != nil {
-		return errors.Errorf("failed to migrate pod %s/%s: %s", namespace, name, err.Error())
+		return errors.Errorf("failed to migrate pod: %s", err.Error())
 	}
 	return nil
 }
 
-func (op *Operator) MigrateNode(mig *k8sModel.Mig) error {
+func (op *Operator) DeletePodMigration(namespace string, name string) error {
+
+	migName := "mig" + "-" + namespace + "-" + name
+	err := op.k8sMigrationClient.ApiextensionsV1beta1().Migs("default").Delete(migName, &metav1.DeleteOptions{})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found"){
+			return nil
+		} else {
+			klog.Errorf("failed to delete pod migration: %s", err.Error())
+			return err
+		}
+	}
+	return nil
+}
+
+func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 
 	k8sMigrationClient := op.k8sMigrationClient
 	if k8sMigrationClient == nil {
 		return errors.Errorf("failed to get migration client, check config.CrdConfig.EnableMigrationCRD")
 	}
 
-	srcNode, err := op.k8sCache.GetResource(k8sModel.NodeKind, "", mig.SrcHost)
-	if err != nil {
-		klog.Errorf("failed to get node %s: %s", mig.SrcHost, err.Error())
-		return err
-	}
-
-	newSrcNode := srcNode.(*k8sModel.Node)
-	if newSrcNode.UnSchedulable {
-		return errors.Errorf("node is unschedulable, please wait")
+	if destNode != "" {
+		dest, err := op.k8sCache.GetResource(k8sModel.NodeKind, "", srcNode)
+		if err != nil {
+			klog.Errorf("failed to get node %s: %s", dest, err.Error())
+			return err
+		}
+		newDest := dest.(*k8sModel.Node)
+		if newDest.UnSchedulable {
+			return errors.Errorf("dest node is unschedulable, please check")
+		}
 	}
 
 	statefulsets, err := op.k8sCache.ListStatefulSets("", "")
@@ -135,14 +139,27 @@ func (op *Operator) MigrateNode(mig *k8sModel.Mig) error {
 	var podList []*k8sModel.Pod
 	for _, sts := range statefulsets {
 		for _, pod := range sts.Pods {
-			if pod.NodeName == mig.SrcHost {
+			if pod.NodeName == srcNode {
 				podList = append(podList, pod)
 			}
 		}
 	}
 
 	for _, pod := range podList {
-		err = op.MigratePod(pod.Namespace, pod.Name, mig, true)
+		mig := &k8sModel.Mig{
+			Meta:     k8sModel.Meta{
+				Namespace: "default",
+				Name: "mig" + "-" + pod.Namespace + "-" + pod.Name,
+			},
+			Labels:   map[string]string{"migType": "node", "srcNode": srcNode},
+			Spec:     k8sModel.MigSpec{
+					Namespace: pod.Namespace,
+					PodName: pod.Name,
+			},
+			SrcHost:  srcNode,
+			DestHost: destNode,
+		}
+		err = op.MigratePod(mig)
 		if err != nil {
 			return err
 		}
