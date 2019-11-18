@@ -72,7 +72,7 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Doc("迁移pod").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string").Required(true)).
-		Reads(k8sModel.ResourceMig{}).
+		Reads(k8sModel.PodMigRequest{}).
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
@@ -87,7 +87,7 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 	ws.Route(ws.POST("/migration/node").To(handler.MigrateNode).
 		Doc("迁移node(所有statefulset管理的pod)").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
-		Reads(k8sModel.ResourceMig{}).
+		Reads(k8sModel.NodeMigRequest{}).
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
@@ -145,13 +145,13 @@ func (handler CrdHandler) DeletePodMigration(request *restful.Request, response 
 
 func (handler CrdHandler) MigratePod(request *restful.Request, response *restful.Response) {
 	namespace := request.PathParameter("namespace")
-	resourceMig := &k8sModel.ResourceMig{}
-	err := request.ReadEntity(resourceMig)
+	podMig := &k8sModel.PodMigRequest{}
+	err := request.ReadEntity(podMig)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	if resourceMig.Name == "" {
+	if podMig.PodName == "" {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("name not set in request body"))
 
 	}
@@ -159,14 +159,14 @@ func (handler CrdHandler) MigratePod(request *restful.Request, response *restful
 	mig := &k8sModel.Mig{
 		Meta:     k8sModel.Meta{
 			Namespace: "default",
-			Name: "mig" + "-" + namespace + "-" + resourceMig.Name,
+			Name: "mig" + "-" + namespace + "-" + podMig.PodName,
 		},
-		Labels: resourceMig.Labels,
+		Labels: podMig.Labels,
 		Spec:     k8sModel.MigSpec{
 			Namespace: namespace,
-			PodName: resourceMig.Name,
+			PodName: podMig.PodName,
 		},
-		DestHost: resourceMig.DestNode,
+		DestHost: podMig.DestNode,
 	}
 
 	err = handler.k8sOperator.MigratePod(mig)
@@ -189,17 +189,17 @@ func (handler CrdHandler) GetNodeMigration(request *restful.Request, response *r
 }
 
 func (handler CrdHandler) MigrateNode(request *restful.Request, response *restful.Response) {
-	resourceMig := &k8sModel.ResourceMig{}
-	err := request.ReadEntity(resourceMig)
+	nodeMig := &k8sModel.NodeMigRequest{}
+	err := request.ReadEntity(nodeMig)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	if resourceMig.Name == "" {
+	if nodeMig.NodeName == "" {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("name not set in request body"))
 
 	}
-	err = handler.k8sOperator.MigrateNode(resourceMig.Name, resourceMig.DestNode)
+	err = handler.k8sOperator.MigrateNode(nodeMig.NodeName, nodeMig.DestNode)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to migrate node: %s", err.Error()))
 		return

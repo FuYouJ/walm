@@ -374,9 +374,9 @@ func (c *WalmctlClient) DeleteReleaseInProject(namespace string, projectName str
 	return resp, err
 }
 
-func (c *WalmctlClient) MigratePod(namespace string, resourceMig *k8sModel.ResourceMig) (resp *resty.Response, err error) {
+func (c *WalmctlClient) MigratePod(namespace string, podMig *k8sModel.PodMigRequest) (resp *resty.Response, err error) {
 
-	rsMigByte, err := json.Marshal(resourceMig)
+	podMigByte, err := json.Marshal(podMig)
 	if err != nil {
 		return nil, err
 	}
@@ -385,7 +385,7 @@ func (c *WalmctlClient) MigratePod(namespace string, resourceMig *k8sModel.Resou
 
 	resp, err = resty.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(string(rsMigByte)).
+		SetBody(string(podMigByte)).
 		Post(fullUrl)
 
 	if err != nil {
@@ -398,8 +398,8 @@ func (c *WalmctlClient) MigratePod(namespace string, resourceMig *k8sModel.Resou
 	return resp, err
 }
 
-func (c *WalmctlClient) MigrateNode(resourceMig *k8sModel.ResourceMig) (resp *resty.Response, err error) {
-	rsMigByte, err := json.Marshal(resourceMig)
+func (c *WalmctlClient) MigrateNode(nodeMig *k8sModel.NodeMigRequest) (resp *resty.Response, err error) {
+	nodeMigByte, err := json.Marshal(nodeMig)
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +408,7 @@ func (c *WalmctlClient) MigrateNode(resourceMig *k8sModel.ResourceMig) (resp *re
 
 	resp, err = resty.R().
 		SetHeader("Content-Type", "application/json").
-		SetBody(string(rsMigByte)).
+		SetBody(string(nodeMigByte)).
 		Post(fullUrl)
 
 	if err != nil {

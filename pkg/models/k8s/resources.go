@@ -496,10 +496,15 @@ type MigList struct {
 	Items []*Mig `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-type ResourceMig struct {
-	Name 	 string `json:"name"`
-	DestNode string `json:"destNode"`
+type PodMigRequest struct {
+	PodName  string            `json:"podname"`
+	DestNode string            `json:"destNode"`
 	Labels   map[string]string `json:"labels" description:"labels"`
+}
+
+type NodeMigRequest struct {
+	NodeName string `json:"nodename"`
+	DestNode string `json:"destNode"`
 }
 
 type Mig struct {

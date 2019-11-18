@@ -84,8 +84,8 @@ func (migrate *migrateOptions) run() error {
 			return err
 		}
 
-		_, err = client.MigratePod(namespace, &k8sModel.ResourceMig{
-			Name:     migrate.name,
+		_, err = client.MigratePod(namespace, &k8sModel.PodMigRequest{
+			PodName:     migrate.name,
 			DestNode: migrate.destNode,
 		})
 		if err != nil {
@@ -131,8 +131,8 @@ func (migrate *migrateOptions) run() error {
 	}
 
 	for _, pod := range podList {
-		_, err = client.MigratePod(pod.Namespace, &k8sModel.ResourceMig{
-			Name:     pod.Name,
+		_, err = client.MigratePod(pod.Namespace, &k8sModel.PodMigRequest{
+			PodName:     pod.Name,
 			DestNode: migrate.destNode,
 			Labels:   map[string]string{"migType": "node", "srcNode": migrate.name},
 		})
