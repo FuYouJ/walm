@@ -34,5 +34,5 @@ type Cache interface {
 	ListStorageClasses(namespace string, labelSelectorStr string) ([]*k8s.StorageClass, error)
 	ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error)
 
-	ListMigrations(namespace, labelSelectorStr string) (*k8s.MigList, error)
+	ListMigrations(labelSelectorStr string) (*k8s.MigList, error)
 }

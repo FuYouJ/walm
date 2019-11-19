@@ -232,13 +232,13 @@ func (_m *Cache) GetTenant(tenantName string) (*tenant.TenantInfo, error) {
 	return r0, r1
 }
 
-// ListMigrations provides a mock function with given fields: namespace, labelSelectorStr
-func (_m *Cache) ListMigrations(namespace string, labelSelectorStr string) (*modelsk8s.MigList, error) {
-	ret := _m.Called(namespace, labelSelectorStr)
+// ListMigrations provides a mock function with given fields: labelSelectorStr
+func (_m *Cache) ListMigrations(labelSelectorStr string) (*modelsk8s.MigList, error) {
+	ret := _m.Called(labelSelectorStr)
 
 	var r0 *modelsk8s.MigList
-	if rf, ok := ret.Get(0).(func(string, string) *modelsk8s.MigList); ok {
-		r0 = rf(namespace, labelSelectorStr)
+	if rf, ok := ret.Get(0).(func(string) *modelsk8s.MigList); ok {
+		r0 = rf(labelSelectorStr)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*modelsk8s.MigList)
@@ -246,8 +246,8 @@ func (_m *Cache) ListMigrations(namespace string, labelSelectorStr string) (*mod
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string) error); ok {
-		r1 = rf(namespace, labelSelectorStr)
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(labelSelectorStr)
 	} else {
 		r1 = ret.Error(1)
 	}
