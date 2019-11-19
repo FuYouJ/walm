@@ -38,3 +38,7 @@ chartImageConfig:
   cacheRootDir: "/chart-cache"
 crdConfig:
   notNeedInstance: false
+electorConfig:
+  lockNamespace: ""  # Pod_Namespace
+  lockIdentity: ""   # Pod_Name
+#  electionId: ""
