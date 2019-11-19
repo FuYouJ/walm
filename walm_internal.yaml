@@ -39,6 +39,6 @@ chartImageConfig:
 crdConfig:
   notNeedInstance: false
 electorConfig:
-  lockNamespace: "zy"  # Pod_Namespace
-  lockIdentity: "test"   # Pod_Name
+  lockNamespace: ""  # Pod_Namespace
+  lockIdentity: ""   # Pod_Name
 #  electionId: ""
