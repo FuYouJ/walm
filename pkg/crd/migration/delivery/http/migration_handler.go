@@ -15,9 +15,22 @@ import (
 type CrdHandler struct {
 	k8sCache    k8s.Cache
 	k8sOperator k8s.Operator
+	//migDisableFlag bool
 }
 
-var migDisableFlag bool
+type CommonHandler struct {
+	innerFunc restful.RouteFunction
+}
+
+func (commonHandler CommonHandler) handle(request *restful.Request, response *restful.Response) {
+	if setting.Config.CrdConfig != nil && setting.Config.CrdConfig.EnableMigrationCRD {
+	} else {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("migration not enabled, check for config"))
+		return
+	}
+	commonHandler.innerFunc(request, response)
+}
+
 
 func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.WebService {
 	handler := &CrdHandler{
@@ -34,13 +47,8 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 
 	tags := []string{"crd"}
 
-	migDisableFlag = true
-	if setting.Config.CrdConfig != nil && setting.Config.CrdConfig.EnableMigrationCRD {
-		migDisableFlag = false
-	}
-
 	// crd crd
-	ws.Route(ws.GET("/migration").To(handler.ListMigrations).
+	ws.Route(ws.GET("/migration").To(CommonHandler{handler.ListMigrations}.handle).
 		Doc("获取所有crd迁移信息列表").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.QueryParameter("labelselector", "节点标签过滤").DataType("string").Required(false)).
@@ -48,7 +56,7 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Returns(200, "OK", k8sModel.MigList{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.GET("/migration/pod/{namespace}/name/{pod}").To(handler.GetPodMigration).
+	ws.Route(ws.GET("/migration/pod/{namespace}/name/{pod}").To(CommonHandler{handler.GetPodMigration}.handle).
 		Doc("获取pod迁移信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string").Required(true)).
@@ -56,7 +64,7 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Returns(200, "Ok", k8sModel.Mig{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.DELETE("/migration/pod/{namespace}/name/{pod}").To(handler.DeletePodMigration).
+	ws.Route(ws.DELETE("/migration/pod/{namespace}/name/{pod}").To(CommonHandler{handler.DeletePodMigration}.handle).
 		Doc("删除pod迁移信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string").Required(true)).
@@ -64,7 +72,7 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.POST("/migration/pod/{namespace}").To(handler.MigratePod).
+	ws.Route(ws.POST("/migration/pod/{namespace}").To(CommonHandler{handler.MigratePod}.handle).
 		Doc("迁移pod").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string").Required(true)).
@@ -72,7 +80,7 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.GET("/migration/node/{node}").To(handler.GetNodeMigration).
+	ws.Route(ws.GET("/migration/node/{node}").To(CommonHandler{handler.GetNodeMigration}.handle).
 		Doc("获取node迁移信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("node", "node名字").DataType("string").Required(true)).
@@ -80,7 +88,7 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Returns(200, "Ok", k8sModel.MigList{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.POST("/migration/node").To(handler.MigrateNode).
+	ws.Route(ws.POST("/migration/node").To(CommonHandler{handler.MigrateNode}.handle).
 		Doc("迁移node(所有statefulset管理的pod)").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Reads(k8sModel.NodeMigRequest{}).
@@ -90,7 +98,6 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 	return ws
 
 }
-
 
 func (handler CrdHandler) ListMigrations(request *restful.Request, response *restful.Response) {
 
@@ -104,10 +111,7 @@ func (handler CrdHandler) ListMigrations(request *restful.Request, response *res
 }
 
 func (handler CrdHandler) GetPodMigration(request *restful.Request, response *restful.Response) {
-	if migDisableFlag {
-		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("migration not enabled, check for config"))
-		return
-	}
+
 	namespace := request.PathParameter("namespace")
 	podName := request.PathParameter("pod")
 	name := "mig" + "-" +  namespace + "-" + podName
@@ -121,10 +125,7 @@ func (handler CrdHandler) GetPodMigration(request *restful.Request, response *re
 
 
 func (handler CrdHandler) DeletePodMigration(request *restful.Request, response *restful.Response) {
-	if migDisableFlag {
-		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("migration not enabled, check for config"))
-		return
-	}
+
 	namespace := request.PathParameter("namespace")
 	podName := request.PathParameter("pod")
 
@@ -137,10 +138,7 @@ func (handler CrdHandler) DeletePodMigration(request *restful.Request, response 
 }
 
 func (handler CrdHandler) MigratePod(request *restful.Request, response *restful.Response) {
-	if migDisableFlag {
-		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("migration not enabled, check for config"))
-		return
-	}
+
 	namespace := request.PathParameter("namespace")
 	podMig := &k8sModel.PodMigRequest{}
 	err := request.ReadEntity(podMig)
@@ -176,10 +174,7 @@ func (handler CrdHandler) MigratePod(request *restful.Request, response *restful
 }
 
 func (handler CrdHandler) GetNodeMigration(request *restful.Request, response *restful.Response) {
-	if migDisableFlag {
-		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("migration not enabled, check for config"))
-		return
-	}
+
 	node := request.PathParameter("node")
 	migList, err := handler.k8sCache.GetNodeMigration(node)
 	if err != nil {
@@ -190,10 +185,7 @@ func (handler CrdHandler) GetNodeMigration(request *restful.Request, response *r
 }
 
 func (handler CrdHandler) MigrateNode(request *restful.Request, response *restful.Response) {
-	if migDisableFlag {
-		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("migration not enabled, check for config"))
-		return
-	}
+
 	nodeMig := &k8sModel.NodeMigRequest{}
 	err := request.ReadEntity(nodeMig)
 	if err != nil {
