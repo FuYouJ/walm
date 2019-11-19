@@ -455,18 +455,14 @@ func (informer *Informer) GetNodeMigration(node string) (*k8s.MigList, error) {
 }
 
 
-func (informer *Informer) ListMigrations(namespace, labelSelectorStr string) (*k8s.MigList, error) {
+func (informer *Informer) ListMigrations(labelSelectorStr string) (*k8s.MigList, error) {
 	var k8sMigs []*tosv1beta1.Mig
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
 		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
-	if namespace == "" {
-		k8sMigs, err = informer.migrationLister.List(selector)
-	} else {
-		k8sMigs, err = informer.migrationLister.Migs(namespace).List(selector)
-	}
+	k8sMigs, err = informer.migrationLister.Migs("default").List(selector)
 
 	var migs []*k8s.Mig
 	for _, k8sMig := range k8sMigs {
