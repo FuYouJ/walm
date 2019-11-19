@@ -59,7 +59,7 @@ type WalmConfig struct {
 	JsonnetConfig    *JsonnetConfig    `json:"jsonnetConfig"`
 	ChartImageConfig *ChartImageConfig `json:"chartImageConfig"`
 	CrdConfig        *CrdConfig        `json:"crdConfig"`
-
+	ElectorConfig    *ElectorConfig    `json:"electorConfig"`
 	//only for test
 	ChartImageRegistry string `json:"chartImageRegistry"`
 }
@@ -67,6 +67,12 @@ type WalmConfig struct {
 type CrdConfig struct {
 	NotNeedInstance    bool `json:"notNeedInstance"`
 	EnableMigrationCRD bool `json:"enableMigrationCRD"`
+}
+
+type ElectorConfig struct {
+	LockNamespace string `json:"lockNamespace" description:"pod namespace"`
+	LockIdentity  string `json:"lockIdentity" description:"pod name"`
+	ElectionId    string  `json:"electionId" description:"election id"`
 }
 
 type ChartImageConfig struct {

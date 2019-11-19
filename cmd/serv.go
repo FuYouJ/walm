@@ -91,17 +91,24 @@ func NewServCmd() *cobra.Command {
 }
 
 func (sc *ServCmd) run() error {
-	lockIdentity := os.Getenv("Pod_Name")
-	lockNamespace := os.Getenv("Pod_Namespace")
-	if lockIdentity == "" || lockNamespace == "" {
-		err := errors.New("both env var Pod_Name and Pod_Namespace must not be empty")
-		klog.Error(err.Error())
-		return err
-	}
 
 	sig := make(chan os.Signal, 1)
 
 	sc.initConfig()
+	if os.Getenv("Pod_Name") != "" {
+		setting.Config.ElectorConfig.LockIdentity = os.Getenv("Pod_Name")
+	}
+	if os.Getenv("Pod_Namespace") != "" {
+		setting.Config.ElectorConfig.LockNamespace = os.Getenv("Pod_Namespace")
+	}
+	if setting.Config.ElectorConfig.LockNamespace == "" || setting.Config.ElectorConfig.LockIdentity == "" {
+		err := errors.New("both env var lockNamespace and lockIdentity must not be empty")
+		klog.Error(err.Error())
+		return err
+	}
+	if setting.Config.ElectorConfig.ElectionId == "" {
+		setting.Config.ElectorConfig.ElectionId = DefaultElectionId
+	}
 	config := setting.Config
 	initLogLevel()
 	stopChan := make(chan struct{})
@@ -219,9 +226,9 @@ func (sc *ServCmd) run() error {
 	}
 
 	electorConfig := &elect.ElectorConfig{
-		LockNamespace:        lockNamespace,
-		LockIdentity:         lockIdentity,
-		ElectionId:           DefaultElectionId,
+		LockNamespace:        config.ElectorConfig.LockNamespace,
+		LockIdentity:         config.ElectorConfig.LockIdentity,
+		ElectionId:           config.ElectorConfig.ElectionId,
 		Client:               k8sClient,
 		OnStartedLeadingFunc: onStartedLeadingFunc,
 		OnNewLeaderFunc:      onNewLeaderFunc,
