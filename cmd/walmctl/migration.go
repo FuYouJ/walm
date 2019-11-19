@@ -2,60 +2,41 @@ package main
 
 import (
 	"WarpCloud/walm/cmd/walmctl/util/walmctlclient"
-	"WarpCloud/walm/pkg/models/k8s"
-	"encoding/json"
-	corev1 "k8s.io/api/core/v1"
-
 	k8sclient "WarpCloud/walm/pkg/k8s/client"
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
+	"encoding/json"
+	"fmt"
+	"github.com/migration/pkg/apis/tos/v1beta1"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
-	"io/ioutil"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"os"
 	"path/filepath"
+	"strings"
 )
 
 var longMigrateHelp = `
-struct mig file template like
-{
-  "labels": {},
-  "name": "string",
-  "namespace": "string",
-  "spec": {
-    "namespace": "string",
-    "podname": "string"
-  },
-  "srcHost": "string",
-  "destHost": "string",
-},
+To ensure migrate node work, you may set $KUBE_CONFIG or --kubeconfig while using migrate cmd.
+Using:
+	"export $KUBE_CONFIG=..." or "walmctl migrate ....  --kubeconfig ..."
 
-for example, migrate test1/pod1 from node1 to node2, you can specify like
-{
-  "name": "mig-test",
-  "namespace": "mig-namespace",
-  "spec": {
-    "namespace": "test1",
-    "podname": "pod1"
-  },
-  "srcHost": "node1",
-  "destHost": "node2",
-}
-if schedule pods managed by sts on node1, you can specify easily like that
-{
-  "name": "mig-test",
-  "namespace": "mig-namespace",
-  "srcHost": "node1",
-}
-
-
+migrate pod: kubectl -s x.x.x.x:y migrate pod podname
+migrate node:
+	In cluster: kubectl -s x.x.x.x:y migrate node nodeName
+    Out cluster: --kubeconfig
 `
 
 type migrateOptions struct {
-	migType    string
-	file       string
+	kind       string
+	name       string
 	kubeconfig string
+	destNode   string
 	out        io.Writer
 }
 
@@ -64,44 +45,32 @@ func newMigrationCmd(out io.Writer) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "migrate",
-		Short: "migrate node, pod --file",
+		Short: "migrate node, pod",
 		Long:  longMigrateHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			if args[0] != "pod" && args[0] != "node" {
-				return errors.Errorf("unsupport type: %s, pod or node support only", args[0])
+			if len(args) != 2 {
+				return errors.New("arguments error, migrate node/pod nodeName/podName")
 			}
 
-			migrate.migType = args[0]
+			if args[0] != "pod" && args[0] != "node" {
+				return errors.Errorf("unsupport kind: %s, pod or node support only", args[0])
+			}
+
+			migrate.kind = args[0]
+			migrate.name = args[1]
 			return migrate.run()
 		},
 	}
-
-	cmd.PersistentFlags().StringVarP(&migrate.file, "file", "f", "", "file to specify migs, required")
-	cmd.PersistentFlags().StringVar(&migrate.kubeconfig, "kubeconfig", "kubeconfig", "kubeconfig path, required")
-	cmd.MarkPersistentFlagRequired("file")
-	cmd.MarkPersistentFlagRequired("kubeconfig")
+	cmd.PersistentFlags().StringVar(&migrate.destNode, "destNode", "", "dest node to migrate")
+	cmd.PersistentFlags().StringVar(&migrate.kubeconfig, "kubeconfig", os.Getenv("KUBE_CONFIG"), "k8s cluster config")
 
 	return cmd
 }
 
 func (migrate *migrateOptions) run() error {
-
-	var mig k8s.Mig
-
-	path, err := filepath.Abs(migrate.file)
-	if err != nil {
-		return errors.Errorf("failed to load migs specified file: %s", err.Error())
-	}
-
-	migByte, err := ioutil.ReadFile(path)
-	if err != nil {
-		return errors.Errorf("failed to read file %s : %s", path, err.Error())
-	}
-
-	err = json.Unmarshal(migByte, &mig)
-	if err != nil {
-		return errors.Errorf("failed to unmarshal mig file to struct k8sModel.Mig: %s", err.Error())
+	var err error
+	if walmserver == "" {
+		return errServerRequired
 	}
 
 	client := walmctlclient.CreateNewClient(walmserver)
@@ -109,63 +78,67 @@ func (migrate *migrateOptions) run() error {
 		return err
 	}
 
-	kubeconfig, err := filepath.Abs(migrate.kubeconfig)
-	if err != nil {
-		klog.Errorf("get kubeconfig failed: %s", err.Error())
-		return err
-	}
-
-	k8sClient, err := k8sclient.NewClient("", kubeconfig)
-	if err != nil {
-		klog.Errorf("creates new Kubernetes Apiserver client failed: %s", err.Error())
-		return err
-	}
-
-	if migrate.migType == "pod" {
-		if mig.Spec.PodName == "" || mig.Spec.Namespace == ""{
-			return errors.Errorf("spec.podname and spec.namespace must be set when migrate pod")
+	if migrate.kind == "pod" {
+		err = migratePodPreCheck(client, namespace, migrate.name, migrate.destNode)
+		if err != nil {
+			return err
 		}
 
-		_, err = client.MigratePod(mig.Spec.Namespace, mig.Spec.PodName, mig)
+		_, err = client.MigratePod(namespace, &k8sModel.PodMigRequest{
+			PodName:     migrate.name,
+			DestNode: migrate.destNode,
+		})
 		if err != nil {
 			return errors.Errorf("failed to migrate pod: %s", err.Error())
 		}
+
+		fmt.Printf("create pod migrate task succeed.\n")
 		return nil
 	}
 
-	if err = envPreCheck(k8sClient, mig.SrcHost, mig.DestHost); err != nil {
+	if migrate.kubeconfig == "" {
+		fmt.Println("[WARNING]: Neither --kubeconfig nor ENV KUBE_CONFIG was specified.  Using the inClusterConfig.  This might not work when migrate node.")
+	} else {
+		migrate.kubeconfig, err = filepath.Abs(migrate.kubeconfig)
+		if err != nil {
+			klog.Errorf("failed to get kubeconfig path: %s", err.Error())
+			return err
+		}
+	}
+	k8sClient, err := k8sclient.NewClient("", migrate.kubeconfig)
+	if err != nil {
+		klog.Errorf("Failed to create new kubernetes client %s", err.Error())
+		return err
+	}
+
+	if err = envPreCheck(k8sClient, migrate.name, migrate.destNode); err != nil {
 		klog.Errorf("env pre-check error: %s", err.Error())
 		return err
 	}
 
-	podList, err := getPodListFromNode(k8sClient, mig.SrcHost)
+	podList, err := getPodListFromNode(k8sClient, migrate.name)
 	if err != nil {
-		klog.Errorf("failed to get pods from node %s: %s", mig.SrcHost, err.Error())
+		klog.Errorf("failed to get pods from node %s: %s", migrate.name, err.Error())
 		return err
 	}
 
-	prefixName := mig.Name
+	/* check all pods ready to be migrated */
 	for _, pod := range podList {
-		mig.Labels = map[string]string{"migType": "node", "migName": prefixName}
-		mig.Name = prefixName + "-" + pod.Namespace + "-" + pod.Name
-
-		_, err = client.MigratePod(pod.Namespace, pod.Name, mig)
+		err = migratePodPreCheck(client, pod.Namespace, pod.Name, migrate.destNode)
 		if err != nil {
-			return errors.Errorf("failed to migrate pod: %s", err.Error())
+			return err
 		}
-		return nil
 	}
 
-	// Todo: cordon pod
+	for _, pod := range podList {
+		_, err = client.MigratePod(pod.Namespace, &k8sModel.PodMigRequest{
+			PodName:     pod.Name,
+			DestNode: migrate.destNode,
+			Labels:   map[string]string{"migType": "node", "srcNode": migrate.name},
+		})
+	}
 
-	// Todo: migrate progress
-
-	// Todo: failed retry
-
-	// Todo: return migrate status
-
-	// Todo: failed notification
-
+	fmt.Printf("create node migrate task succeed.\n")
 	return nil
 }
 
@@ -191,10 +164,8 @@ func getPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]core
 	return podList.Items, nil
 }
 
-// Todo: Env Pre-Check
 func envPreCheck(k8sClient *kubernetes.Clientset, srcHost string, destHost string) error {
 
-	// Node Check
 	nodeList, err := k8sClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("failed to get nodes: %s", err.Error())
@@ -204,21 +175,88 @@ func envPreCheck(k8sClient *kubernetes.Clientset, srcHost string, destHost strin
 		return errors.Errorf("only one node, migration make no sense")
 	}
 
-	_, err = k8sClient.CoreV1().Nodes().Get(srcHost, metav1.GetOptions{})
+	srcNode, err := k8sClient.CoreV1().Nodes().Get(srcHost, metav1.GetOptions{})
 	if err != nil {
 		klog.Errorf("failed to get node %s: %s", srcHost, err.Error())
 		return err
 	}
 
 	if destHost != "" {
-		_, err = k8sClient.CoreV1().Nodes().Get(destHost, metav1.GetOptions{})
+		destNode, err := k8sClient.CoreV1().Nodes().Get(destHost, metav1.GetOptions{})
 		if err != nil {
 			klog.Errorf("failed to get node %s: %s", srcHost, err.Error())
 			return err
 		}
+		if destNode.Spec.Unschedulable {
+			return errors.Errorf("dest node is Unschedulable, run `kubectl uncordon ...`")
+		}
 	}
 
-	// Todo: other check
+	/* cordon node */
+	if srcNode.Spec.Unschedulable == false {
+		oldData, err := json.Marshal(srcNode)
+		if err != nil {
+			return err
+		}
+
+		srcNode.Spec.Unschedulable = true
+		newData, err := json.Marshal(srcNode)
+		if err != nil {
+			return err
+		}
+		patchBytes, patchErr := strategicpatch.CreateTwoWayMergePatch(oldData, newData, srcNode)
+		if patchErr == nil {
+			_, err = k8sClient.CoreV1().Nodes().Patch(srcNode.Name, types.StrategicMergePatchType, patchBytes)
+
+		} else {
+			_, err = k8sClient.CoreV1().Nodes().Update(srcNode)
+		}
+		if err != nil {
+			fmt.Printf("error: unable to cordon node %q: %v\n", srcNode.Name, err)
+		}
+	} else {
+		klog.Infof("node %s is unschedulable now", srcNode.Name)
+	}
+	return nil
+}
+
+func migratePodPreCheck(client *walmctlclient.WalmctlClient, namespace string, name string, destNode string) error {
+	if namespace == "" {
+		return errNamespaceRequired
+	}
+	resp, err := client.GetPodMigration(namespace, name)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found error") {
+			klog.Warningf("pod migration not found, skipped")
+		} else {
+			return errors.Errorf("failed to get pod migration: %s", err.Error())
+		}
+	}
+	var podMig k8sModel.Mig
+	if resp != nil {
+		err = json.Unmarshal(resp.Body(), &podMig)
+		if err != nil {
+			klog.Errorf("failed to unmarshal response body to pod migration status")
+			return err
+		}
+		switch podMig.State.Status {
+		case v1beta1.MIG_CREATED, v1beta1.MIG_IN_PROGRESS, "":
+			return errors.Errorf("Pod %s/%s migration in progress, please wait for the last process end.", podMig.Spec.Namespace, podMig.Spec.PodName)
+		case v1beta1.MIG_FAILED:
+			_, err = client.DeletePodMigration(podMig.Spec.Namespace, podMig.Spec.PodName)
+			if err != nil {
+				klog.Errorf("failed to delete pod migration: %s", err.Error())
+				return err
+			}
+			return errors.Errorf("Last migration for pod failed: %s.\nWe already help you delete the failed pod migration, please fix and try!", podMig.State.Message)
+		case v1beta1.MIG_FINISH:
+			_, err = client.DeletePodMigration(podMig.Spec.Namespace, podMig.Spec.PodName)
+			if err != nil {
+				klog.Errorf("failed to delete pod migration: %s", err.Error())
+				return err
+			}
+		}
+	}
 
 	return nil
 }

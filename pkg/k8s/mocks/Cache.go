@@ -50,13 +50,13 @@ func (_m *Cache) GetDeploymentEventList(namespace string, name string) (*modelsk
 	return r0, r1
 }
 
-// GetNodeMigration provides a mock function with given fields: namespace, name
-func (_m *Cache) GetNodeMigration(namespace string, name string) (*modelsk8s.MigList, error) {
-	ret := _m.Called(namespace, name)
+// GetNodeMigration provides a mock function with given fields: node
+func (_m *Cache) GetNodeMigration(node string) (*modelsk8s.MigList, error) {
+	ret := _m.Called(node)
 
 	var r0 *modelsk8s.MigList
-	if rf, ok := ret.Get(0).(func(string, string) *modelsk8s.MigList); ok {
-		r0 = rf(namespace, name)
+	if rf, ok := ret.Get(0).(func(string) *modelsk8s.MigList); ok {
+		r0 = rf(node)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*modelsk8s.MigList)
@@ -64,8 +64,8 @@ func (_m *Cache) GetNodeMigration(namespace string, name string) (*modelsk8s.Mig
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, string) error); ok {
-		r1 = rf(namespace, name)
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(node)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -9,8 +9,9 @@ type Operator interface {
 	DeletePod(namespace string, name string) error
 	// diff between delete and restart: if pod does not exist, restart return err, but delete not
 	RestartPod(namespace string, name string) error
-	MigratePod(namespace string, name string, mig *k8s.Mig, fromNode bool) error
-	MigrateNode(mig *k8s.Mig) error
+	MigratePod(mig *k8s.Mig) error
+	DeletePodMigration(namespace string, name string) error
+	MigrateNode(srcNode string, destNode string) error
 
 	BuildManifestObjects(namespace string, manifest string) ([]map[string]interface{}, error)
 	ComputeReleaseResourcesByManifest(namespace string, manifest string) (*release.ReleaseResources, error)
