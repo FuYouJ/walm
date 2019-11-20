@@ -95,6 +95,9 @@ func (sc *ServCmd) run() error {
 	sig := make(chan os.Signal, 1)
 
 	sc.initConfig()
+	if setting.Config.ElectorConfig == nil {
+		setting.Config.ElectorConfig = &setting.ElectorConfig{}
+	}
 	if os.Getenv("Pod_Name") != "" {
 		setting.Config.ElectorConfig.LockIdentity = os.Getenv("Pod_Name")
 	}
