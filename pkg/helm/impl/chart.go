@@ -78,7 +78,7 @@ func (helmImpl *Helm) GetChartList(repoName string) (*release.ChartInfoList, err
 	if !ok {
 		return nil, fmt.Errorf("can't find repo name %s", repoName)
 	}
-	indexFile, err := getChartIndexFile(chartRepository.URL, chartRepository.Username, chartRepository.Password)
+	indexFile, err := getChartIndexFile(chartRepository.URL, chartRepository.Username, chartRepository.Password, helmImpl.restyClient)
 	if err != nil {
 		return nil, err
 	}
@@ -226,7 +226,7 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 	return chartDetailInfo, nil
 }
 
-func getChartIndexFile(repoURL, username, password string) (*repo.IndexFile, error) {
+func getChartIndexFile(repoURL, username, password string, client *resty.Client) (*repo.IndexFile, error) {
 	repoIndex := &repo.IndexFile{}
 	parsedURL, err := url.Parse(repoURL)
 	if err != nil {
@@ -236,7 +236,7 @@ func getChartIndexFile(repoURL, username, password string) (*repo.IndexFile, err
 
 	indexURL := parsedURL.String()
 
-	resp, err := resty.R().Get(indexURL)
+	resp, err := client.R().Get(indexURL)
 	if err != nil {
 		klog.Errorf("failed to get index : %s", err.Error())
 		return nil, err
@@ -248,8 +248,9 @@ func getChartIndexFile(repoURL, username, password string) (*repo.IndexFile, err
 	return repoIndex, nil
 }
 
-func loadChartFromRepo(repoUrl, username, password, chartName, chartVersion, dest string) (string, error) {
-	indexFile, err := getChartIndexFile(repoUrl, username, password)
+func loadChartFromRepo(repoUrl, username, password, chartName, chartVersion, dest string, client *resty.Client) (string, error) {
+
+	indexFile, err := getChartIndexFile(repoUrl, username, password, client)
 	if err != nil {
 		klog.Errorf("failed to get chart index file : %s", err.Error())
 		return "", err
@@ -267,7 +268,7 @@ func loadChartFromRepo(repoUrl, username, password, chartName, chartVersion, des
 	if err != nil {
 		return "", fmt.Errorf("failed to make absolute chart url: %v", err)
 	}
-	resp, err := resty.R().Get(absoluteChartURL)
+	resp, err := client.R().Get(absoluteChartURL)
 	if err != nil {
 		klog.Errorf("failed to get chart : %s", err.Error())
 		return "", err
@@ -294,7 +295,7 @@ func (helmImpl *Helm) downloadChartFromRepo(repoName, chartName, version string)
 	if err != nil {
 		return "", err
 	}
-	filename, err := loadChartFromRepo(repo.URL, repo.Username, repo.Password, chartName, version, tmpDir)
+	filename, err := loadChartFromRepo(repo.URL, repo.Username, repo.Password, chartName, version, tmpDir, helmImpl.restyClient)
 	if err != nil {
 		klog.Infof("DownloadTo err %v", err)
 		return "", err

@@ -13,9 +13,11 @@ import (
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
 	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"github.com/containerd/containerd/remotes/docker"
 	"github.com/ghodss/yaml"
+	"github.com/go-resty/resty"
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	"helm.sh/helm/pkg/action"
@@ -28,18 +30,19 @@ import (
 	"helm.sh/helm/pkg/storage"
 	"helm.sh/helm/pkg/storage/driver"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/klog"
 	"net/http"
 	"os"
 	"strings"
-	"k8s.io/cli-runtime/pkg/resource"
-	"encoding/json"
-	"k8s.io/apimachinery/pkg/util/rand"
+	"time"
 )
 
 const (
 	compatibleNamespace = "kube-system"
 	releaseMaxHistory = 10
+	defaultDownloadTimeout = 5 * time.Second
 )
 
 type ChartRepository struct {
@@ -55,7 +58,7 @@ type Helm struct {
 	k8sCache       k8s.Cache
 	list           *action.List
 	kubeClients    *k8sHelm.Client
-
+	restyClient    *resty.Client
 	actionConfigs *lru.Cache
 }
 
@@ -820,13 +823,15 @@ func NewHelm(repoList []*setting.ChartRepo, registryClient *registry.Client, k8s
 	}
 
 	actionConfigs, _ := lru.New(100)
-
+	restyClient := resty.New()
+	restyClient.SetTimeout(defaultDownloadTimeout)
 	helm := &Helm{
 		k8sCache:       k8sCache,
 		kubeClients:    kubeClients,
 		registryClient: registryClient,
 		chartRepoMap:   chartRepoMap,
 		actionConfigs:  actionConfigs,
+		restyClient:    restyClient,
 	}
 
 	actionConfig, err := helm.getActionConfig("")
