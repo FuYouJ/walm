@@ -1,7 +1,6 @@
 package impl
 
 import (
-	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
@@ -19,15 +18,8 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-	"time"
+	"WarpCloud/walm/pkg/models/common"
 )
-
-const defaultDownloadTimeout = time.Second * 5
-
-type downloadChan struct {
-	filename string
-	err      error
-}
 
 func (helmImpl *Helm) GetChartAutoDependencies(repoName, chartName, chartVersion string) (subChartNames []string, err error) {
 	klog.V(2).Infof("Enter GetAutoDependencies %s %s\n", chartName, chartVersion)
@@ -198,12 +190,12 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 				return nil, err
 			}
 			for _, dependency := range appMetaInfo.Dependencies {
-				dependency := release.ChartDependencyInfo{
-					ChartName:          dependency.Name,
-					MaxVersion:         dependency.MaxVersion,
-					MinVersion:         dependency.MinVersion,
+				dependency := release.ChartDependencyInfo {
+					ChartName: dependency.Name,
+					MaxVersion: dependency.MaxVersion,
+					MinVersion: dependency.MinVersion,
 					DependencyOptional: dependency.DependencyOptional,
-					Requires:           dependency.Requires,
+					Requires: dependency.Requires,
 				}
 				chartDetailInfo.DependencyCharts = append(chartDetailInfo.DependencyCharts, dependency)
 			}
@@ -302,24 +294,11 @@ func (helmImpl *Helm) downloadChartFromRepo(repoName, chartName, version string)
 	if err != nil {
 		return "", err
 	}
-
-	dChan := make(chan downloadChan)
-	go func() {
-		filename, err := loadChartFromRepo(repo.URL, repo.Username, repo.Password, chartName, version, tmpDir)
-		dChan <- downloadChan{
-			filename: filename,
-			err:      err,
-		}
-	}()
-
-	select {
-	case res := <-dChan:
-		if res.err != nil {
-			klog.Infof("DownloadTo err %v", res.err)
-			return "", res.err
-		}
-		return res.filename, nil
-	case <-time.After(defaultDownloadTimeout):
-		return "", errors.New("DownloadTo err: Timeout.")
+	filename, err := loadChartFromRepo(repo.URL, repo.Username, repo.Password, chartName, version, tmpDir)
+	if err != nil {
+		klog.Infof("DownloadTo err %v", err)
+		return "", err
 	}
+
+	return filename, nil
 }
