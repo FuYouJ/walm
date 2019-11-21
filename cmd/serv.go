@@ -28,6 +28,7 @@ import (
 	"WarpCloud/walm/pkg/task/machinery"
 	tenanthttp "WarpCloud/walm/pkg/tenant/delivery/http"
 	tenantusecase "WarpCloud/walm/pkg/tenant/usecase"
+	httpUtils "WarpCloud/walm/pkg/util/http"
 	"context"
 	"encoding/json"
 	"errors"
@@ -35,13 +36,19 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
 	"github.com/go-openapi/spec"
+	"github.com/go-redis/redis"
+	"github.com/google/uuid"
 	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/thoas/stats"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
+	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -271,7 +278,7 @@ func (sc *ServCmd) run() error {
 	restful.Filter(RouteLogging)
 	klog.Infoln("Adding Route...")
 
-	restful.Add(InitRootRouter())
+	restful.Add(InitRootRouter(NewRootHandler(k8sClient, redisClient, helm)))
 	restful.Add(nodehttp.RegisterNodeHandler(k8sCache, k8sOperator))
 	restful.Add(migrationhttp.RegisterCrdHandler(k8sCache, k8sOperator))
 	restful.Add(secrethttp.RegisterSecretHandler(k8sCache, k8sOperator))
@@ -360,7 +367,65 @@ func ServerStatsData(request *restful.Request, response *restful.Response) {
 	response.WriteEntity(ServerStats.Data())
 }
 
-func readinessProbe(request *restful.Request, response *restful.Response) {
+func (handler *RootHandler) readinessProbe(request *restful.Request, response *restful.Response) {
+	// k8s cluster health && connection
+	host := handler.k8sClient.RESTClient().Get().URL().Host
+	_, err := net.DialTimeout("tcp", host, 5 * time.Second)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to connect to kubernetes: %s", err.Error()))
+		return
+	}
+	componentStatusList, err := handler.k8sClient.CoreV1().ComponentStatuses().List(v1.ListOptions{})
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list kubernetes components: %s", err.Error()))
+		return
+	}
+	if componentStatusList != nil {
+		for _, componentStatus := range componentStatusList.Items {
+			for _, condition := range componentStatus.Conditions {
+				if condition.Type == corev1.ComponentHealthy {
+					if condition.Status == "True" {
+						klog.Infof("Component %s status is healthy", componentStatus.Name)
+					} else {
+						httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("Component %s status not healthy", componentStatus.Name))
+						return
+					}
+				}
+			}
+		}
+	}
+
+	// redis check
+	field := "test" + "-" + uuid.New().String()[:6]
+	if err = handler.redisClient.HSet("test-key", field, "test-value").Err(); err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to set redis key: %s", err.Error()))
+		return
+	}
+	res, err := handler.redisClient.HGet("test-key", field).Result()
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get value from redis key: %s", err.Error()))
+		return
+	}
+	if res != "test-value" {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("get invalid value from redis key: %s", err.Error()))
+		return
+	}
+	if err = handler.redisClient.HDel("test-key", field).Err(); err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to del field from redis key: %s", err.Error()))
+		return
+	}
+	// stable chartmuseum
+	repoList := handler.helm.GetRepoList().Items
+	if len(repoList) == 0 {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("chart repos for walm not set : %s", err.Error()))
+		return
+	}
+	_, err = handler.helm.GetChartList("stable")
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to access chart repo: %s", err.Error()))
+		return
+	}
+	// Todo
 	response.WriteEntity("OK")
 }
 
@@ -368,7 +433,20 @@ func livenessProbe(request *restful.Request, response *restful.Response) {
 	response.WriteEntity("OK")
 }
 
-func InitRootRouter() *restful.WebService {
+type RootHandler struct {
+	k8sClient   *kubernetes.Clientset
+	redisClient *redis.Client
+	helm        *helmImpl.Helm
+}
+
+func NewRootHandler(k8sClient *kubernetes.Clientset, redisClient *redis.Client, helm *helmImpl.Helm) *RootHandler {
+	return &RootHandler{
+		k8sClient:   k8sClient,
+		redisClient: redisClient,
+		helm:        helm,
+	}
+}
+func InitRootRouter(handler *RootHandler) *restful.WebService {
 	ws := new(restful.WebService)
 
 	ws.Path("/").
@@ -377,7 +455,7 @@ func InitRootRouter() *restful.WebService {
 
 	tags := []string{"root"}
 
-	ws.Route(ws.GET("/readiness").To(readinessProbe).
+	ws.Route(ws.GET("/readiness").To(handler.readinessProbe).
 		Doc("服务Ready状态检查").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Returns(200, "OK", nil).
