@@ -5,6 +5,7 @@ import (
 	"helm.sh/helm/pkg/kube"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
+	"k8s.io/klog"
 )
 
 type Client struct {
@@ -30,6 +31,7 @@ func (c *Client) GetKubeClient(namespace string) (genericclioptions.RESTClientGe
 	} else {
 		kubeConfig := kube.GetConfig(c.kubeConfig, c.context, namespace)
 		kubeClient := kube.New(kubeConfig, c.k8sInstanceClient)
+		kubeClient.Log = klog.Infof
 		c.kubeWrappers.Add(namespace, KubeWrapper{kubeConfig: kubeConfig, kubeClient: kubeClient})
 		return kubeConfig, kubeClient
 	}
