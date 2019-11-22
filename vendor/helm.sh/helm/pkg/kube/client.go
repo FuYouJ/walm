@@ -200,25 +200,29 @@ func (c *Client) Update(original, target ResourceList, force bool) (*Result, err
 		originalInfo := original.Get(info)
 		if originalInfo == nil {
 			c.Log("Warning: %s/%s is found in k8s, but not found in previous release info", info.Namespace, info.Name)
-			c.Log("Deleting %q in %s...", info.Name, info.Namespace)
-			if err := deleteResource(info); err != nil {
-				c.Log("Failed to delete %q, err: %s", info.Name, err)
-				return errors.Wrap(err, "Failed to delete resource")
+			err = c.RecreateResourceInfo(info)
+			if err != nil {
+				c.Log("Failed to recreate %q, err : %s", info.Name, err)
+				return errors.Wrap(err, "Failed to recreate resource")
 			}
-			res.Deleted = append(res.Deleted, info)
-
-			if err := createResource(info); err != nil {
-				return errors.Wrap(err, "failed to create resource")
-			}
-
-			// Append the created resource to the results
-			res.Created = append(res.Created, info)
+			res.Updated = append(res.Updated, info)
 			return nil
 		}
 
 		if err := updateResource(c, info, originalInfo.Object, force); err != nil {
-			c.Log("error updating the resource %q:\n\t %v", info.Name, err)
-			updateErrors = append(updateErrors, err.Error())
+			if strings.Contains(err.Error(), "updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy' and 'podManagementPolicy' are forbidden") {
+				c.Log("Warning: %s", err.Error())
+				resBytes, _ := json.MarshalIndent(originalInfo.Object, "", "  ")
+				c.Log("old resource %s/%s manifest: \n%s", info.Namespace, info.Name, resBytes)
+				err = c.RecreateResourceInfo(info)
+				if err != nil {
+					c.Log("Failed to recreate %q, err : %s", info.Name, err)
+					updateErrors = append(updateErrors, errors.Wrap(err, "Failed to recreate resource").Error())
+				}
+			} else {
+				c.Log("error updating the resource %q:\n\t %v", info.Name, err)
+				updateErrors = append(updateErrors, err.Error())
+			}
 		}
 		// Because we check for errors later, append the info regardless
 		res.Updated = append(res.Updated, info)
@@ -243,6 +247,19 @@ func (c *Client) Update(original, target ResourceList, force bool) (*Result, err
 		}
 	}
 	return res, nil
+}
+
+func (c *Client) RecreateResourceInfo(info *resource.Info) error {
+	c.Log("Recreating %q in %s...", info.Name, info.Namespace)
+	if err := deleteResource(info); err != nil {
+		c.Log("Failed to delete %q, err: %s", info.Name, err)
+		return errors.Wrap(err, "Failed to delete resource")
+	}
+	if err := createResource(info); err != nil {
+		c.Log("Failed to create %q, err: %s", info.Name, err)
+		return errors.Wrap(err, "failed to create resource")
+	}
+	return nil
 }
 
 // Delete deletes Kubernetes resources specified in the resources list. It will

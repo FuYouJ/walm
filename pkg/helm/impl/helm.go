@@ -74,6 +74,7 @@ func (helmImpl *Helm) getActionConfig(namespace string) (*action.Configuration, 
 		}
 
 		d := driver.NewConfigMapsEx(clientset.CoreV1().ConfigMaps(namespace), clientset.CoreV1().ConfigMaps(compatibleNamespace), namespace)
+		d.Log = klog.Infof
 		store := storage.Init(d)
 		config := &action.Configuration{
 			KubeClient:       kubeClient,
