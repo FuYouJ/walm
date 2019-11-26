@@ -22,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"reflect"
@@ -119,7 +121,7 @@ func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 	}
 
 	if destNode != "" {
-		dest, err := op.k8sCache.GetResource(k8sModel.NodeKind, "", srcNode)
+		dest, err := op.k8sCache.GetResource(k8sModel.NodeKind, "", destNode)
 		if err != nil {
 			klog.Errorf("failed to get node %s: %s", dest, err.Error())
 			return err
@@ -136,6 +138,38 @@ func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 		return err
 	}
 
+	/* cordon node */
+	src, err := op.client.CoreV1().Nodes().Get(srcNode, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("failed to get node %s: %s", srcNode, err.Error())
+		return err
+	}
+	if src.Spec.Unschedulable == false {
+		oldData, err := json.Marshal(srcNode)
+		if err != nil {
+			return err
+		}
+
+		src.Spec.Unschedulable = true
+		newData, err := json.Marshal(srcNode)
+		if err != nil {
+			return err
+		}
+		patchBytes, patchErr := strategicpatch.CreateTwoWayMergePatch(oldData, newData, srcNode)
+		if patchErr == nil {
+			_, err = op.client.CoreV1().Nodes().Patch(src.Name, types.StrategicMergePatchType, patchBytes)
+
+		} else {
+			_, err = op.client.CoreV1().Nodes().Update(src)
+		}
+		if err != nil {
+			klog.Errorf("error: unable to cordon node %q: %v\n", src.Name, err)
+			return err
+		}
+	} else {
+		klog.Infof("node %s is unschedulable now", src.Name)
+	}
+
 	var podList []*k8sModel.Pod
 	for _, sts := range statefulsets {
 		for _, pod := range sts.Pods {
@@ -147,14 +181,14 @@ func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 
 	for _, pod := range podList {
 		mig := &k8sModel.Mig{
-			Meta:     k8sModel.Meta{
+			Meta: k8sModel.Meta{
 				Namespace: "default",
-				Name: "mig" + "-" + pod.Namespace + "-" + pod.Name,
+				Name:      "mig" + "-" + pod.Namespace + "-" + pod.Name,
 			},
-			Labels:   map[string]string{"migType": "node", "srcNode": srcNode},
-			Spec:     k8sModel.MigSpec{
-					Namespace: pod.Namespace,
-					PodName: pod.Name,
+			Labels: map[string]string{"migType": "node", "srcNode": srcNode},
+			Spec: k8sModel.MigSpec{
+				Namespace: pod.Namespace,
+				PodName:   pod.Name,
 			},
 			SrcHost:  srcNode,
 			DestHost: destNode,
