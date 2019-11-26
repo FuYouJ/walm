@@ -45,14 +45,17 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/thoas/stats"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
@@ -141,6 +144,17 @@ func (sc *ServCmd) run() error {
 		klog.Errorf("failed to create k8s release config client : %s", err.Error())
 		return err
 	}
+	k8sRestConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfig)
+	if err != nil {
+		klog.Errorf("Failed to build config from kubeconfig path: %s", err.Error())
+		return err
+	}
+	apiExtensionsClient, err := apiextensionsclient.NewForConfig(k8sRestConfig)
+	if err != nil {
+		klog.Errorf("Failed to creates a new Clientset for the given config: %s", err.Error())
+		return err
+	}
+	
 	var k8sInstanceClient *instanceclientset.Clientset
 	if config.CrdConfig == nil || !config.CrdConfig.NotNeedInstance {
 		klog.Info("CRD ApplicationInstance should be installed in the k8s")
@@ -152,11 +166,20 @@ func (sc *ServCmd) run() error {
 	}
 	var k8sMigrationClient *migrationclientset.Clientset
 	if config.CrdConfig != nil && config.CrdConfig.EnableMigrationCRD {
-		klog.Info("CRD ApplicationInstance should be installed in the k8s")
-		k8sMigrationClient, err = client.NewMigrationClient("", kubeConfig)
-		if err != nil {
-			klog.Errorf("failed to create k8s instance client : %s", err.Error())
-			return err
+		klog.Info("CRD Mig should be installed in the k8s")
+		if _, err = apiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get("migs.tos.transwarp", v1.GetOptions{}); err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				klog.Warningf("Mig CRD not support in cluster")
+				setting.Config.CrdConfig.EnableMigrationCRD = false
+			} else {
+				return err
+			}
+		} else {
+			k8sMigrationClient, err = client.NewMigrationClient("", kubeConfig)
+			if err != nil {
+				klog.Errorf("failed to create k8s migration client : %s", err.Error())
+				return err
+			}
 		}
 	}
 
@@ -192,7 +215,7 @@ func (sc *ServCmd) run() error {
 	}
 	redisClient := impl.NewRedisClient(config.RedisConfig)
 	redis := impl.NewRedis(redisClient)
-	redisEx := impl.NewRedisEx(config.RedisConfig, time.Second * 30)
+	redisEx := impl.NewRedisEx(config.RedisConfig, time.Second*30)
 	releaseCache := releasecache.NewCache(redis)
 	releaseUseCase, err := releaseusecase.NewHelm(releaseCache, helm, k8sCache, k8sOperator, task, redisEx)
 	if err != nil {
@@ -254,9 +277,9 @@ func (sc *ServCmd) run() error {
 	go elector.Run(ctx)
 
 	HTTPReqDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "http_request_duration_seconds",
-		Help:        "The HTTP request latencies represent with seconds.",
-		Buckets:     nil,
+		Name:    "http_request_duration_seconds",
+		Help:    "The HTTP request latencies represent with seconds.",
+		Buckets: nil,
 	}, []string{"method", "path"})
 
 	HTTPReqTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -347,11 +370,11 @@ func RouteLogging(req *restful.Request, resp *restful.Response, chain *restful.F
 		"path":   req.Request.URL.Path,
 		"status": string(resp.StatusCode()),
 	}).Inc()
-//	float64(time.Since(tBegin)) / float64(time.Millisecond)
+	//	float64(time.Since(tBegin)) / float64(time.Millisecond)
 	HTTPReqDuration.With(prometheus.Labels{
 		"method": req.Request.Method,
 		"path":   req.Request.URL.Path,
-	}).Observe(float64(duration)/float64(time.Second))
+	}).Observe(float64(duration) / float64(time.Second))
 	klog.Infof("[route-filter (logger)] CLIENT %s OP %s URI %s COST %v RESP %d", req.Request.Host, req.Request.Method, req.Request.URL, duration, resp.StatusCode())
 }
 
@@ -370,7 +393,7 @@ func ServerStatsData(request *restful.Request, response *restful.Response) {
 func (handler *RootHandler) readinessProbe(request *restful.Request, response *restful.Response) {
 	// k8s cluster health && connection
 	host := handler.k8sClient.RESTClient().Get().URL().Host
-	_, err := net.DialTimeout("tcp", host, 5 * time.Second)
+	_, err := net.DialTimeout("tcp", host, 5*time.Second)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to connect to kubernetes: %s", err.Error()))
 		return
