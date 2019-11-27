@@ -63,7 +63,7 @@ func (helmImpl *Helm) GetChartDetailInfo(repoName, chartName, chartVersion strin
 	rawChart, err := helmImpl.getRawChartFromRepo(repoName, chartName, chartVersion)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
-			err = errorModel.NotFoundError{}
+			err = errorModel.NotFoundError{ Message: err.Error() }
 		}
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func (helmImpl *Helm) GetDetailChartInfoByImage(chartImage string) (*release.Cha
 	rawChart, err := helmImpl.getRawChartByImage(chartImage)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
-			err = errorModel.NotFoundError{}
+			err = errorModel.NotFoundError{ Message: err.Error() }
 		}
 		return nil, err
 	}
@@ -118,7 +118,7 @@ func (helmImpl *Helm) getRawChartFromRepo(repoName, chartName, chartVersion stri
 	chartLoader, err := loader.Loader(chartPath)
 	if err != nil {
 		klog.Errorf("failed to init chartLoader : %s", err.Error())
-		return nil, err
+		return nil, errors.Wrap(err, "failed to init chartLoader ")
 	}
 
 	return chartLoader.Load()
@@ -128,19 +128,19 @@ func (helmImpl *Helm) getRawChartByImage(chartImage string) (*chart.Chart, error
 	ref, err := registry.ParseReference(chartImage)
 	if err != nil {
 		klog.Errorf("failed to parse chart image %s : %s", chartImage, err.Error())
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to parse chart image %s", chartImage)
 	}
 
 	err = helmImpl.registryClient.PullChart(ref)
 	if err != nil {
 		klog.Errorf("failed to pull chart %s : %s", chartImage, err.Error())
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to pull chart %s", chartImage)
 	}
 
 	chart, err := helmImpl.registryClient.LoadChart(ref)
 	if err != nil {
 		klog.Errorf("failed to load chart %s : %s", chartImage, err.Error())
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to load chart %s", chartImage)
 	}
 	return chart, nil
 }
@@ -187,7 +187,7 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 			err := yaml.Unmarshal(f.Data, &appMetaInfo)
 			if err != nil {
 				klog.Errorf("failed to unmarshal app yaml : %s", err.Error())
-				return nil, err
+				return nil, errors.Wrap(err, "failed to unmarshal app yaml ")
 			}
 			for _, dependency := range appMetaInfo.Dependencies {
 				dependency := release.ChartDependencyInfo {
@@ -215,7 +215,7 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 	chartMetaInfo, err := getChartMetaInfo(rawChart)
 	if err != nil {
 		klog.Errorf("failed to get chart meta info : %s", err.Error())
-		return nil, err
+		return nil, errors.Wrap(err, "failed to get chart meta info ")
 	}
 	chartDetailInfo.MetaInfo = chartMetaInfo
 
@@ -253,7 +253,7 @@ func loadChartFromRepo(repoUrl, username, password, chartName, chartVersion, des
 	indexFile, err := getChartIndexFile(repoUrl, username, password, client)
 	if err != nil {
 		klog.Errorf("failed to get chart index file : %s", err.Error())
-		return "", err
+		return "", errors.Wrap(err, "failed to get chart index file ")
 	}
 
 	cv, err := indexFile.Get(chartName, chartVersion)
