@@ -46,10 +46,13 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	watchtools "k8s.io/client-go/tools/watch"
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
+	"regexp"
 )
 
 const resourceUpgradePolicyAnno = "helm.sh/upgrade-policy"
 const upgradePolicy = "keep"
+
+var stsUpgradeForbidMsgPattern = regexp.MustCompile("updates to statefulset spec for fields other than .+ are forbidden")
 
 // ErrNoObjectsVisited indicates that during a visit operation, no matching objects were found.
 var ErrNoObjectsVisited = errors.New("no objects visited")
@@ -210,7 +213,7 @@ func (c *Client) Update(original, target ResourceList, force bool) (*Result, err
 		}
 
 		if err := updateResource(c, info, originalInfo.Object, force); err != nil {
-			if strings.Contains(err.Error(), "updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy' and 'podManagementPolicy' are forbidden") {
+			if stsUpgradeForbidden(err.Error()) {
 				c.Log("Warning: %s", err.Error())
 				resBytes, _ := json.MarshalIndent(originalInfo.Object, "", "  ")
 				c.Log("old resource %s/%s manifest: \n%s", info.Namespace, info.Name, resBytes)
@@ -247,6 +250,10 @@ func (c *Client) Update(original, target ResourceList, force bool) (*Result, err
 		}
 	}
 	return res, nil
+}
+
+func stsUpgradeForbidden(msg string) bool{
+	return stsUpgradeForbidMsgPattern.MatchString(msg)
 }
 
 func (c *Client) RecreateResourceInfo(info *resource.Info) error {
@@ -657,7 +664,7 @@ func deleteInstanceModule(client *kubernetes.Clientset, module v1beta1.ResourceR
 	if err != nil {
 		return err
 	}
-	klog.Info("instance module %s %s deleted", module.ResourceRef.Kind, module.ResourceRef.Name)
+	klog.Infof("instance module %s %s deleted", module.ResourceRef.Kind, module.ResourceRef.Name)
 	return nil
 }
 

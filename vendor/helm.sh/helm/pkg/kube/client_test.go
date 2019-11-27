@@ -326,6 +326,33 @@ func TestReal(t *testing.T) {
 	}
 }
 
+func Test_stsUpgradeForbidden(t *testing.T) {
+	tests := []struct {
+		msg   string
+		match bool
+	}{
+		{
+			msg:   "updates to statefulset spec for fields other than 'replicas', 'template', 'updateStrategy' and 'podManagementPolicy' are forbidden",
+			match: true,
+		},
+		{
+			msg:   "updates to statefulset spec for fields other than 'replicas', 'template' and 'updateStrategy' are forbidden",
+			match: true,
+		},
+		{
+			msg:   "failed to updates to statefulset spec",
+			match: false,
+		},
+	}
+
+	for _, test := range tests {
+		match := stsUpgradeForbidden(test.msg)
+		if match != test.match {
+			t.Errorf("not expected")
+		}
+	}
+}
+
 const testServiceManifest = `
 kind: Service
 apiVersion: v1
