@@ -19,6 +19,7 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
+	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -115,6 +116,7 @@ func (op *Operator) DeletePodMigration(namespace string, name string) error {
 
 func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 
+	/* node check */
 	k8sMigrationClient := op.k8sMigrationClient
 	if k8sMigrationClient == nil {
 		return errors.Errorf("failed to get migration client, check config.CrdConfig.EnableMigrationCRD")
@@ -130,12 +132,6 @@ func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 		if newDest.UnSchedulable {
 			return errors.Errorf("dest node is unschedulable, please check")
 		}
-	}
-
-	statefulsets, err := op.k8sCache.ListStatefulSets("", "")
-	if err != nil {
-		klog.Errorf("failed to get sts: %s", err.Error())
-		return err
 	}
 
 	/* cordon node */
@@ -170,10 +166,20 @@ func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 		klog.Infof("node %s is unschedulable now", src.Name)
 	}
 
+
+	/*  get pods to be migrated && pre-check */
 	var podList []*k8sModel.Pod
+	statefulsets, err := op.k8sCache.ListStatefulSets("", "")
+	if err != nil {
+		klog.Errorf("failed to get sts: %s", err.Error())
+		return err
+	}
 	for _, sts := range statefulsets {
 		for _, pod := range sts.Pods {
 			if pod.NodeName == srcNode {
+				if err = op.migratePodPreCheck(pod.Namespace, pod.Name); err != nil {
+					return err
+				}
 				podList = append(podList, pod)
 			}
 		}
@@ -199,6 +205,29 @@ func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 		}
 	}
 
+	return nil
+}
+
+func (op *Operator) migratePodPreCheck(namespace string, name string) error {
+	resource, err := op.k8sCache.GetResource(k8sModel.MigKind, namespace, name)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			return nil
+		}
+		return err
+	}
+	mig := resource.(*k8sModel.Mig)
+	switch mig.State.Status {
+	case tosv1beta1.MIG_CREATED, tosv1beta1.MIG_IN_PROGRESS, "":
+		return errors.Errorf("Pod %s/%s migration in progress, please wait for the last process end.", namespace, name)
+	case tosv1beta1.MIG_FINISH:
+	case tosv1beta1.MIG_FAILED:
+		err = op.DeletePodMigration(namespace, name)
+		if err != nil {
+			return err
+		}
+		return errors.Errorf("Last migration for pod %s/%s failed: %s\nThe failed mig has been deleted, fix error and retry", namespace, name, mig.State.Message)
+	}
 	return nil
 }
 

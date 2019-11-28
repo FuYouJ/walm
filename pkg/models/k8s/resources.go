@@ -492,8 +492,10 @@ type OwnerReference struct {
 	Controller *bool `json:"controller,omitempty" description:"controller"`
 }
 
-type MigList struct {
-	Items []*Mig `json:"items" protobuf:"bytes,2,rep,name=items"`
+type MigStatus struct {
+	Succeed  int    `json:"succeed"`
+	Total    int	`json:"total"`
+	Items    []*Mig `json:"items"`
 }
 
 type PodMigRequest struct {

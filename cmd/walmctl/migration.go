@@ -18,7 +18,9 @@ import (
 	"k8s.io/klog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var longMigrateHelp = `
@@ -136,10 +138,82 @@ func (migrate *migrateOptions) run() error {
 			DestNode: migrate.destNode,
 			Labels:   map[string]string{"migType": "node", "srcNode": migrate.name},
 		})
+		if err != nil {
+			klog.Errorf("send migrate pod request failed: %s", err.Error())
+			return err
+		}
 	}
 
 	fmt.Printf("create node migrate task succeed.\n")
+
+	migStatus, errMsgs, err := getMigDetails(client, migrate.name)
+	if err != nil {
+		klog.Errorf("failed to get node migration response: %s", err.Error())
+		return err
+	}
+
+	for i := 0; i < 60; i++ {
+		progress := "[" + bar(migStatus.Succeed, migStatus.Total) + "]" + strconv.Itoa(migStatus.Succeed) + " / " + strconv.Itoa(migStatus.Total)
+		fmt.Printf("\r%s", progress)
+		time.Sleep(30 * time.Second)
+		migStatus, errMsgs, err = getMigDetails(client, migrate.name)
+		if err != nil {
+			klog.Errorf("failed to get node migration response: %s", err.Error())
+			return err
+		}
+		if migStatus.Succeed == migStatus.Total || len(errMsgs) + migStatus.Succeed == migStatus.Total{
+			break
+		}
+	}
+	fmt.Println()
+	if len(errMsgs) > 0 {
+		for _, errMsg := range errMsgs {
+			fmt.Printf("[Error]: %s\n", errMsg)
+		}
+		if len(errMsgs) + migStatus.Succeed < migStatus.Total {
+			return errors.Errorf("migrate node timeout, check the error messages above")
+		}
+		return errors.Errorf("migrate node failed, check the error messages above")
+	}
+	if migStatus.Succeed == migStatus.Total {
+		fmt.Printf("migration node succeed, use `walmctl get migration node nodeName` for detail information")
+	} else {
+		return errors.Errorf("migration node timeout, use `walmctl get migration node nodeName` for later information")
+	}
 	return nil
+}
+
+func getMigDetails(client *walmctlclient.WalmctlClient, node string) (k8sModel.MigStatus, []string, error){
+	var migStatus k8sModel.MigStatus
+	var errMsgs []string
+	resp, err := client.GetNodeMigration(node)
+	if err != nil {
+		klog.Errorf("failed to get node migration: %s", err.Error())
+		return migStatus, errMsgs, err
+	}
+	err = json.Unmarshal(resp.Body(), &migStatus)
+	if err != nil {
+		klog.Errorf("failed to unmarshal node migrate response: %s", err.Error())
+		return migStatus, errMsgs, err
+	}
+	for _, item := range migStatus.Items {
+		if item.State.Status == v1beta1.MIG_FAILED {
+			errMsgs = append(errMsgs, item.State.Message)
+		}
+	}
+	return migStatus, errMsgs, nil
+}
+
+func bar(count, size int) string {
+	str := ""
+	for i := 0; i < size; i++ {
+		if i < count {
+			str += "="
+		} else {
+			str += " "
+		}
+	}
+	return str
 }
 
 func getPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]corev1.Pod, error) {
@@ -245,7 +319,7 @@ func migratePodPreCheck(client *walmctlclient.WalmctlClient, namespace string, n
 		case v1beta1.MIG_FAILED:
 			_, err = client.DeletePodMigration(podMig.Spec.Namespace, podMig.Spec.PodName)
 			if err != nil {
-				klog.Errorf("failed to delete pod migration: %s", err.Error())
+				klog.Errorf("failed to delete last failed pod migration %s: %s", podMig.Name, err.Error())
 				return err
 			}
 			return errors.Errorf("Last migration for pod failed: %s.\nWe already help you delete the failed pod migration, please fix and try!", podMig.State.Message)
