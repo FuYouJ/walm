@@ -18,7 +18,7 @@ type ChartMetaInfo struct {
 	ChartDependenciesInfo []*ChartDependencyMetaInfo `json:"dependencies" description:"dependency metainfo"`
 	ChartRoles            []*MetaRoleConfig          `json:"roles"`
 	ChartParams           []*MetaCommonConfig        `json:"params"`
-	Plugins               []*k8s.ReleasePlugin           `json:"plugins"`
+	Plugins               []*k8s.ReleasePlugin       `json:"plugins"`
 	CustomChartParams     map[string]string          `json:"customParams"`
 }
 
@@ -482,6 +482,9 @@ func (roleBaseConfig *MetaRoleBaseConfig) BuildDefaultValue(jsonStr string) {
 	if roleBaseConfig.Env != nil {
 		roleBaseConfig.Env.BuildDefaultValue(jsonStr)
 	}
+	if roleBaseConfig.EnvMap != nil {
+		roleBaseConfig.EnvMap.BuildDefaultValue(jsonStr)
+	}
 	if roleBaseConfig.UseHostNetwork != nil {
 		roleBaseConfig.UseHostNetwork.BuildDefaultValue(jsonStr)
 	}
@@ -507,6 +510,9 @@ func (roleBaseConfig *MetaRoleBaseConfig) BuildRoleBaseConfigValue(jsonStr strin
 	}
 	if roleBaseConfig.Env != nil {
 		roleBaseConfigValue.Env = roleBaseConfig.Env.BuildEnvConfigValue(jsonStr)
+	}
+	if roleBaseConfig.EnvMap != nil {
+		roleBaseConfigValue.EnvMap = roleBaseConfig.EnvMap.BuildEnvConfigValue(jsonStr)
 	}
 	if roleBaseConfig.UseHostNetwork != nil {
 		useHostNetwork := roleBaseConfig.UseHostNetwork.BuildBoolConfigValue(jsonStr)
@@ -596,13 +602,18 @@ func (config *MetaResourceConfig) BuildResourceConfigValue(jsonStr string) *Meta
 	return resourceConfigValue
 }
 
+type VariableType string
+
+const (
+	AdvanceConfig         VariableType = "advanceConfig"
+	TranswarpBundleConfig VariableType = "transwarpBundleConfig"
+)
+
 type MetaCommonConfig struct {
-	Name         string `json:"name" description:"config name"`
-	MapKey       string `json:"mapKey" description:"config map values.yaml key"`
-	DefaultValue string `json:"defaultValue" description:"default value of mapKey"`
-	Description  string `json:"description" description:"config description"`
-	Type         string `json:"type" description:"config type"`
-	Required     bool   `json:"required" description:"required"`
+	MetaInfoCommonConfig
+	Name         string       `json:"name" description:"config name"`
+	DefaultValue string       `json:"defaultValue" description:"default value of mapKey"`
+	VariableType VariableType `json:"variableType" description:"config variable type: advanceConfig, transwarpBundleConfig (for compatible use)"`
 }
 
 func (config *MetaCommonConfig) BuildDefaultValue(jsonStr string) {

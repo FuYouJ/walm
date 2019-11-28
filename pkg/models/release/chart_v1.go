@@ -35,10 +35,11 @@ type ResourceConfig struct {
 }
 
 type BaseConfig struct {
-	ValueName        string      `json:"variable" description:"variable name"`
+	Variable         string      `json:"variable" description:"variable name"`
 	DefaultValue     interface{} `json:"default" description:"variable default value"`
 	ValueDescription string      `json:"description" description:"variable description"`
 	ValueType        string      `json:"type" description:"variable type"`
+	Name             string      `json:"name" description:"config name"`
 }
 
 type RoleConfig struct {

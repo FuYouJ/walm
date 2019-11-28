@@ -218,7 +218,7 @@ func (resourceConfigValue *MetaResourceConfigValue) BuildConfigValue(resourceCon
 	}
 
 	if resourceConfigValue.LimitsMemory != nil && resourceConfig.LimitsMemory != nil {
-		mapping[resourceConfig.LimitsMemory.MapKey] = convertResourceBinaryIntByUnit(resourceConfigValue.LimitsMemory, util.K8sResourceMemoryUnit)
+		mapping[resourceConfig.LimitsMemory.MapKey] = ConvertResourceBinaryIntByUnit(resourceConfigValue.LimitsMemory, util.K8sResourceMemoryUnit)
 	}
 	if resourceConfigValue.LimitsGpu != nil && resourceConfig.LimitsGpu != nil {
 		mapping[resourceConfig.LimitsGpu.MapKey] = convertResourceDecimalFloat(resourceConfigValue.LimitsGpu)
@@ -227,7 +227,7 @@ func (resourceConfigValue *MetaResourceConfigValue) BuildConfigValue(resourceCon
 		mapping[resourceConfig.LimitsCpu.MapKey] = convertResourceDecimalFloat(resourceConfigValue.LimitsCpu)
 	}
 	if resourceConfigValue.RequestsMemory != nil && resourceConfig.RequestsMemory != nil {
-		mapping[resourceConfig.RequestsMemory.MapKey] = convertResourceBinaryIntByUnit(resourceConfigValue.RequestsMemory, util.K8sResourceMemoryUnit)
+		mapping[resourceConfig.RequestsMemory.MapKey] = ConvertResourceBinaryIntByUnit(resourceConfigValue.RequestsMemory, util.K8sResourceMemoryUnit)
 	}
 	if resourceConfigValue.RequestsGpu != nil && resourceConfig.RequestsGpu != nil {
 		mapping[resourceConfig.RequestsGpu.MapKey] = convertResourceDecimalFloat(resourceConfigValue.RequestsGpu)
@@ -261,7 +261,7 @@ func buildResourceStorageArrayValues(mapping map[string]interface{}, resourceSto
 		if resourceStorageConfig, ok := resourceStorageConfigMap[resourceStorageConfigValue.Name]; ok {
 			resourceStorageWithStringSize := MetaResourceStorageWithStringSize{
 				ResourceStorage: resourceStorageConfigValue.Value.ResourceStorage,
-				Size:            convertResourceBinaryIntByUnit(&resourceStorageConfigValue.Value.Size, utils.K8sResourceStorageUnit),
+				Size:            ConvertResourceBinaryIntByUnit(&resourceStorageConfigValue.Value.Size, utils.K8sResourceStorageUnit),
 			}
 			if resourceStorageConfig.MapKey != "" {
 				mapping[resourceStorageConfig.MapKey] = resourceStorageWithStringSize

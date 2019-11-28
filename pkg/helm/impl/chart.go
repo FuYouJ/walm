@@ -190,12 +190,12 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 				return nil, errors.Wrap(err, "failed to unmarshal app yaml ")
 			}
 			for _, dependency := range appMetaInfo.Dependencies {
-				dependency := release.ChartDependencyInfo {
-					ChartName: dependency.Name,
-					MaxVersion: dependency.MaxVersion,
-					MinVersion: dependency.MinVersion,
+				dependency := release.ChartDependencyInfo{
+					ChartName:          dependency.Name,
+					MaxVersion:         dependency.MaxVersion,
+					MinVersion:         dependency.MinVersion,
 					DependencyOptional: dependency.DependencyOptional,
-					Requires: dependency.Requires,
+					Requires:           dependency.Requires,
 				}
 				chartDetailInfo.DependencyCharts = append(chartDetailInfo.DependencyCharts, dependency)
 			}
@@ -221,6 +221,10 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 
 	if chartDetailInfo.MetaInfo != nil {
 		chartDetailInfo.MetaInfo.BuildDefaultValue(chartDetailInfo.DefaultValue)
+		convertedPrettyParams := convertMetainfoToPrettyParams(chartDetailInfo.MetaInfo)
+		if convertedPrettyParams != nil {
+			chartDetailInfo.ChartPrettyParams = convertedPrettyParams
+		}
 	}
 
 	return chartDetailInfo, nil
