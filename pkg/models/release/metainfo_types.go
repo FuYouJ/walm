@@ -6,12 +6,26 @@ import (
 	"k8s.io/klog"
 )
 
+type MetaInfoCommonConfig struct {
+	MapKey      string `json:"mapKey" description:"config map values.yaml key"`
+	Description string `json:"description" description:"config description"`
+	Type        string `json:"type" description:"config type"`
+	Required    bool   `json:"required" description:"required"`
+	Variable    string `json:"variable" description:"config variable (for compatible use)"`
+}
+
+func NewMetaInfoCommonConfig(mapKey, desc, configType, variable string, required bool) MetaInfoCommonConfig{
+	return MetaInfoCommonConfig{
+		Variable: variable,
+		Description: desc,
+		Type: configType,
+		MapKey: mapKey,
+		Required: required,
+	}
+}
 type MetaStringConfig struct {
-	MapKey       string `json:"mapKey" description:"config map values.yaml key"`
+	MetaInfoCommonConfig
 	DefaultValue string `json:"defaultValue" description:"default value of mapKey"`
-	Description  string `json:"description" description:"config description"`
-	Type         string `json:"type" description:"config type"`
-	Required     bool   `json:"required" description:"required"`
 }
 
 func (config *MetaStringConfig) BuildDefaultValue(jsonStr string) {
@@ -23,11 +37,8 @@ func (config *MetaStringConfig) BuildStringConfigValue(jsonStr string) string {
 }
 
 type IntConfig struct {
-	MapKey       string `json:"mapKey" description:"config map values.yaml key"`
-	DefaultValue int64  `json:"defaultValue" description:"default value of mapKey"`
-	Description  string `json:"description" description:"config description"`
-	Type         string `json:"type" description:"config type"`
-	Required     bool   `json:"required" description:"required"`
+	MetaInfoCommonConfig
+	DefaultValue int64 `json:"defaultValue" description:"default value of mapKey"`
 }
 
 type MetaIntConfig struct {
@@ -43,19 +54,13 @@ func (config *MetaIntConfig) BuildIntConfigValue(jsonStr string) int64 {
 }
 
 type MetaEnvConfig struct {
-	MapKey       string    `json:"mapKey" description:"config map values.yaml key"`
+	MetaInfoCommonConfig
 	DefaultValue []MetaEnv `json:"defaultValue" description:"default value of mapKey"`
-	Description  string    `json:"description" description:"config description"`
-	Type         string    `json:"type" description:"config type"`
-	Required     bool      `json:"required" description:"required"`
 }
 
-type MetaEnvMapConfig struct {
-	MapKey       string            `json:"mapKey" description:"config map values.yaml key"`
-	DefaultValue map[string]string `json:"defaultValue" description:"default value of mapKey"`
-	Description  string            `json:"description" description:"config description"`
-	Type         string            `json:"type" description:"config type"`
-	Required     bool              `json:"required" description:"required"`
+type MetaEnv struct {
+	Name  string `json:"name" description:"env name"`
+	Value string `json:"value" description:"env value"`
 }
 
 func (config *MetaEnvConfig) BuildDefaultValue(jsonStr string) {
@@ -75,17 +80,31 @@ func (config *MetaEnvConfig) BuildEnvConfigValue(jsonStr string) []MetaEnv {
 	return metaEnv
 }
 
-type MetaEnv struct {
-	Name  string `json:"name" description:"env name"`
-	Value string `json:"value" description:"env value"`
+type MetaEnvMapConfig struct {
+	MetaInfoCommonConfig
+	DefaultValue map[string]string `json:"defaultValue" description:"default value of mapKey"`
+}
+
+func (config *MetaEnvMapConfig) BuildDefaultValue(jsonStr string) {
+	config.DefaultValue = config.BuildEnvConfigValue(jsonStr)
+}
+
+func (config *MetaEnvMapConfig) BuildEnvConfigValue(jsonStr string) map[string]string {
+	var res map[string]string
+	rawMsg := gjson.Get(jsonStr, config.MapKey).Raw
+	if rawMsg == "" {
+		return res
+	}
+	err := json.Unmarshal([]byte(rawMsg), &res)
+	if err != nil {
+		klog.Warningf("failed to unmarshal %s : %s", rawMsg, err.Error())
+	}
+	return res
 }
 
 type MetaBoolConfig struct {
-	MapKey       string `json:"mapKey" description:"config map values.yaml key"`
-	DefaultValue bool   `json:"defaultValue" description:"default value of mapKey"`
-	Description  string `json:"description" description:"config description"`
-	Type         string `json:"type" description:"config type"`
-	Required     bool   `json:"required" description:"required"`
+	MetaInfoCommonConfig
+	DefaultValue bool `json:"defaultValue" description:"default value of mapKey"`
 }
 
 func (config *MetaBoolConfig) BuildDefaultValue(jsonStr string) {
@@ -97,11 +116,8 @@ func (config *MetaBoolConfig) BuildBoolConfigValue(jsonStr string) bool {
 }
 
 type FloatConfig struct {
-	MapKey       string  `json:"mapKey" description:"config map values.yaml key"`
+	MetaInfoCommonConfig
 	DefaultValue float64 `json:"defaultValue" description:"default value of mapKey"`
-	Description  string  `json:"description" description:"config description"`
-	Type         string  `json:"type" description:"config type"`
-	Required     bool    `json:"required" description:"required"`
 }
 
 type MetaFloatConfig struct {

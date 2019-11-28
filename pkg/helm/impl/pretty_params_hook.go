@@ -80,7 +80,7 @@ func processPrettyParams(releaseRequest *release.ReleaseRequest){
 		}
 
 		for _, roleBaseConfig := range roleConfig.RoleBaseConfig {
-			commonAppRoleValues[roleBaseConfig.ValueName] = roleBaseConfig.DefaultValue
+			commonAppRoleValues[roleBaseConfig.Variable] = roleBaseConfig.DefaultValue
 		}
 
 		commonAppValues[roleConfig.Name] = commonAppRoleValues
@@ -97,7 +97,7 @@ func processPrettyParams(releaseRequest *release.ReleaseRequest){
 		for _, baseConfig := range releaseRequest.ReleasePrettyParams.AdvanceConfig {
 			klog.Infof("### %v", baseConfig)
 			configValues := make(map[string]interface{}, 0)
-			mapKey(baseConfig.ValueName, baseConfig.DefaultValue, configValues)
+			mapKey(baseConfig.Variable, baseConfig.DefaultValue, configValues)
 			util.MergeValues(defaultConfigValue, configValues, false)
 		}
 	}
@@ -105,7 +105,7 @@ func processPrettyParams(releaseRequest *release.ReleaseRequest){
 	if releaseRequest.ReleasePrettyParams.TranswarpBaseConfig != nil {
 		for _, baseConfig := range releaseRequest.ReleasePrettyParams.TranswarpBaseConfig {
 			configValues := make(map[string]interface{}, 0)
-			mapKey(baseConfig.ValueName, baseConfig.DefaultValue, configValues)
+			mapKey(baseConfig.Variable, baseConfig.DefaultValue, configValues)
 			util.MergeValues(defaultConfigValue, configValues, false)
 		}
 	}

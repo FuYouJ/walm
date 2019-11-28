@@ -85,60 +85,60 @@ func TestMetaInfoParams_BuildConfigValues(t *testing.T) {
 						Name: "test-role",
 						RoleBaseConfig: &MetaRoleBaseConfig{
 							Image: &MetaStringConfig{
-								MapKey: "image.application.image",
+								MetaInfoCommonConfig: NewMetaInfoCommonConfig("image.application.image", "", "", "", false),
 							},
 							Env: &MetaEnvConfig{
-								MapKey: "envs",
+								MetaInfoCommonConfig: NewMetaInfoCommonConfig("envs", "", "", "", false),
 							},
 							Priority: &MetaIntConfig{
 								IntConfig: IntConfig{
-									MapKey: "priority",
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("priority", "", "", "", false),
 								},
 							},
 							UseHostNetwork: &MetaBoolConfig{
-								MapKey: "useHostNetwork",
+								MetaInfoCommonConfig: NewMetaInfoCommonConfig("useHostNetwork", "", "", "", false),
 							},
 							Replicas: &MetaIntConfig{
 								IntConfig: IntConfig{
-									MapKey: "replicas",
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("replicas", "", "", "", false),
 								},
 							},
 							Others: []*MetaCommonConfig{
 								{
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("test-other", "", "", "", false),
 									Name:   "test-other",
-									MapKey: "test-other",
 								},
 							},
 						},
 						RoleResourceConfig: &MetaResourceConfig{
 							RequestsCpu: &MetaResourceCpuConfig{
 								FloatConfig: FloatConfig{
-									MapKey: "resources.requestsCpu",
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("resources.requestsCpu", "", "", "", false),
 								},
 							},
 							LimitsCpu: &MetaResourceCpuConfig{
 								FloatConfig: FloatConfig{
-									MapKey: "resources.limitsCpu",
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("resources.limitsCpu", "", "", "", false),
 								},
 							},
 							RequestsMemory: &MetaResourceMemoryConfig{
 								IntConfig: IntConfig{
-									MapKey: "resources.requestsMem",
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("resources.requestsMem", "", "", "", false),
 								},
 							},
 							LimitsMemory: &MetaResourceMemoryConfig{
 								IntConfig: IntConfig{
-									MapKey: "resources.LimitsMem",
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("resources.LimitsMem", "", "", "", false),
 								},
 							},
 							RequestsGpu: &MetaResourceCpuConfig{
 								FloatConfig: FloatConfig{
-									MapKey: "resources.requestsGpu",
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("resources.requestsGpu", "", "", "", false),
 								},
 							},
 							LimitsGpu: &MetaResourceCpuConfig{
 								FloatConfig: FloatConfig{
-									MapKey: "resources.limitsGpu",
+									MetaInfoCommonConfig: NewMetaInfoCommonConfig("resources.limitsGpu", "", "", "", false),
 								},
 							},
 							StorageResources: []*MetaResourceStorageConfig{
@@ -152,8 +152,8 @@ func TestMetaInfoParams_BuildConfigValues(t *testing.T) {
 				},
 				ChartParams: []*MetaCommonConfig{
 					{
+						MetaInfoCommonConfig: NewMetaInfoCommonConfig("image.java.command", "", "", "", false),
 						Name:   "test-params",
-						MapKey: "image.java.command",
 					},
 				},
 			},

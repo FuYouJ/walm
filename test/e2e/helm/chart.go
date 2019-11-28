@@ -104,11 +104,8 @@ var _ = Describe("HelmChart", func() {
 						Type:        "initContainer",
 						RoleBaseConfig: &release.MetaRoleBaseConfig{
 							Image: &release.MetaStringConfig{
-								Type:         "string",
-								MapKey:       "image.webarchive.image",
-								Description:  "镜像",
+								MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("image.webarchive.image", "镜像", "string", "", true),
 								DefaultValue: "ananwaresystems/webarchive:1.0",
-								Required:     true,
 							},
 						},
 						RoleHealthCheckConfig: &release.MetaHealthCheckConfig{
@@ -122,28 +119,19 @@ var _ = Describe("HelmChart", func() {
 						Type:        "container",
 						RoleBaseConfig: &release.MetaRoleBaseConfig{
 							Image: &release.MetaStringConfig{
-								Type:         "string",
-								MapKey:       "image.tomcat.image",
-								Description:  "镜像",
+								MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("image.tomcat.image", "镜像", "string", "", true),
 								DefaultValue: "tomcat:7.0",
-								Required:     true,
 							},
 							Replicas: &release.MetaIntConfig{
 								IntConfig: release.IntConfig{
-									Type:         "number",
-									MapKey:       "replicaCount",
-									Description:  "副本个数",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("replicaCount", "副本个数", "number", "", true),
 									DefaultValue: 1,
-									Required:     true,
 								},
 							},
 							Others: []*release.MetaCommonConfig{
 								{
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("app.path", "appPath", "string", "", true),
 									Name:         "path",
-									MapKey:       "app.path",
-									Description:  "appPath",
-									Type:         "string",
-									Required:     true,
 									DefaultValue: "\"/sample\"",
 								},
 							},
@@ -151,25 +139,25 @@ var _ = Describe("HelmChart", func() {
 						RoleResourceConfig: &release.MetaResourceConfig{
 							LimitsMemory: &release.MetaResourceMemoryConfig{
 								IntConfig: release.IntConfig{
-									MapKey:       "resources.limits.memory",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("resources.limits.memory", "", "", "", false),
 									DefaultValue: 200,
 								},
 							},
 							RequestsMemory: &release.MetaResourceMemoryConfig{
 								IntConfig: release.IntConfig{
-									MapKey:       "resources.requests.memory",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("resources.requests.memory", "", "", "", false),
 									DefaultValue: 100,
 								},
 							},
 							LimitsCpu: &release.MetaResourceCpuConfig{
 								FloatConfig: release.FloatConfig{
-									MapKey:       "resources.limits.cpu",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("resources.limits.cpu", "", "", "", false),
 									DefaultValue: 0.2,
 								},
 							},
 							RequestsCpu: &release.MetaResourceCpuConfig{
 								FloatConfig: release.FloatConfig{
-									MapKey:       "resources.requests.cpu",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("resources.requests.cpu", "", "", "", false),
 									DefaultValue: 0.1,
 								},
 							},
@@ -177,6 +165,48 @@ var _ = Describe("HelmChart", func() {
 						RoleHealthCheckConfig: &release.MetaHealthCheckConfig{
 							LivenessProbe:  &release.MetaHealthProbeConfig{},
 							ReadinessProbe: &release.MetaHealthProbeConfig{},
+						},
+					},
+				},
+			},
+			ChartPrettyParams: &release.PrettyChartParams{
+				CommonConfig: release.CommonConfig{
+					Roles: []*release.RoleConfig{
+						{
+							Name: "webarchive",
+							Description: "webarchive",
+							RoleBaseConfig: []*release.BaseConfig{
+								{
+									Name: "image",
+									ValueType: "string",
+									ValueDescription: "镜像",
+									DefaultValue: "ananwaresystems/webarchive:1.0",
+								},
+							},
+						},
+						{
+							Name: "tomcat",
+							Description: "tomcat",
+							RoleBaseConfig: []*release.BaseConfig{
+								{
+									Name: "replicas",
+									ValueType: "number",
+									ValueDescription: "副本个数",
+									DefaultValue: int64(1),
+								},
+								{
+									Name: "image",
+									ValueType: "string",
+									ValueDescription: "镜像",
+									DefaultValue: "tomcat:7.0",
+								},
+							},
+							RoleResourceConfig: &release.ResourceConfig{
+								CpuLimit: 0.2,
+								CpuRequest: 0.1,
+								MemoryLimit: 200,
+								MemoryRequest: 100,
+							},
 						},
 					},
 				},
@@ -219,34 +249,34 @@ var _ = Describe("HelmChart", func() {
 							Description: "zookeeper服务",
 							RoleBaseConfig: []*release.BaseConfig{
 								{
-									ValueName: "image",
-									DefaultValue: "zookeeper:transwarp-5.2",
+									Variable:         "image",
+									DefaultValue:     "zookeeper:transwarp-5.2",
 									ValueDescription: "镜像",
-									ValueType: "string",
+									ValueType:        "string",
 								},
 								{
-									ValueName: "replicas",
-									DefaultValue: 3,
+									Variable:         "replicas",
+									DefaultValue:     3,
 									ValueDescription: "副本个数",
-									ValueType: "number",
+									ValueType:        "number",
 								},
 								{
-									ValueName: "env_list",
-									DefaultValue: []interface{}{},
+									Variable:         "env_list",
+									DefaultValue:     []interface{}{},
 									ValueDescription: "额外环境变量",
-									ValueType: "list",
+									ValueType:        "list",
 								},
 								{
-									ValueName: "use_host_network",
-									DefaultValue: false,
+									Variable:         "use_host_network",
+									DefaultValue:     false,
 									ValueDescription: "是否使用主机网络",
-									ValueType: "bool",
+									ValueType:        "bool",
 								},
 								{
-									ValueName: "priority",
-									DefaultValue: 0,
+									Variable:         "priority",
+									DefaultValue:     0,
 									ValueDescription: "优先级",
-									ValueType: "number",
+									ValueType:        "number",
 								},
 							},
 							RoleResourceConfig: &release.ResourceConfig{
@@ -269,60 +299,60 @@ var _ = Describe("HelmChart", func() {
 				},
 				TranswarpBaseConfig: []*release.BaseConfig{
 					{
-						ValueName: "Transwarp_Config.Transwarp_Auto_Injected_Volumes",
-						DefaultValue: []interface{}{},
+						Variable:         "Transwarp_Config.Transwarp_Auto_Injected_Volumes",
+						DefaultValue:     []interface{}{},
 						ValueDescription: "自动挂载keytab目录",
-						ValueType: "list",
+						ValueType:        "list",
 					},
 					{
-						ValueName: "Transwarp_Config.security.auth_type",
-						DefaultValue: "none",
+						Variable:         "Transwarp_Config.security.auth_type",
+						DefaultValue:     "none",
 						ValueDescription: "开启安全类型",
-						ValueType: "string",
+						ValueType:        "string",
 					},
 					{
-						ValueName: "Transwarp_Config.security.guardian_principal_host",
-						DefaultValue: "tos",
+						Variable:         "Transwarp_Config.security.guardian_principal_host",
+						DefaultValue:     "tos",
 						ValueDescription: "开启安全服务Principal主机名",
-						ValueType: "string",
+						ValueType:        "string",
 					},
 					{
-						ValueName: "Transwarp_Config.security.guardian_principal_user",
-						DefaultValue: "zookeeper",
+						Variable:         "Transwarp_Config.security.guardian_principal_user",
+						DefaultValue:     "zookeeper",
 						ValueDescription: "开启安全服务Principal用户名",
-						ValueType: "string",
+						ValueType:        "string",
 					},
 				},
 				AdvanceConfig: []*release.BaseConfig{
 					{
-						ValueName: "Advance_Config.zookeeper[\"zookeeper.client.port\"]",
-						DefaultValue: 2181,
+						Variable:         "Advance_Config.zookeeper[\"zookeeper.client.port\"]",
+						DefaultValue:     2181,
 						ValueDescription: "zookeeper client监听端口",
-						ValueType: "number",
+						ValueType:        "number",
 					},
 					{
-						ValueName: "Advance_Config.zookeeper[\"zookeeper.peer.communicate.port\"]",
-						DefaultValue: 2888,
+						Variable:         "Advance_Config.zookeeper[\"zookeeper.peer.communicate.port\"]",
+						DefaultValue:     2888,
 						ValueDescription: "zookeeper peer communicate端口",
-						ValueType: "number",
+						ValueType:        "number",
 					},
 					{
-						ValueName: "Advance_Config.zookeeper[\"zookeeper.leader.elect.port\"]",
-						DefaultValue: 3888,
+						Variable:         "Advance_Config.zookeeper[\"zookeeper.leader.elect.port\"]",
+						DefaultValue:     3888,
 						ValueDescription: "zookeeper leader elect端口",
-						ValueType: "number",
+						ValueType:        "number",
 					},
 					{
-						ValueName: "Advance_Config.zookeeper[\"zookeeper.jmxremote.port\"]",
-						DefaultValue: 9911,
+						Variable:         "Advance_Config.zookeeper[\"zookeeper.jmxremote.port\"]",
+						DefaultValue:     9911,
 						ValueDescription: "zookeeper jmx端口",
-						ValueType: "number",
+						ValueType:        "number",
 					},
 					{
-						ValueName: "Advance_Config.zoo_cfg",
-						DefaultValue: map[string]interface{}{},
+						Variable:         "Advance_Config.zoo_cfg",
+						DefaultValue:     map[string]interface{}{},
 						ValueDescription: "zookeeper zoo.cfg配置",
-						ValueType: "yaml",
+						ValueType:        "yaml",
 					},
 				},
 			},
@@ -356,11 +386,8 @@ var _ = Describe("HelmChart", func() {
 						Type:        "initContainer",
 						RoleBaseConfig: &release.MetaRoleBaseConfig{
 							Image: &release.MetaStringConfig{
-								Type:         "string",
-								MapKey:       "image.webarchive.image",
-								Description:  "镜像",
+								MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("image.webarchive.image", "镜像", "string", "", true),
 								DefaultValue: "ananwaresystems/webarchive:1.0",
-								Required:     true,
 							},
 						},
 						RoleHealthCheckConfig: &release.MetaHealthCheckConfig{
@@ -374,28 +401,19 @@ var _ = Describe("HelmChart", func() {
 						Type:        "container",
 						RoleBaseConfig: &release.MetaRoleBaseConfig{
 							Image: &release.MetaStringConfig{
-								Type:         "string",
-								MapKey:       "image.tomcat.image",
-								Description:  "镜像",
+								MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("image.tomcat.image", "镜像", "string", "", true),
 								DefaultValue: "tomcat:7.0",
-								Required:     true,
 							},
 							Replicas: &release.MetaIntConfig{
 								IntConfig: release.IntConfig{
-									Type:         "number",
-									MapKey:       "replicaCount",
-									Description:  "副本个数",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("replicaCount", "副本个数", "number", "", true),
 									DefaultValue: 1,
-									Required:     true,
 								},
 							},
 							Others: []*release.MetaCommonConfig{
 								{
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("app.path", "appPath", "string", "", true),
 									Name:         "path",
-									MapKey:       "app.path",
-									Description:  "appPath",
-									Type:         "string",
-									Required:     true,
 									DefaultValue: "\"/sample\"",
 								},
 							},
@@ -403,25 +421,25 @@ var _ = Describe("HelmChart", func() {
 						RoleResourceConfig: &release.MetaResourceConfig{
 							LimitsMemory: &release.MetaResourceMemoryConfig{
 								IntConfig: release.IntConfig{
-									MapKey:       "resources.limits.memory",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("resources.limits.memory", "", "", "", false),
 									DefaultValue: 200,
 								},
 							},
 							RequestsMemory: &release.MetaResourceMemoryConfig{
 								IntConfig: release.IntConfig{
-									MapKey:       "resources.requests.memory",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("resources.requests.memory", "", "", "", false),
 									DefaultValue: 100,
 								},
 							},
 							LimitsCpu: &release.MetaResourceCpuConfig{
 								FloatConfig: release.FloatConfig{
-									MapKey:       "resources.limits.cpu",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("resources.limits.cpu", "", "", "", false),
 									DefaultValue: 0.2,
 								},
 							},
 							RequestsCpu: &release.MetaResourceCpuConfig{
 								FloatConfig: release.FloatConfig{
-									MapKey:       "resources.requests.cpu",
+									MetaInfoCommonConfig: release.NewMetaInfoCommonConfig("resources.requests.cpu", "", "", "", false),
 									DefaultValue: 0.1,
 								},
 							},
@@ -429,6 +447,48 @@ var _ = Describe("HelmChart", func() {
 						RoleHealthCheckConfig: &release.MetaHealthCheckConfig{
 							LivenessProbe:  &release.MetaHealthProbeConfig{},
 							ReadinessProbe: &release.MetaHealthProbeConfig{},
+						},
+					},
+				},
+			},
+			ChartPrettyParams: &release.PrettyChartParams{
+				CommonConfig: release.CommonConfig{
+					Roles: []*release.RoleConfig{
+						{
+							Name: "webarchive",
+							Description: "webarchive",
+							RoleBaseConfig: []*release.BaseConfig{
+								{
+									Name: "image",
+									ValueType: "string",
+									ValueDescription: "镜像",
+									DefaultValue: "ananwaresystems/webarchive:1.0",
+								},
+							},
+						},
+						{
+							Name: "tomcat",
+							Description: "tomcat",
+							RoleBaseConfig: []*release.BaseConfig{
+								{
+									Name: "replicas",
+									ValueType: "number",
+									ValueDescription: "副本个数",
+									DefaultValue: int64(1),
+								},
+								{
+									Name: "image",
+									ValueType: "string",
+									ValueDescription: "镜像",
+									DefaultValue: "tomcat:7.0",
+								},
+							},
+							RoleResourceConfig: &release.ResourceConfig{
+								CpuLimit: 0.2,
+								CpuRequest: 0.1,
+								MemoryLimit: 200,
+								MemoryRequest: 100,
+							},
 						},
 					},
 				},
