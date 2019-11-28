@@ -2,10 +2,16 @@ package error
 
 import "github.com/pkg/errors"
 
-type NotFoundError struct {}
+type NotFoundError struct {
+	Message string
+}
 
 func (err NotFoundError) Error() string {
-	return "not found error"
+	if err.Message == "" {
+		return "not found error"
+	}
+	return err.Message
+
 }
 
 func IsNotFoundError(err error) bool {
