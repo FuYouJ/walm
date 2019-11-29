@@ -40,8 +40,8 @@ import (
 )
 
 const (
-	compatibleNamespace = "kube-system"
-	releaseMaxHistory = 10
+	compatibleNamespace    = "kube-system"
+	releaseMaxHistory      = 10
 	defaultDownloadTimeout = 5 * time.Second
 )
 
@@ -59,7 +59,7 @@ type Helm struct {
 	list           *action.List
 	kubeClients    *k8sHelm.Client
 	restyClient    *resty.Client
-	actionConfigs *lru.Cache
+	actionConfigs  *lru.Cache
 }
 
 func (helmImpl *Helm) getActionConfig(namespace string) (*action.Configuration, error) {
@@ -250,7 +250,8 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 
 	// compatible
 	if chartInfo.WalmVersion == common.WalmVersionV1 {
-		if _, ok := configValues[transwarpjsonnet.TranswarpInstallIDKey]; !ok {
+		value, ok := configValues[transwarpjsonnet.TranswarpInstallIDKey]
+		if !ok || (ok && value == "") {
 			configValues[transwarpjsonnet.TranswarpInstallIDKey] = rand.String(5)
 		}
 	}
@@ -712,9 +713,20 @@ func buildResourceKey(resource *resource.Info) string {
 
 func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *release.ReleaseRequestV2) (
 	configValues map[string]interface{}, dependencies map[string]string, releaseLabels map[string]string,
-	walmPlugins []*k8sModel.ReleasePlugin, err error) {
-
+	walmPlugins []*k8sModel.ReleasePlugin, err error,
+) {
 	configValues = map[string]interface{}{}
+
+	// compatible
+	if _, ok := releaseRequest.ConfigValues[transwarpjsonnet.TranswarpInstallIDKey]; ok {
+		if transwarpInstallID, ok2 := releaseInfo.ConfigValues[transwarpjsonnet.TranswarpInstallIDKey]; ok2 {
+			if transwarpInstallID != "" {
+				klog.Warningf("update request config value has key %s: %s. ignore it", transwarpjsonnet.TranswarpInstallIDKey, transwarpInstallID)
+				releaseRequest.ConfigValues[transwarpjsonnet.TranswarpInstallIDKey] = transwarpInstallID
+			}
+		}
+	}
+
 	util.MergeValues(configValues, releaseInfo.ConfigValues, false)
 	util.MergeValues(configValues, releaseRequest.ConfigValues, false)
 
