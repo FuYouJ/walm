@@ -90,6 +90,7 @@ type ReleaseInfoV2 struct {
 	ReleaseWarmVersion       common.WalmVersion     `json:"releaseWalmVersion" description:"release walm version: v1, v2"`
 	IsomateConfig            *k8s.IsomateConfig     `json:"isomateConfig" description:"isomate config"`
 	ChartWalmVersion         common.WalmVersion     `json:"chartWalmVersion" description:"chart walm version: v1, v2"`
+	MsgCode                  ReleaseMsgCode         `json:"msgCode" description:"release msg code"`
 }
 
 func (releaseInfo *ReleaseInfoV2) BuildReleaseRequestV2() *ReleaseRequestV2 {

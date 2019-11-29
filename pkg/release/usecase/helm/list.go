@@ -51,7 +51,9 @@ func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.Rele
 		}
 	}
 
+	releaseExisted := false
 	if releaseCache != nil {
+		releaseExisted = true
 		releaseV2, err = helm.buildReleaseInfoV2(releaseCache)
 		if err != nil {
 			klog.Errorf("failed to build v2 release info : %s", err.Error())
@@ -72,12 +74,32 @@ func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.Rele
 
 	if taskState.IsFinished() {
 		if !taskState.IsSuccess() {
+			releaseV2.MsgCode = buildReleaseFailedMsgCode(releaseTask.LatestReleaseTaskSig.Name, releaseExisted)
 			releaseV2.Message = fmt.Sprintf("the release latest task %s-%s failed : %s", releaseTask.LatestReleaseTaskSig.Name, releaseTask.LatestReleaseTaskSig.UUID, taskState.GetErrorMsg())
 		}
 	} else {
 		releaseV2.Message = fmt.Sprintf("please wait for the release latest task %s-%s finished", releaseTask.LatestReleaseTaskSig.Name, releaseTask.LatestReleaseTaskSig.UUID)
+		releaseV2.MsgCode = releaseModel.ReleasePending
 	}
 
+	return
+}
+
+func buildReleaseFailedMsgCode(taskName string, releaseExisted bool) (msgCode releaseModel.ReleaseMsgCode) {
+	switch taskName{
+	case createReleaseTaskName:
+		if releaseExisted {
+			msgCode = releaseModel.ReleaseUpgradeFailed
+		}else {
+			msgCode = releaseModel.ReleaseInstallFailed
+		}
+	case deleteReleaseTaskName:
+		msgCode = releaseModel.ReleaseDeleteFailed
+	case pauseOrRecoverReleaseTaskName:
+		msgCode = releaseModel.ReleasePauseOrRecoverFailed
+	default:
+		msgCode = releaseModel.ReleaseFailed
+	}
 	return
 }
 
@@ -157,7 +179,20 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 		releaseV2.Message = "Release is paused now"
 	}
 
+	if !releaseV2.Ready {
+		releaseV2.MsgCode = buildReleaseNotReadyMsgCode(releaseV2.Paused)
+	}
+
 	return releaseV2, nil
+}
+
+func buildReleaseNotReadyMsgCode(paused bool) (msgCode releaseModel.ReleaseMsgCode) {
+	if paused {
+		msgCode = releaseModel.ReleasePaused
+	} else {
+		msgCode = releaseModel.ReleaseNotReady
+	}
+	return
 }
 
 // for compatible

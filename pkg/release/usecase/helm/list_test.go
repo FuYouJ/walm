@@ -47,6 +47,11 @@ func TestHelm_GetRelease(t *testing.T) {
 		assert.IsType(t, err, nil)
 	}
 
+	testResourceSet := k8s.NewResourceSet()
+	testResourceSet.StatefulSets = append(testResourceSet.StatefulSets, &k8s.StatefulSet{
+		Meta: k8s.NewMeta("", "", "", k8s.NewState("Pending", "", "")),
+	})
+
 	tests := []struct {
 		initMock    func()
 		releaseInfo *release.ReleaseInfoV2
@@ -191,6 +196,7 @@ func TestHelm_GetRelease(t *testing.T) {
 					RealName: "test-name",
 					Message:  "the release latest task test-name-test-uuid failed : test-err",
 				},
+				MsgCode: release.ReleaseFailed,
 			},
 			err: nil,
 		},
@@ -221,6 +227,7 @@ func TestHelm_GetRelease(t *testing.T) {
 					RealName: "test-name",
 					Message:  "please wait for the release latest task test-name-test-uuid finished",
 				},
+				MsgCode: release.ReleasePending,
 			},
 			err: nil,
 		},
@@ -262,6 +269,49 @@ func TestHelm_GetRelease(t *testing.T) {
 				},
 				Plugins:            []*k8s.ReleasePlugin{},
 				ReleaseWarmVersion: common.WalmVersionV2,
+			},
+			err: nil,
+		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockReleaseCache.On("GetReleaseTask", mock.Anything, mock.Anything).Return(&release.ReleaseTask{
+					Namespace: "test-ns",
+					Name:      "test-name",
+					LatestReleaseTaskSig: &task.TaskSig{
+						Name: "test-name",
+						UUID: "test-uuid",
+					},
+				}, nil)
+				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(&release.ReleaseCache{
+					ReleaseSpec: release.ReleaseSpec{
+						Namespace: "test-ns",
+						Name:      "test-name",
+					},
+				}, nil)
+				mockTask.On("GetTaskState", &task.TaskSig{
+					Name: "test-name",
+					UUID: "test-uuid",
+				}).Return(mockTaskState, nil)
+				mockTaskState.On("IsFinished").Return(true)
+				mockTaskState.On("IsSuccess").Return(true)
+				mockK8sCache.On("GetResourceSet", ([]release.ReleaseResourceMeta)(nil)).Return(testResourceSet, nil)
+				mockK8sCache.On("GetResource", k8s.ReleaseConfigKind, "test-ns", "test-name").Return(&k8s.ReleaseConfig{}, nil)
+			},
+			releaseInfo: &release.ReleaseInfoV2{
+				ReleaseInfo: release.ReleaseInfo{
+					ReleaseSpec: release.ReleaseSpec{
+						Namespace: "test-ns",
+						Name:      "test-name",
+					},
+					RealName: "test-name",
+					Ready:    false,
+					Message:  " / is in state Pending",
+					Status:   testResourceSet,
+				},
+				Plugins:            []*k8s.ReleasePlugin{},
+				ReleaseWarmVersion: common.WalmVersionV2,
+				MsgCode:            release.ReleaseNotReady,
 			},
 			err: nil,
 		},
@@ -715,4 +765,61 @@ func TestHelm_ListReleasesByLabels(t *testing.T) {
 		mockTaskState.AssertExpectations(t)
 	}
 
+}
+
+func Test_buildReleaseFailedMsgCode(t *testing.T) {
+	tests := []struct {
+		taskName       string
+		releaseExisted bool
+		msgCode        release.ReleaseMsgCode
+	}{
+		{
+			taskName:       createReleaseTaskName,
+			releaseExisted: true,
+			msgCode:        release.ReleaseUpgradeFailed,
+		},
+		{
+			taskName:       createReleaseTaskName,
+			releaseExisted: false,
+			msgCode:        release.ReleaseInstallFailed,
+		},
+		{
+			taskName: deleteReleaseTaskName,
+			msgCode:  release.ReleaseDeleteFailed,
+		},
+		{
+			taskName: pauseOrRecoverReleaseTaskName,
+			msgCode:  release.ReleasePauseOrRecoverFailed,
+		},
+		{
+			taskName: "unknown",
+			msgCode:  release.ReleaseFailed,
+		},
+	}
+
+	for _, test := range tests {
+		msgCode := buildReleaseFailedMsgCode(test.taskName, test.releaseExisted)
+		assert.Equal(t, test.msgCode, msgCode)
+	}
+}
+
+func Test_buildReleaseNotReadyMsgCode(t *testing.T) {
+	tests := []struct {
+		paused  bool
+		msgCode release.ReleaseMsgCode
+	}{
+		{
+			paused: false,
+			msgCode: release.ReleaseNotReady,
+		},
+		{
+			paused: true,
+			msgCode: release.ReleasePaused,
+		},
+	}
+
+	for _, test := range tests {
+		msgCode := buildReleaseNotReadyMsgCode(test.paused)
+		assert.Equal(t, test.msgCode, msgCode)
+	}
 }
