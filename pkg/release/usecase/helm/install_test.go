@@ -272,7 +272,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything).Return(nil, errors.New(""))
+				mockHelm.On("InstallOrCreateReleaseWithStrict", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(nil, errors.New(""))
 			},
 			releaseRequest: &release.ReleaseRequestV2{},
 			err:            errors.New("failed"),
@@ -281,7 +281,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything).Return(&release.ReleaseCache{}, nil)
+				mockHelm.On("InstallOrCreateReleaseWithStrict", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
 			},
 			dryRun:         true,
 			releaseRequest: &release.ReleaseRequestV2{},
@@ -291,7 +291,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything).Return(&release.ReleaseCache{}, nil)
+				mockHelm.On("InstallOrCreateReleaseWithStrict", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
 				mockReleaseCache.On("CreateOrUpdateReleaseCache", mock.Anything).Return(errors.New(""))
 			},
 			dryRun:         false,
@@ -302,7 +302,7 @@ func TestHelm_doInstallUpgradeRelease(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateRelease", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything).Return(&release.ReleaseCache{}, nil)
+				mockHelm.On("InstallOrCreateReleaseWithStrict", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
 				mockReleaseCache.On("CreateOrUpdateReleaseCache", mock.Anything).Return(nil)
 			},
 			dryRun:         false,
