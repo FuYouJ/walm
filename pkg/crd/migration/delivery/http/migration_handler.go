@@ -6,7 +6,7 @@ import (
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/setting"
 	httpUtils "WarpCloud/walm/pkg/util/http"
-
+	errorModel "WarpCloud/walm/pkg/models/error"
 	"fmt"
 	"github.com/emicklei/go-restful"
 	"github.com/emicklei/go-restful-openapi"
@@ -52,8 +52,8 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Doc("获取所有crd迁移信息列表").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.QueryParameter("labelselector", "节点标签过滤").DataType("string").Required(false)).
-		Writes(k8sModel.MigList{}).
-		Returns(200, "OK", k8sModel.MigList{}).
+		Writes([]k8sModel.Mig{}).
+		Returns(200, "OK", []k8sModel.Mig{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.GET("/migration/pod/{namespace}/name/{pod}").To(CommonHandler{handler.GetPodMigration}.handle).
@@ -84,8 +84,8 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Doc("获取node迁移信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("node", "node名字").DataType("string").Required(true)).
-		Writes(k8sModel.MigList{}).
-		Returns(200, "Ok", k8sModel.MigList{}).
+		Writes(k8sModel.MigStatus{}).
+		Returns(200, "Ok", k8sModel.MigStatus{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.POST("/migration/node").To(CommonHandler{handler.MigrateNode}.handle).
@@ -117,6 +117,10 @@ func (handler CrdHandler) GetPodMigration(request *restful.Request, response *re
 	name := "mig" + "-" +  namespace + "-" + podName
 	mig, err := handler.k8sCache.GetResource(k8sModel.MigKind, "default", name)
 	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("migration for pod %s/%s is not found", namespace, name))
+			return
+		}
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get migration: %s", err.Error()))
 		return
 	}
@@ -178,6 +182,10 @@ func (handler CrdHandler) GetNodeMigration(request *restful.Request, response *r
 	node := request.PathParameter("node")
 	migList, err := handler.k8sCache.GetNodeMigration(node)
 	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("migration for node %s is not found", node))
+			return
+		}
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get node migs: %s", err.Error()))
 		return
 	}

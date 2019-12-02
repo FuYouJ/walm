@@ -428,7 +428,7 @@ func (informer *Informer) ListReleaseConfigs(namespace, labelSelectorStr string)
 	return releaseConfigs, nil
 }
 
-func (informer *Informer) GetNodeMigration(node string) (*k8s.MigList, error) {
+func (informer *Informer) GetNodeMigration(node string) (*k8s.MigStatus, error) {
 	var migs []*k8s.Mig
 	selector, err := utils.ConvertLabelSelectorToSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{"migType": "node", "srcNode": node},
@@ -443,19 +443,28 @@ func (informer *Informer) GetNodeMigration(node string) (*k8s.MigList, error) {
 		return nil, err
 	}
 
+	count := 0
 	for _, k8sMig := range k8sMigs {
+		if k8sMig.Status.Phase == tosv1beta1.MIG_FINISH {
+			count++
+		}
 		mig, err := converter.ConvertMigFromK8s(k8sMig)
 		if err != nil {
 			klog.Errorf("failed to convert mig from k8s mig: %s", err.Error())
 			return nil, err
 		}
+
 		migs = append(migs, mig)
 	}
-	return &k8s.MigList{Items: migs}, nil
+	return &k8s.MigStatus{
+		Succeed: count,
+		Total: len(k8sMigs),
+		Items: migs,
+	}, nil
 }
 
 
-func (informer *Informer) ListMigrations(labelSelectorStr string) (*k8s.MigList, error) {
+func (informer *Informer) ListMigrations(labelSelectorStr string) ([]*k8s.Mig, error) {
 	var k8sMigs []*tosv1beta1.Mig
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
@@ -474,7 +483,7 @@ func (informer *Informer) ListMigrations(labelSelectorStr string) (*k8s.MigList,
 		migs = append(migs, mig)
 	}
 
-	return &k8s.MigList{Items: migs}, nil
+	return migs, nil
 }
 
 func (informer *Informer) GetResourceSet(releaseResourceMetas []release.ReleaseResourceMeta) (resourceSet *k8s.ResourceSet, err error) {

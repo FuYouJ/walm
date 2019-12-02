@@ -51,15 +51,15 @@ func (_m *Cache) GetDeploymentEventList(namespace string, name string) (*modelsk
 }
 
 // GetNodeMigration provides a mock function with given fields: node
-func (_m *Cache) GetNodeMigration(node string) (*modelsk8s.MigList, error) {
+func (_m *Cache) GetNodeMigration(node string) (*modelsk8s.MigStatus, error) {
 	ret := _m.Called(node)
 
-	var r0 *modelsk8s.MigList
-	if rf, ok := ret.Get(0).(func(string) *modelsk8s.MigList); ok {
+	var r0 *modelsk8s.MigStatus
+	if rf, ok := ret.Get(0).(func(string) *modelsk8s.MigStatus); ok {
 		r0 = rf(node)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*modelsk8s.MigList)
+			r0 = ret.Get(0).(*modelsk8s.MigStatus)
 		}
 	}
 
@@ -233,15 +233,15 @@ func (_m *Cache) GetTenant(tenantName string) (*tenant.TenantInfo, error) {
 }
 
 // ListMigrations provides a mock function with given fields: labelSelectorStr
-func (_m *Cache) ListMigrations(labelSelectorStr string) (*modelsk8s.MigList, error) {
+func (_m *Cache) ListMigrations(labelSelectorStr string) ([]*modelsk8s.Mig, error) {
 	ret := _m.Called(labelSelectorStr)
 
-	var r0 *modelsk8s.MigList
-	if rf, ok := ret.Get(0).(func(string) *modelsk8s.MigList); ok {
+	var r0 []*modelsk8s.Mig
+	if rf, ok := ret.Get(0).(func(string) []*modelsk8s.Mig); ok {
 		r0 = rf(labelSelectorStr)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*modelsk8s.MigList)
+			r0 = ret.Get(0).([]*modelsk8s.Mig)
 		}
 	}
 
