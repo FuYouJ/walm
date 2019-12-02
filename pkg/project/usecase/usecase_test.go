@@ -1234,6 +1234,7 @@ func TestProject_autoCreateReleaseDependencies(t *testing.T) {
 		initMock        func()
 		projectParams   *project.ProjectParams
 		releaseRequests []*release.ReleaseRequestV2
+		sequential      bool
 		err             error
 	}{
 		{
@@ -1285,18 +1286,19 @@ func TestProject_autoCreateReleaseDependencies(t *testing.T) {
 					},
 				},
 			},
+			sequential: true,
 			releaseRequests: []*release.ReleaseRequestV2{
+				{
+					ReleaseRequest: release.ReleaseRequest{
+						Name:      "B",
+						ChartName: "chartB",
+					},
+				},
 				{
 					ReleaseRequest: release.ReleaseRequest{
 						Name:         "A",
 						ChartName:    "chartA",
 						Dependencies: map[string]string{"chartB": "B"},
-					},
-				},
-				{
-					ReleaseRequest: release.ReleaseRequest{
-						Name:      "B",
-						ChartName: "chartB",
 					},
 				},
 			},
@@ -1328,6 +1330,7 @@ func TestProject_autoCreateReleaseDependencies(t *testing.T) {
 					},
 				},
 			},
+			sequential: false,
 			releaseRequests: []*release.ReleaseRequestV2{
 				{
 					ReleaseRequest: release.ReleaseRequest{
@@ -1344,13 +1347,62 @@ func TestProject_autoCreateReleaseDependencies(t *testing.T) {
 				},
 			},
 		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockHelm.On("GetChartAutoDependencies", mock.Anything, mock.Anything, mock.Anything).Return(func(repo, chart, version string) (result []string) {
+					if chart == "chartA" {
+						result = append(result, "chartB")
+					}
+					return
+				}, nil)
+			},
+			projectParams: &project.ProjectParams{
+				Releases: []*release.ReleaseRequestV2{
+					{
+						ReleaseRequest: release.ReleaseRequest{
+							Name:         "A",
+							ChartName:    "chartA",
+							Dependencies: map[string]string{"chartB": "B"},
+						},
+					},
+					{
+						ReleaseRequest: release.ReleaseRequest{
+							Name:      "B",
+							ChartName: "chartB",
+						},
+					},
+				},
+			},
+			sequential: true,
+			releaseRequests: []*release.ReleaseRequestV2{
+				{
+					ReleaseRequest: release.ReleaseRequest{
+						Name:      "B",
+						ChartName: "chartB",
+					},
+				},
+				{
+					ReleaseRequest: release.ReleaseRequest{
+						Name:         "A",
+						ChartName:    "chartA",
+						Dependencies: map[string]string{"chartB": "B"},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
 		test.initMock()
 		releaseRequests, err := mockProjectManager.autoCreateReleaseDependencies(test.projectParams, "", false)
 		assert.IsType(t, test.err, err)
-		assert.ElementsMatch(t, test.releaseRequests, releaseRequests)
+		if test.sequential {
+			assert.Equal(t, test.releaseRequests, releaseRequests)
+		} else {
+			assert.ElementsMatch(t, test.releaseRequests, releaseRequests)
+		}
+
 
 		mockProjectCache.AssertExpectations(t)
 		mockHelm.AssertExpectations(t)

@@ -17,6 +17,7 @@ import (
 	"k8s.io/klog"
 	"sync"
 	"strings"
+	"WarpCloud/walm/pkg/release/utils"
 )
 
 const (
@@ -558,10 +559,19 @@ func (projectImpl *Project) autoCreateReleaseDependencies(projectParams *project
 		}
 
 		for _, subChartName := range subCharts {
-			_, ok := projectParamsMap[subChartName]
-			_, ok2 := helmRelease.Dependencies[subChartName]
-			if ok && !ok2 {
-				g.Connect(dag.BasicEdge(helmRelease, projectParamsMap[subChartName]))
+			if subRelease, ok := projectParamsMap[subChartName]; ok {
+				if dependedRelease, ok2 := helmRelease.Dependencies[subChartName] ; ok2 {
+					depReleaseNs, depReleaseName, err := utils.ParseDependedRelease(namespace, dependedRelease)
+					if err != nil {
+						klog.Errorf("failed to parse depended release %s : %s", dependedRelease, err.Error())
+						return nil, err
+					}
+					if depReleaseNs == namespace && depReleaseName == subRelease.Name {
+						g.Connect(dag.BasicEdge(helmRelease, subRelease))
+					}
+				} else {
+					g.Connect(dag.BasicEdge(helmRelease, subRelease))
+				}
 			}
 		}
 	}
@@ -579,7 +589,9 @@ func (projectImpl *Project) autoCreateReleaseDependencies(projectParams *project
 			if releaseRequest.Dependencies == nil {
 				releaseRequest.Dependencies = map[string]string{}
 			}
-			releaseRequest.Dependencies[releaseInfo.ChartName] = releaseInfo.Name
+			if _, ok := releaseRequest.Dependencies[releaseInfo.ChartName] ; !ok {
+				releaseRequest.Dependencies[releaseInfo.ChartName] = releaseInfo.Name
+			}
 		}
 		if installRelease {
 			klog.V(2).Infof("start to create project release %s/%s", namespace, releaseRequest.Name)

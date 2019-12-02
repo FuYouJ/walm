@@ -185,6 +185,11 @@ func processAdvancedParams(chartInfo *release.ChartDetailInfo, releaseRequest *r
 
 func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
 	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error) {
+	return helmImpl.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, true)
+}
+
+func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
+	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, strict bool) (*release.ReleaseCache, error) {
 	rawChart, err := helmImpl.loadChart(chartFiles, releaseRequest)
 	if err != nil {
 		klog.Errorf("failed to load chart : %s", err.Error())
@@ -237,7 +242,7 @@ func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *r
 	}
 
 	// get all the dependency releases' output configs from ReleaseConfig or dummy service(for compatible)
-	dependencyConfigs, err := helmImpl.GetDependencyOutputConfigs(namespace, dependencies, chartInfo, true)
+	dependencyConfigs, err := helmImpl.GetDependencyOutputConfigs(namespace, dependencies, chartInfo, strict)
 	if err != nil {
 		klog.Errorf("failed to get all the dependency releases' output configs : %s", err.Error())
 		return nil, err
