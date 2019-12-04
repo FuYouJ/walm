@@ -10,6 +10,7 @@ import (
 )
 
 func processPrettyParams(releaseRequest *release.ReleaseRequest){
+	klog.Info("processing pretty params")
 	defaultConfigValue := releaseRequest.ConfigValues
 	commonAppValues := make(map[string]interface{}, 0)
 	for _, roleConfig := range releaseRequest.ReleasePrettyParams.CommonConfig.Roles {
