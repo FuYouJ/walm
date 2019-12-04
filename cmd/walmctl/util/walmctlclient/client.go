@@ -435,7 +435,7 @@ func (c *WalmctlClient) GetPodMigration(namespace string, name string) (resp *re
 }
 
 func (c *WalmctlClient) DeletePodMigration(namespace string, name string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/crd/migration/pod" + namespace + "/name/" + name
+	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + namespace + "/name/" + name
 	resp, err = resty.R().
 		Delete(fullUrl)
 
@@ -449,7 +449,7 @@ func (c *WalmctlClient) DeletePodMigration(namespace string, name string) (resp 
 }
 
 func (c *WalmctlClient) GetNodeMigration(name string)  (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "crd/migration/node/" + name
+	fullUrl := walmctlClient.baseURL + "/crd/migration/node/" + name
 	resp, err = resty.R().
 		Get(fullUrl)
 
