@@ -6,30 +6,1197 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-//func Test_convertPrettyParamsToMetainfoParams(t *testing.T) {
-//	tests := []struct {
-//		prettyParams   *release.PrettyChartParams
-//		metaInfoParams *release.MetaInfoParams
-//	}{
-//		{
-//			prettyParams: &release.PrettyChartParams{
-//				CommonConfig: release.CommonConfig{
-//					Roles: []*release.RoleConfig{
-//						{
-//							Name:        "zookeeper",
-//							Description: "zookeeper服务",
-//						},
-//					},
-//				},
-//			},
-//		},
-//	}
-//
-//	for _, test := range tests {
-//		metainfoParams := convertPrettyParamsToMetainfoParams(test.prettyParams)
-//		assert.Equal(t, test.metaInfoParams, metainfoParams)
-//	}
-//}
+func Test_convertPrettyParamsToMetainfoParams(t *testing.T) {
+	testReplicas := int64(3)
+
+	tests := []struct {
+		metaInfo       *release.ChartMetaInfo
+		prettyParams   *release.PrettyChartParams
+		metaInfoParams *release.MetaInfoParams
+		err            error
+	}{
+		{
+			metaInfo: &release.ChartMetaInfo{
+				ChartRoles: []*release.MetaRoleConfig{
+					{
+						Name: "zookeeper",
+						RoleBaseConfig: &release.MetaRoleBaseConfig{
+							Replicas: &release.MetaIntConfig{
+								IntConfig: release.IntConfig{
+									MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+										Variable:    "replicas",
+										Description: "副本个数",
+										Type:        "number",
+									},
+									DefaultValue: 0,
+								},
+							},
+						},
+					},
+				},
+				ChartParams: []*release.MetaCommonConfig{
+					{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Type: "kvpair",
+						},
+						Name: "zoo.cfg",
+					},
+				},
+			},
+			prettyParams: &release.PrettyChartParams{
+				CommonConfig: release.CommonConfig{
+					Roles: []*release.RoleConfig{
+						{
+							Name: "zookeeper",
+							RoleBaseConfig: []*release.BaseConfig{
+								{
+									Name:             "replicas",
+									Variable:         "replicas",
+									DefaultValue:     3,
+									ValueDescription: "副本个数",
+									ValueType:        "number",
+								},
+							},
+						},
+					},
+				},
+				AdvanceConfig: []*release.BaseConfig{
+					{
+						Name:         "zoo.cfg",
+						DefaultValue: map[string]interface{}{"test": "test"},
+					},
+				},
+			},
+			metaInfoParams: &release.MetaInfoParams{
+				Roles: []*release.MetaRoleConfigValue{
+					{
+						Name: "zookeeper",
+						RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+							Replicas: &testReplicas,
+						},
+					},
+				},
+				Params: []*release.MetaCommonConfigValue{
+					{
+						Name:  "zoo.cfg",
+						Type:  "kvpair",
+						Value: "{\"test\":\"test\"}",
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		metainfoParams, err := convertPrettyParamsToMetainfoParams(test.metaInfo, test.prettyParams)
+		assert.IsType(t, test.err, err)
+		assert.Equal(t, test.metaInfoParams, metainfoParams)
+	}
+}
+
+func Test_getCommonConfig(t *testing.T) {
+	tests := []struct {
+		metaCommonConfigs []*release.MetaCommonConfig
+		baseConfig        *release.BaseConfig
+		commonConfig      *release.MetaCommonConfig
+	}{
+		{
+			metaCommonConfigs: []*release.MetaCommonConfig{
+				{
+					MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+						Type:     "kvpair",
+						Variable: "Advance_Config.zoo_cfg",
+					},
+					Name: "zoo.cfg",
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Name: "zoo.cfg",
+			},
+			commonConfig: &release.MetaCommonConfig{
+				MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+					Type:     "kvpair",
+					Variable: "Advance_Config.zoo_cfg",
+				},
+				Name: "zoo.cfg",
+			},
+		},
+		{
+			metaCommonConfigs: []*release.MetaCommonConfig{
+				{
+					MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+						Type:     "kvpair",
+						Variable: "Advance_Config.zoo_cfg",
+					},
+					Name: "zoo.cfg",
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable: "Advance_Config.zoo_cfg",
+			},
+			commonConfig: &release.MetaCommonConfig{
+				MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+					Type:     "kvpair",
+					Variable: "Advance_Config.zoo_cfg",
+				},
+				Name: "zoo.cfg",
+			},
+		},
+		{
+			metaCommonConfigs: []*release.MetaCommonConfig{
+				{
+					MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+						Type:     "kvpair",
+						Variable: "Advance_Config.zoo_cfg",
+					},
+					Name: "zoo.cfg",
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Name: "notExisted",
+			},
+			commonConfig: nil,
+		},
+	}
+
+	for _, test := range tests {
+		commonConfig := getCommonConfig(test.metaCommonConfigs, test.baseConfig)
+		assert.Equal(t, test.commonConfig, commonConfig)
+	}
+}
+
+func Test_computeMetaRoleConfigValue(t *testing.T) {
+	testReplicas := int64(3)
+	testUseHostNetwork := true
+
+	testLimitsGpu := float64(2)
+	testRequestsGpu := float64(1)
+	testLimitsCpu := float64(0.2)
+	testRequestsCpu := float64(0.1)
+	testLimitsMemory := int64(2048)
+	testRequestsMemory := int64(1024)
+
+	tests := []struct {
+		metaRoleConfig      *release.MetaRoleConfig
+		roleConfig          *release.RoleConfig
+		metaRoleConfigValue *release.MetaRoleConfigValue
+		err                 error
+	}{
+		{
+			metaRoleConfig: &release.MetaRoleConfig{
+				Name: "zookeeper",
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			roleConfig: &release.RoleConfig{
+				Name: "zookeeper",
+				RoleBaseConfig: []*release.BaseConfig{
+					{
+						Name:             "replicas",
+						Variable:         "replicas",
+						DefaultValue:     3,
+						ValueDescription: "副本个数",
+						ValueType:        "number",
+					},
+					{
+						Name:             "useHostNetwork",
+						Variable:         "use_host_network",
+						DefaultValue:     true,
+						ValueType:        "bool",
+						ValueDescription: "是否使用主机网络",
+					},
+				},
+				RoleResourceConfig: &release.ResourceConfig{
+					GpuLimit:      2,
+					GpuRequest:    1,
+					CpuLimit:      0.2,
+					CpuRequest:    0.1,
+					MemoryLimit:   2048,
+					MemoryRequest: 1024,
+					ResourceStorageList: []release.ResourceStorageConfig{
+						{
+							Name:         "data",
+							StorageClass: "silver",
+							Size:         "100Gi",
+							AccessModes: []string{
+								"readwrite",
+							},
+							DiskReplicas: 2,
+						},
+					},
+				},
+			},
+			metaRoleConfigValue: &release.MetaRoleConfigValue{
+				Name: "zookeeper",
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Replicas:       &testReplicas,
+					UseHostNetwork: &testUseHostNetwork,
+				},
+				RoleResourceConfigValue: &release.MetaResourceConfigValue{
+					LimitsGpu:      &testLimitsGpu,
+					RequestsGpu:    &testRequestsGpu,
+					LimitsCpu:      &testLimitsCpu,
+					RequestsCpu:    &testRequestsCpu,
+					LimitsMemory:   &testLimitsMemory,
+					RequestsMemory: &testRequestsMemory,
+					StorageResources: []*release.MetaResourceStorageConfigValue{
+						{
+							Name: "data",
+							Value: &release.MetaResourceStorage{
+								ResourceStorage: release.ResourceStorage{
+									DiskReplicas: 2,
+									AccessModes: []string{
+										"readwrite",
+									},
+									StorageClass: "silver",
+								},
+								Size: 100,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		metaRoleConfigValue, err := computeMetaRoleConfigValue(test.metaRoleConfig, test.roleConfig)
+		assert.IsType(t, test.err, err)
+		assert.Equal(t, test.metaRoleConfigValue, metaRoleConfigValue)
+	}
+}
+
+func Test_fillMetaRoleBaseConfigValue(t *testing.T) {
+	testReplicas := int64(3)
+	testUseHostNetwork := true
+	testPriority := int64(10)
+	testImage := "zookeeper:transwarp-5.2"
+
+	tests := []struct {
+		metaRoleConfigValue *release.MetaRoleConfigValue
+		metaRoleConfig      *release.MetaRoleConfig
+		baseConfig          *release.BaseConfig
+		result              *release.MetaRoleConfigValue
+		err                 error
+	}{
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Name:             "replicas",
+				Variable:         "replicas",
+				DefaultValue:     3,
+				ValueDescription: "副本个数",
+				ValueType:        "number",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Replicas: &testReplicas,
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable:         "replicas",
+				DefaultValue:     3,
+				ValueDescription: "副本个数",
+				ValueType:        "number",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Replicas: &testReplicas,
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable:         "notExisted",
+				DefaultValue:     3,
+				ValueDescription: "副本个数",
+				ValueType:        "number",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Name:             "useHostNetwork",
+				Variable:         "use_host_network",
+				DefaultValue:     true,
+				ValueType:        "bool",
+				ValueDescription: "是否使用主机网络",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					UseHostNetwork: &testUseHostNetwork,
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable:         "use_host_network",
+				DefaultValue:     true,
+				ValueType:        "bool",
+				ValueDescription: "是否使用主机网络",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					UseHostNetwork: &testUseHostNetwork,
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Name:             "priority",
+				Variable:         "priority",
+				DefaultValue:     int64(10),
+				ValueType:        "number",
+				ValueDescription: "优先级",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Priority: &testPriority,
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable:         "priority",
+				DefaultValue:     int64(10),
+				ValueType:        "number",
+				ValueDescription: "优先级",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Priority: &testPriority,
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Name:     "envList",
+				Variable: "env_list",
+				DefaultValue: []release.MetaEnv{
+					{
+						Name:  "test",
+						Value: "test",
+					},
+				},
+				ValueType:        "list",
+				ValueDescription: "env list",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Env: []release.MetaEnv{
+						{
+							Name:  "test",
+							Value: "test",
+						},
+					},
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable: "env_list",
+				DefaultValue: []release.MetaEnv{
+					{
+						Name:  "test",
+						Value: "test",
+					},
+				},
+				ValueType:        "list",
+				ValueDescription: "env list",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Env: []release.MetaEnv{
+						{
+							Name:  "test",
+							Value: "test",
+						},
+					},
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Name:     "envMap",
+				Variable: "env_map",
+				DefaultValue: map[string]string{
+					"test": "test",
+				},
+				ValueType:        "map",
+				ValueDescription: "env map",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					EnvMap: map[string]string{
+						"test": "test",
+					},
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable: "env_map",
+				DefaultValue: map[string]string{
+					"test": "test",
+				},
+				ValueType:        "map",
+				ValueDescription: "env map",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					EnvMap: map[string]string{
+						"test": "test",
+					},
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Name:             "image",
+				Variable:         "image",
+				DefaultValue:     "zookeeper:transwarp-5.2",
+				ValueType:        "string",
+				ValueDescription: "镜像",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Image: &testImage,
+				},
+			},
+		},
+		{
+			metaRoleConfigValue: &release.MetaRoleConfigValue{},
+			metaRoleConfig: &release.MetaRoleConfig{
+				RoleBaseConfig: &release.MetaRoleBaseConfig{
+					Replicas: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "replicas",
+								Description: "副本个数",
+								Type:        "number",
+							},
+						},
+					},
+					EnvMap: &release.MetaEnvMapConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_map",
+							Description: "env map",
+							Type:        "map",
+						},
+					},
+					UseHostNetwork: &release.MetaBoolConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "use_host_network",
+							Description: "是否使用主机网络",
+							Type:        "bool",
+						},
+					},
+					Priority: &release.MetaIntConfig{
+						IntConfig: release.IntConfig{
+							MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+								Variable:    "priority",
+								Description: "优先级",
+								Type:        "number",
+							},
+						},
+					},
+					Env: &release.MetaEnvConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "env_list",
+							Description: "env list",
+							Type:        "list",
+						},
+					},
+					Image: &release.MetaStringConfig{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "image",
+							Description: "镜像",
+							Type:        "string",
+						},
+					},
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable:         "image",
+				DefaultValue:     "zookeeper:transwarp-5.2",
+				ValueType:        "string",
+				ValueDescription: "镜像",
+			},
+			result: &release.MetaRoleConfigValue{
+				RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+					Image: &testImage,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		err := fillMetaRoleBaseConfigValue(test.metaRoleConfigValue, test.metaRoleConfig, test.baseConfig)
+		assert.IsType(t, test.err, err)
+		assert.Equal(t, test.result, test.metaRoleConfigValue)
+	}
+}
 
 func Test_convertMetainfoToPrettyParams(t *testing.T) {
 	tests := []struct {
@@ -408,18 +1575,18 @@ func Test_convertMetaResourceConfigToResourceConfig(t *testing.T) {
 				},
 			},
 			resourceConfig: &release.ResourceConfig{
-				CpuRequest: 0.1,
-				CpuLimit: 0.2,
-				GpuRequest: 1,
-				GpuLimit: 2,
+				CpuRequest:    0.1,
+				CpuLimit:      0.2,
+				GpuRequest:    1,
+				GpuLimit:      2,
 				MemoryRequest: 1024,
-				MemoryLimit: 2048,
+				MemoryLimit:   2048,
 				ResourceStorageList: []release.ResourceStorageConfig{
 					{
-						Name: "data",
-						Size: "30Gi",
+						Name:         "data",
+						Size:         "30Gi",
 						DiskReplicas: 3,
-						AccessModes: []string{"readwrite"},
+						AccessModes:  []string{"readwrite"},
 						StorageClass: "silver",
 					},
 				},

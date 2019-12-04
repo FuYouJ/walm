@@ -163,23 +163,36 @@ func (helmImpl *Helm) loadChart(chartFiles []*common.BufferedFile, releaseReques
 	return
 }
 
+// 优先级
+// 1. metaInfoParams
+// 2. prettyParams converted to metaInfoParams
+// 3. prettyParams
 func processAdvancedParams(chartInfo *release.ChartDetailInfo, releaseRequest *release.ReleaseRequestV2) error {
-	if chartInfo.WalmVersion == common.WalmVersionV2 {
-		// support meta pretty parameters
-		if releaseRequest.MetaInfoParams != nil {
-			metaInfoConfigs, err := releaseRequest.MetaInfoParams.BuildConfigValues(chartInfo.MetaInfo)
+	if releaseRequest.MetaInfoParams != nil {
+		return processMetaInfoParams(chartInfo.MetaInfo, releaseRequest.MetaInfoParams, releaseRequest.ConfigValues)
+	} else if releaseRequest.ReleasePrettyParams != nil {
+		if chartInfo.MetaInfo != nil {
+			metaInfoParams, err := convertPrettyParamsToMetainfoParams(chartInfo.MetaInfo, releaseRequest.ReleasePrettyParams)
 			if err != nil {
-				klog.Errorf("failed to get meta info parameters : %s", err.Error())
+				klog.Errorf("failed to convert pretty params to meta info params")
 				return err
 			}
-			util.MergeValues(releaseRequest.ConfigValues, metaInfoConfigs, false)
-		}
-	} else if chartInfo.WalmVersion == common.WalmVersionV1 {
-		// compatible for v1 pretty params
-		if releaseRequest.ReleasePrettyParams != nil {
+			return processMetaInfoParams(chartInfo.MetaInfo, metaInfoParams, releaseRequest.ConfigValues)
+		} else {
 			processPrettyParams(&releaseRequest.ReleaseRequest)
 		}
 	}
+	return nil
+}
+
+func processMetaInfoParams(metaInfo *release.ChartMetaInfo, metaInfoParams *release.MetaInfoParams, configValues map[string]interface{}) error {
+	klog.Info("processing meta info params")
+	metaInfoConfigs, err := metaInfoParams.BuildConfigValues(metaInfo)
+	if err != nil {
+		klog.Errorf("failed to get meta info parameters : %s", err.Error())
+		return err
+	}
+	util.MergeValues(configValues, metaInfoConfigs, false)
 	return nil
 }
 
