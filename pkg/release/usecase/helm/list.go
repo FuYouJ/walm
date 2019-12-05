@@ -151,6 +151,7 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 		}
 
 		releaseV2.MetaInfoValues = releaseCache.MetaInfoValues
+		releaseV2.PrettyParams = releaseCache.PrettyParams
 		releaseV2.Plugins, releaseV2.Paused, err = walmHelm.BuildReleasePluginsByConfigValues(releaseV2.ComputedValues)
 	} else if releaseV2.ReleaseWarmVersion == common.WalmVersionV1 {
 		releaseV2.DependenciesConfigValues = map[string]interface{}{}
