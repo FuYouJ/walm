@@ -162,7 +162,7 @@ func getCommonConfig(metaCommonConfigs []*release.MetaCommonConfig, baseConfig *
 					return commonConfig
 				}
 			} else if baseConfig.Variable != "" {
-				if baseConfig.Variable == baseConfig.Variable {
+				if baseConfig.Variable == commonConfig.Variable {
 					return commonConfig
 				}
 			}
