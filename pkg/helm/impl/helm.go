@@ -606,7 +606,7 @@ func (helmImpl *Helm) convertHelmRelease(helmRelease *helmRelease.Release) (rele
 		return nil, err
 	}
 
-	releaseCache.MetaInfoValues, _ = buildMetaInfoValues(helmRelease.Chart, releaseCache.ComputedValues)
+	releaseCache.MetaInfoValues, releaseCache.PrettyParams, _ = buildMetaInfoValues(helmRelease.Chart, releaseCache.ComputedValues)
 	releaseCache.ReleaseResourceMetas, err = helmImpl.getReleaseResourceMetas(helmRelease)
 	if err != nil {
 		return nil, err
@@ -635,20 +635,21 @@ func (helmImpl *Helm) getReleaseResourceMetas(helmRelease *helmRelease.Release) 
 	return
 }
 
-func buildMetaInfoValues(chart *chart.Chart, computedValues map[string]interface{}) (*release.MetaInfoParams, error) {
+func buildMetaInfoValues(chart *chart.Chart, computedValues map[string]interface{}) (*release.MetaInfoParams, *release.PrettyChartParams, error) {
 	chartMetaInfo, err := getChartMetaInfo(chart)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if chartMetaInfo != nil {
 		metaInfoParams, err := chartMetaInfo.BuildMetaInfoParams(computedValues)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return metaInfoParams, nil
+		prettyParams := convertMetaInfoParamsToPrettyParams(chartMetaInfo, metaInfoParams)
+		return metaInfoParams, prettyParams, nil
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (helmImpl *Helm) getGetAction(namespace string) (*action.Get, error) {

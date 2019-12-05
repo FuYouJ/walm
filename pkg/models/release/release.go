@@ -37,6 +37,7 @@ type ReleaseCache struct {
 	MetaInfoValues       *MetaInfoParams        `json:"metaInfoValues" description:"meta info values"`
 	Manifest             string                 `json:"manifest" description:"meta info values"`
 	HelmVersion          string                 `json:"helmVersion" description:"helm version"`
+	PrettyParams         *PrettyChartParams     `json:"releasePrettyParams" description:"pretty chart params"`
 }
 
 type ReleaseResourceMeta struct {
@@ -91,6 +92,7 @@ type ReleaseInfoV2 struct {
 	IsomateConfig            *k8s.IsomateConfig     `json:"isomateConfig" description:"isomate config"`
 	ChartWalmVersion         common.WalmVersion     `json:"chartWalmVersion" description:"chart walm version: v1, v2"`
 	MsgCode                  ReleaseMsgCode         `json:"msgCode" description:"release msg code"`
+	PrettyParams             *PrettyChartParams     `json:"releasePrettyParams" description:"pretty chart params"`
 }
 
 func (releaseInfo *ReleaseInfoV2) BuildReleaseRequestV2() *ReleaseRequestV2 {

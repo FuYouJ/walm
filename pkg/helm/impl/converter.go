@@ -135,7 +135,7 @@ func convertPrettyParamsToMetainfoParams(metainfo *release.ChartMetaInfo, pretty
 	return metaInfoParams, nil
 }
 
-func convertMetaCommonConfigValue(commonConfigs []*release.MetaCommonConfig, baseConfig *release.BaseConfig ) (*release.MetaCommonConfigValue, error){
+func convertMetaCommonConfigValue(commonConfigs []*release.MetaCommonConfig, baseConfig *release.BaseConfig) (*release.MetaCommonConfigValue, error) {
 	commonConfig := getCommonConfig(commonConfigs, baseConfig)
 	rawJsonStr := []byte{}
 	var err error
@@ -147,17 +147,17 @@ func convertMetaCommonConfigValue(commonConfigs []*release.MetaCommonConfig, bas
 		}
 	}
 
-	return  &release.MetaCommonConfigValue{
-		Name: commonConfig.Name,
-		Type: commonConfig.Type,
+	return &release.MetaCommonConfigValue{
+		Name:  commonConfig.Name,
+		Type:  commonConfig.Type,
 		Value: string(rawJsonStr),
 	}, nil
 }
 
 func getCommonConfig(metaCommonConfigs []*release.MetaCommonConfig, baseConfig *release.BaseConfig) *release.MetaCommonConfig {
 	for _, commonConfig := range metaCommonConfigs {
-		if commonConfig != nil{
-			if 	baseConfig.Name != "" {
+		if commonConfig != nil {
+			if baseConfig.Name != "" {
 				if baseConfig.Name == commonConfig.Name {
 					return commonConfig
 				}
@@ -236,7 +236,7 @@ func convertResourceStorageConfigValue(resourceStorageConfig release.ResourceSto
 		Value: &release.MetaResourceStorage{
 			ResourceStorage: release.ResourceStorage{
 				DiskReplicas: resourceStorageConfig.DiskReplicas,
-				AccessModes: resourceStorageConfig.AccessModes,
+				AccessModes:  resourceStorageConfig.AccessModes,
 				StorageClass: resourceStorageConfig.StorageClass,
 			},
 			Size: utils.ParseK8sResourceStorage(resourceStorageConfig.Size),
@@ -554,4 +554,140 @@ func convertChartParamToBaseConfig(config *release.MetaCommonConfig) (baseConfig
 		configType = config.VariableType
 	}
 	return
+}
+
+func convertMetaInfoParamsToPrettyParams(metaInfo *release.ChartMetaInfo, metaInfoParams *release.MetaInfoParams) *release.PrettyChartParams {
+	if metaInfo == nil || metaInfoParams == nil {
+		return nil
+	}
+
+	prettyParams := &release.PrettyChartParams{}
+
+	for _, metaRoleConfigValue := range metaInfoParams.Roles {
+		if metaRoleConfigValue != nil {
+			metaRoleConfig := getMetaRoleConfig(metaInfo, metaRoleConfigValue.Name)
+			roleConfig := computeRoleConfig(metaRoleConfig, metaRoleConfigValue)
+			prettyParams.CommonConfig.Roles = append(prettyParams.CommonConfig.Roles, roleConfig)
+		}
+	}
+
+	for _, metaCommonConfigValue := range metaInfoParams.Params {
+		if metaCommonConfigValue != nil {
+			metaCommonConfig := getCommonConfigByName(metaInfo.ChartParams, metaCommonConfigValue.Name)
+			if metaCommonConfig != nil {
+				config := &release.BaseConfig{
+					Name:             metaCommonConfig.Name,
+					Variable:         metaCommonConfig.Variable,
+					ValueType:        metaCommonConfig.Type,
+					ValueDescription: metaCommonConfig.Description,
+				}
+				if metaCommonConfigValue.Value != "" {
+					config.DefaultValue = gjson.Parse(metaCommonConfigValue.Value).Value()
+				}
+				switch metaCommonConfig.VariableType {
+				case release.AdvanceConfig:
+					prettyParams.AdvanceConfig = append(prettyParams.AdvanceConfig, config)
+				case release.TranswarpBundleConfig:
+					prettyParams.TranswarpBaseConfig = append(prettyParams.TranswarpBaseConfig, config)
+				default:
+					prettyParams.AdvanceConfig = append(prettyParams.AdvanceConfig, config)
+				}
+			}
+		}
+	}
+	return prettyParams
+}
+func getCommonConfigByName(metaCommonConfigs []*release.MetaCommonConfig, name string) *release.MetaCommonConfig {
+	for _, conf := range metaCommonConfigs {
+		if conf != nil && conf.Name == name {
+			return conf
+		}
+	}
+	return nil
+}
+
+func computeRoleConfig(metaRoleConfig *release.MetaRoleConfig, metaRoleConfigValue *release.MetaRoleConfigValue) (roleConfig *release.RoleConfig) {
+	if metaRoleConfig != nil {
+		roleConfig = &release.RoleConfig{
+			Name:        metaRoleConfig.Name,
+			Description: metaRoleConfig.Description,
+		}
+		if metaRoleConfigValue.RoleBaseConfigValue != nil {
+			if metaRoleConfigValue.RoleBaseConfigValue.Replicas != nil && metaRoleConfig.RoleBaseConfig.Replicas != nil {
+				roleConfig.RoleBaseConfig = append(roleConfig.RoleBaseConfig, newBaseConfig(metaRoleBaseConfigReplicasName,
+					metaRoleConfig.RoleBaseConfig.Replicas.MetaInfoCommonConfig,
+					*metaRoleConfigValue.RoleBaseConfigValue.Replicas))
+			}
+			if metaRoleConfigValue.RoleBaseConfigValue.UseHostNetwork != nil && metaRoleConfig.RoleBaseConfig.UseHostNetwork != nil {
+				roleConfig.RoleBaseConfig = append(roleConfig.RoleBaseConfig, newBaseConfig(metaRoleBaseConfigUseHostNetworkName,
+					metaRoleConfig.RoleBaseConfig.UseHostNetwork.MetaInfoCommonConfig,
+					*metaRoleConfigValue.RoleBaseConfigValue.UseHostNetwork))
+			}
+			if metaRoleConfigValue.RoleBaseConfigValue.Priority != nil && metaRoleConfig.RoleBaseConfig.Priority != nil {
+				roleConfig.RoleBaseConfig = append(roleConfig.RoleBaseConfig, newBaseConfig(metaRoleBaseConfigPriorityName,
+					metaRoleConfig.RoleBaseConfig.Priority.MetaInfoCommonConfig,
+					*metaRoleConfigValue.RoleBaseConfigValue.Priority))
+			}
+			if metaRoleConfigValue.RoleBaseConfigValue.Env != nil && metaRoleConfig.RoleBaseConfig.Env != nil {
+				roleConfig.RoleBaseConfig = append(roleConfig.RoleBaseConfig, newBaseConfig(metaRoleBaseConfigEnvName,
+					metaRoleConfig.RoleBaseConfig.Env.MetaInfoCommonConfig,
+					metaRoleConfigValue.RoleBaseConfigValue.Env))
+			}
+			if metaRoleConfigValue.RoleBaseConfigValue.EnvMap != nil && metaRoleConfig.RoleBaseConfig.EnvMap != nil {
+				roleConfig.RoleBaseConfig = append(roleConfig.RoleBaseConfig, newBaseConfig(metaRoleBaseConfigEnvMapName,
+					metaRoleConfig.RoleBaseConfig.EnvMap.MetaInfoCommonConfig,
+					metaRoleConfigValue.RoleBaseConfigValue.EnvMap))
+			}
+			if metaRoleConfigValue.RoleBaseConfigValue.Image != nil && metaRoleConfig.RoleBaseConfig.Image != nil {
+				roleConfig.RoleBaseConfig = append(roleConfig.RoleBaseConfig, newBaseConfig(metaRoleBaseConfigImageName,
+					metaRoleConfig.RoleBaseConfig.Image.MetaInfoCommonConfig,
+					*metaRoleConfigValue.RoleBaseConfigValue.Image))
+			}
+		}
+		if metaRoleConfigValue.RoleResourceConfigValue != nil {
+			roleConfig.RoleResourceConfig = &release.ResourceConfig{}
+			if metaRoleConfigValue.RoleResourceConfigValue.RequestsMemory != nil {
+				roleConfig.RoleResourceConfig.MemoryRequest = float64(*metaRoleConfigValue.RoleResourceConfigValue.RequestsMemory)
+			}
+			if metaRoleConfigValue.RoleResourceConfigValue.LimitsMemory != nil {
+				roleConfig.RoleResourceConfig.MemoryLimit = float64(*metaRoleConfigValue.RoleResourceConfigValue.LimitsMemory)
+			}
+			if metaRoleConfigValue.RoleResourceConfigValue.RequestsGpu != nil {
+				roleConfig.RoleResourceConfig.GpuRequest = int(*metaRoleConfigValue.RoleResourceConfigValue.RequestsGpu)
+			}
+			if metaRoleConfigValue.RoleResourceConfigValue.LimitsGpu != nil {
+				roleConfig.RoleResourceConfig.GpuLimit = int(*metaRoleConfigValue.RoleResourceConfigValue.LimitsGpu)
+			}
+			if metaRoleConfigValue.RoleResourceConfigValue.RequestsCpu != nil {
+				roleConfig.RoleResourceConfig.CpuRequest = float64(*metaRoleConfigValue.RoleResourceConfigValue.RequestsCpu)
+			}
+			if metaRoleConfigValue.RoleResourceConfigValue.LimitsCpu != nil {
+				roleConfig.RoleResourceConfig.CpuLimit = float64(*metaRoleConfigValue.RoleResourceConfigValue.LimitsCpu)
+			}
+			for _, metaResourceConfigValue := range metaRoleConfigValue.RoleResourceConfigValue.StorageResources {
+				if metaResourceConfigValue != nil && metaResourceConfigValue.Value != nil {
+					resourceStorageConfig := release.ResourceStorageConfig{
+						Name:         metaResourceConfigValue.Name,
+						Size:         release.ConvertResourceBinaryIntByUnit(&metaResourceConfigValue.Value.Size, utils.K8sResourceStorageUnit),
+						StorageClass: metaResourceConfigValue.Value.StorageClass,
+						AccessModes:  metaResourceConfigValue.Value.AccessModes,
+						DiskReplicas: metaResourceConfigValue.Value.DiskReplicas,
+					}
+					roleConfig.RoleResourceConfig.ResourceStorageList =
+						append(roleConfig.RoleResourceConfig.ResourceStorageList, resourceStorageConfig)
+				}
+			}
+		}
+	}
+	return
+}
+
+func newBaseConfig(name string, metaInfoCommonConfig release.MetaInfoCommonConfig, value interface{}) *release.BaseConfig {
+	return &release.BaseConfig{
+		Name:             name,
+		Variable:         metaInfoCommonConfig.Variable,
+		ValueType:        metaInfoCommonConfig.Type,
+		ValueDescription: metaInfoCommonConfig.Description,
+		DefaultValue:     value,
+	}
 }

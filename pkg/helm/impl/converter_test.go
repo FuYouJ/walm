@@ -1599,3 +1599,258 @@ func Test_convertMetaResourceConfigToResourceConfig(t *testing.T) {
 		assert.Equal(t, test.resourceConfig, resourceConfig)
 	}
 }
+
+func Test_convertMetaInfoParamsToPrettyParams(t *testing.T) {
+	testReplicas := int64(1)
+	testUseHostNetwork := true
+	testPriority := int64(10)
+	testImage := "zookeeper:transwarp-5.2"
+
+	testLimitsGpu := float64(2)
+	testRequestsGpu := float64(1)
+	testLimitsCpu := float64(0.2)
+	testRequestsCpu := float64(0.1)
+	testLimitsMemory := int64(2048)
+	testRequestsMemory := int64(1024)
+
+	tests := []struct {
+		metaInfo       *release.ChartMetaInfo
+		metaInfoParams *release.MetaInfoParams
+		prettyParams   *release.PrettyChartParams
+	}{
+		{
+			metaInfo: &release.ChartMetaInfo{
+				ChartRoles: []*release.MetaRoleConfig{
+					{
+						Name: "zookeeper",
+						RoleBaseConfig: &release.MetaRoleBaseConfig{
+							Replicas: &release.MetaIntConfig{
+								IntConfig: release.IntConfig{
+									MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+										Variable:    "replicas",
+										Description: "副本个数",
+										Type:        "number",
+									},
+								},
+							},
+							UseHostNetwork: &release.MetaBoolConfig{
+								MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+									Variable:    "use_host_network",
+									Description: "是否使用主机网络",
+									Type:        "bool",
+								},
+							},
+							Priority: &release.MetaIntConfig{
+								IntConfig: release.IntConfig{
+									MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+										Variable:    "priority",
+										Description: "优先级",
+										Type:        "number",
+									},
+								},
+							},
+							Env: &release.MetaEnvConfig{
+								MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+									Variable:    "env_list",
+									Description: "env list",
+									Type:        "list",
+								},
+							},
+							EnvMap: &release.MetaEnvMapConfig{
+								MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+									Variable:    "env_map",
+									Description: "env map",
+									Type:        "map",
+								},
+							},
+							Image: &release.MetaStringConfig{
+								MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+									Variable:    "image",
+									Description: "镜像",
+									Type:        "string",
+								},
+							},
+						},
+					},
+				},
+				ChartParams: []*release.MetaCommonConfig{
+					{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "Advance_Config.zoo_cfg",
+							Type:        "kvpair",
+							Description: "zoo cfg",
+						},
+						Name: "zoo.cfg",
+					},
+					{
+						MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+							Variable:    "trun.test",
+							Type:        "string",
+							Description: "test cfg",
+						},
+						Name: "test",
+						VariableType: release.TranswarpBundleConfig,
+					},
+				},
+			},
+			metaInfoParams: &release.MetaInfoParams{
+				Roles: []*release.MetaRoleConfigValue{
+					{
+						Name: "zookeeper",
+						RoleBaseConfigValue: &release.MetaRoleBaseConfigValue{
+							Replicas:       &testReplicas,
+							UseHostNetwork: &testUseHostNetwork,
+							Priority:       &testPriority,
+							Env: []release.MetaEnv{
+								{
+									Name:  "test",
+									Value: "test",
+								},
+							},
+							EnvMap: map[string]string{
+								"test": "test",
+							},
+							Image: &testImage,
+						},
+						RoleResourceConfigValue: &release.MetaResourceConfigValue{
+							LimitsGpu:      &testLimitsGpu,
+							RequestsGpu:    &testRequestsGpu,
+							LimitsCpu:      &testLimitsCpu,
+							RequestsCpu:    &testRequestsCpu,
+							LimitsMemory:   &testLimitsMemory,
+							RequestsMemory: &testRequestsMemory,
+							StorageResources: []*release.MetaResourceStorageConfigValue{
+								{
+									Name: "data",
+									Value: &release.MetaResourceStorage{
+										ResourceStorage: release.ResourceStorage{
+											DiskReplicas: 2,
+											AccessModes: []string{
+												"readwrite",
+											},
+											StorageClass: "silver",
+										},
+										Size: 100,
+									},
+								},
+							},
+						},
+					},
+				},
+				Params: []*release.MetaCommonConfigValue{
+					{
+						Name:  "zoo.cfg",
+						Value: "{\"test\":\"test\"}",
+					},
+					{
+						Name:  "test",
+						Value: "\"test\"",
+					},
+				},
+			},
+			prettyParams: &release.PrettyChartParams{
+				CommonConfig: release.CommonConfig{
+					Roles: []*release.RoleConfig{
+						{
+							Name: "zookeeper",
+							RoleBaseConfig: []*release.BaseConfig{
+								{
+									Name:             "replicas",
+									Variable:         "replicas",
+									DefaultValue:     int64(1),
+									ValueDescription: "副本个数",
+									ValueType:        "number",
+								},
+								{
+									Name:             "useHostNetwork",
+									Variable:         "use_host_network",
+									DefaultValue:     true,
+									ValueType:        "bool",
+									ValueDescription: "是否使用主机网络",
+								},
+								{
+									Name:             "priority",
+									Variable:         "priority",
+									DefaultValue:     int64(10),
+									ValueType:        "number",
+									ValueDescription: "优先级",
+								},
+								{
+									Name:     "envList",
+									Variable: "env_list",
+									DefaultValue: []release.MetaEnv{
+										{
+											Name:  "test",
+											Value: "test",
+										},
+									},
+									ValueType:        "list",
+									ValueDescription: "env list",
+								},
+								{
+									Name:     "envMap",
+									Variable: "env_map",
+									DefaultValue: map[string]string{
+										"test": "test",
+									},
+									ValueType:        "map",
+									ValueDescription: "env map",
+								},
+								{
+									Name:             "image",
+									Variable:         "image",
+									DefaultValue:     "zookeeper:transwarp-5.2",
+									ValueType:        "string",
+									ValueDescription: "镜像",
+								},
+							},
+							RoleResourceConfig: &release.ResourceConfig{
+								GpuLimit:      2,
+								GpuRequest:    1,
+								CpuLimit:      0.2,
+								CpuRequest:    0.1,
+								MemoryLimit:   2048,
+								MemoryRequest: 1024,
+								ResourceStorageList: []release.ResourceStorageConfig{
+									{
+										Name:         "data",
+										StorageClass: "silver",
+										Size:         "100Gi",
+										AccessModes: []string{
+											"readwrite",
+										},
+										DiskReplicas: 2,
+									},
+								},
+							},
+						},
+					},
+				},
+				AdvanceConfig: []*release.BaseConfig{
+					{
+						Name:             "zoo.cfg",
+						Variable:         "Advance_Config.zoo_cfg",
+						ValueDescription: "zoo cfg",
+						ValueType:        "kvpair",
+						DefaultValue:     map[string]interface{}{"test": "test"},
+					},
+				},
+				TranswarpBaseConfig: []*release.BaseConfig{
+					{
+						Name:             "test",
+						Variable:         "trun.test",
+						ValueDescription: "test cfg",
+						ValueType:        "string",
+						DefaultValue:     "test",
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		prettyParams := convertMetaInfoParamsToPrettyParams(test.metaInfo, test.metaInfoParams)
+		assert.Equal(t, test.prettyParams, prettyParams)
+	}
+
+}
