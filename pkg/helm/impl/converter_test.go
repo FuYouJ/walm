@@ -157,6 +157,21 @@ func Test_getCommonConfig(t *testing.T) {
 			},
 			commonConfig: nil,
 		},
+		{
+			metaCommonConfigs: []*release.MetaCommonConfig{
+				{
+					MetaInfoCommonConfig: release.MetaInfoCommonConfig{
+						Type:     "kvpair",
+						Variable: "Advance_Config.zoo_cfg",
+					},
+					Name: "zoo.cfg",
+				},
+			},
+			baseConfig: &release.BaseConfig{
+				Variable: "notExisted",
+			},
+			commonConfig: nil,
+		},
 	}
 
 	for _, test := range tests {
