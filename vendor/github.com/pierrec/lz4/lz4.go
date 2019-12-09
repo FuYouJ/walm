@@ -12,6 +12,8 @@ package lz4
 
 import "math/bits"
 
+import "sync"
+
 const (
 	// Extension is the LZ4 frame file name extension
 	Extension = ".lz4"
@@ -47,6 +49,38 @@ const (
 	blockSize4M
 )
 
+var (
+	// Keep a pool of buffers for each valid block sizes.
+	bsMapValue = [...]*sync.Pool{
+		newBufferPool(2 * blockSize64K),
+		newBufferPool(2 * blockSize256K),
+		newBufferPool(2 * blockSize1M),
+		newBufferPool(2 * blockSize4M),
+	}
+)
+
+// newBufferPool returns a pool for buffers of the given size.
+func newBufferPool(size int) *sync.Pool {
+	return &sync.Pool{
+		New: func() interface{} {
+			return make([]byte, size)
+		},
+	}
+}
+
+// getBuffer returns a buffer to its pool.
+func getBuffer(size int) []byte {
+	idx := blockSizeValueToIndex(size) - 4
+	return bsMapValue[idx].Get().([]byte)
+}
+
+// putBuffer returns a buffer to its pool.
+func putBuffer(size int, buf []byte) {
+	if cap(buf) > 0 {
+		idx := blockSizeValueToIndex(size) - 4
+		bsMapValue[idx].Put(buf[:cap(buf)])
+	}
+}
 func blockSizeIndexToValue(i byte) int {
 	return 1 << (16 + 2*uint(i))
 }
@@ -72,4 +106,8 @@ type Header struct {
 	Size             uint64 // Frame total size. It is _not_ computed by the Writer.
 	CompressionLevel int    // Compression level (higher is better, use 0 for fastest compression).
 	done             bool   // Header processed flag (Read or Write and checked).
+}
+
+func (h *Header) Reset() {
+	h.done = false
 }

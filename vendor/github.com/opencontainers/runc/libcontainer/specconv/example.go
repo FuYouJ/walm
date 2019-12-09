@@ -110,10 +110,7 @@ func Example() *specs.Spec {
 		},
 		Linux: &specs.Linux{
 			MaskedPaths: []string{
-				"/proc/acpi",
-				"/proc/asound",
 				"/proc/kcore",
-				"/proc/keys",
 				"/proc/latency_stats",
 				"/proc/timer_list",
 				"/proc/timer_stats",
@@ -122,6 +119,7 @@ func Example() *specs.Spec {
 				"/proc/scsi",
 			},
 			ReadonlyPaths: []string{
+				"/proc/asound",
 				"/proc/bus",
 				"/proc/fs",
 				"/proc/irq",
@@ -158,7 +156,7 @@ func Example() *specs.Spec {
 }
 
 // ToRootless converts the given spec file into one that should work with
-// rootless containers (euid != 0), by removing incompatible options and adding others that
+// rootless containers, by removing incompatible options and adding others that
 // are needed.
 func ToRootless(spec *specs.Spec) {
 	var namespaces []specs.LinuxNamespace
