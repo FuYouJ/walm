@@ -1,10 +1,6 @@
-FROM golang:1.12-stretch
+FROM golang:1.10-stretch
 
-RUN dpkg --add-architecture armel \
-    && dpkg --add-architecture armhf \
-    && dpkg --add-architecture arm64 \
-    && dpkg --add-architecture ppc64el \
-    && apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     sudo \
@@ -25,8 +21,6 @@ RUN dpkg --add-architecture armel \
     python-minimal \
     uidmap \
     kmod \
-    crossbuild-essential-armel crossbuild-essential-armhf crossbuild-essential-arm64 crossbuild-essential-ppc64el \
-    libseccomp-dev:armel libseccomp-dev:armhf libseccomp-dev:arm64 libseccomp-dev:ppc64el \
     --no-install-recommends \
     && apt-get clean
 
@@ -45,7 +39,7 @@ RUN cd /tmp \
     && rm -rf /tmp/bats
 
 # install criu
-ENV CRIU_VERSION v3.12
+ENV CRIU_VERSION v3.7
 RUN mkdir -p /usr/src/criu \
     && curl -sSL https://github.com/checkpoint-restore/criu/archive/${CRIU_VERSION}.tar.gz | tar -v -C /usr/src/criu/ -xz --strip-components=1 \
     && cd /usr/src/criu \

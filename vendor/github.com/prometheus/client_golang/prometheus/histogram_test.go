@@ -17,7 +17,6 @@ import (
 	"math"
 	"math/rand"
 	"reflect"
-	"runtime"
 	"sort"
 	"sync"
 	"testing"
@@ -120,28 +119,6 @@ func BenchmarkHistogramWrite8(b *testing.B) {
 	benchmarkHistogramWrite(8, b)
 }
 
-func TestHistogramNonMonotonicBuckets(t *testing.T) {
-	testCases := map[string][]float64{
-		"not strictly monotonic":  {1, 2, 2, 3},
-		"not monotonic at all":    {1, 2, 4, 3, 5},
-		"have +Inf in the middle": {1, 2, math.Inf(+1), 3},
-	}
-	for name, buckets := range testCases {
-		func() {
-			defer func() {
-				if r := recover(); r == nil {
-					t.Errorf("Buckets %v are %s but NewHistogram did not panic.", buckets, name)
-				}
-			}()
-			_ = NewHistogram(HistogramOpts{
-				Name:    "test_histogram",
-				Help:    "helpless",
-				Buckets: buckets,
-			})
-		}()
-	}
-}
-
 // Intentionally adding +Inf here to test if that case is handled correctly.
 // Also, getCumulativeCounts depends on it.
 var testBuckets = []float64{-2, -1, -0.5, 0, 0.5, 1, 2, math.Inf(+1)}
@@ -231,6 +208,13 @@ func TestHistogramVecConcurrency(t *testing.T) {
 
 	rand.Seed(42)
 
+	objectives := make([]float64, 0, len(DefObjectives))
+	for qu := range DefObjectives {
+
+		objectives = append(objectives, qu)
+	}
+	sort.Float64s(objectives)
+
 	it := func(n uint32) bool {
 		mutations := int(n%1e4 + 1e4)
 		concLevel := int(n%7 + 1)
@@ -280,7 +264,7 @@ func TestHistogramVecConcurrency(t *testing.T) {
 		for i := 0; i < vecLength; i++ {
 			m := &dto.Metric{}
 			s := his.WithLabelValues(string('A' + i))
-			s.(Histogram).Write(m)
+			s.Write(m)
 
 			if got, want := len(m.Histogram.Bucket), len(testBuckets)-1; got != want {
 				t.Errorf("got %d buckets in protobuf, want %d", got, want)
@@ -337,50 +321,6 @@ func TestBuckets(t *testing.T) {
 	got = ExponentialBuckets(100, 1.2, 3)
 	want = []float64{100, 120, 144}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("exponential buckets: got %v, want %v", got, want)
-	}
-}
-
-func TestHistogramAtomicObserve(t *testing.T) {
-	var (
-		quit = make(chan struct{})
-		his  = NewHistogram(HistogramOpts{
-			Buckets: []float64{0.5, 10, 20},
-		})
-	)
-
-	defer func() { close(quit) }()
-
-	observe := func() {
-		for {
-			select {
-			case <-quit:
-				return
-			default:
-				his.Observe(1)
-			}
-		}
-	}
-
-	go observe()
-	go observe()
-	go observe()
-
-	for i := 0; i < 100; i++ {
-		m := &dto.Metric{}
-		if err := his.Write(m); err != nil {
-			t.Fatal("unexpected error writing histogram:", err)
-		}
-		h := m.GetHistogram()
-		if h.GetSampleCount() != uint64(h.GetSampleSum()) ||
-			h.GetSampleCount() != h.GetBucket()[1].GetCumulativeCount() ||
-			h.GetSampleCount() != h.GetBucket()[2].GetCumulativeCount() {
-			t.Fatalf(
-				"inconsistent counts in histogram: count=%d sum=%f buckets=[%d, %d]",
-				h.GetSampleCount(), h.GetSampleSum(),
-				h.GetBucket()[1].GetCumulativeCount(), h.GetBucket()[2].GetCumulativeCount(),
-			)
-		}
-		runtime.Gosched()
+		t.Errorf("linear buckets: got %v, want %v", got, want)
 	}
 }
