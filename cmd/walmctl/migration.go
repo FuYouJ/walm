@@ -178,11 +178,6 @@ func envPreCheck(client *walmctlclient.WalmctlClient, k8sClient *kubernetes.Clie
 		klog.Errorf("Failed to get node %s: %s", srcHost, err.Error())
 		return err
 	}
-	if srcNode.Labels != nil {
-		if srcNode.Labels["master"] == "true" {
-			return errors.Errorf("Master node %s must not be migrated.", srcNode.Name)
-		}
-	}
 
 	if destHost != "" {
 		destNode, err := k8sClient.CoreV1().Nodes().Get(destHost, metav1.GetOptions{})
