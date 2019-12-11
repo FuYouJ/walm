@@ -23,14 +23,11 @@ import (
 )
 
 var longMigrateHelp = `
-To ensure migrate node work, you may set $KUBE_CONFIG or --kubeconfig while using migrate cmd.
-Using:
-	"export $KUBE_CONFIG=..." or "walmctl migrate ....  --kubeconfig ..."
-
-migrate pod: kubectl -s x.x.x.x:y migrate pod podname
-migrate node:
-	In cluster: kubectl -s x.x.x.x:y migrate node nodeName
-    Out cluster: --kubeconfig
+To ensure migrate node work, we need set the kubeconfig.
+In Cluster: 
+	We use the env $KUBECONFIG as default kubeconfig, if not work, you may need define yourself.
+Out of Cluster:
+	You must set the --kubeconfig or export ${KUBECONFIG}.
 `
 
 type migrateOptions struct {
@@ -63,7 +60,7 @@ func newMigrationCmd(out io.Writer) *cobra.Command {
 		},
 	}
 	cmd.PersistentFlags().StringVar(&migrate.destNode, "destNode", "", "dest node to migrate")
-	cmd.PersistentFlags().StringVar(&migrate.kubeconfig, "kubeconfig", os.Getenv("KUBE_CONFIG"), "k8s cluster config")
+	cmd.PersistentFlags().StringVar(&migrate.kubeconfig, "kubeconfig", os.Getenv("KUBECONFIG"), "k8s cluster config")
 
 	return cmd
 }

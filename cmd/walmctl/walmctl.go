@@ -51,12 +51,13 @@ func newRootCmd(args []string) *cobra.Command {
 		newGetCmd(out),
 		newListCmd(out),
 		newDeleteCmd(out),
+		newDiffCmd(out),
 		newMigrationCmd(out),
 		newPackageCmd(out),
 		newEditCmd(out),
 		newLintCmd(),
 		newComposeCmd(),
-		NewVersionCmd(),
+		newVersionCmd(),
 	)
 
 	flags.Parse(args)

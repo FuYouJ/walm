@@ -113,9 +113,6 @@ func (uc *updateCmd) run() error {
 		if err != nil {
 			return err
 		}
-		if resp.StatusCode() == 404 {
-			return errors.Errorf("%s %s is not found.\n", uc.sourceType, uc.sourceName)
-		}
 		err = json.Unmarshal(resp.Body(), &releaseInfo)
 		releaseRequest = releaseInfo.BuildReleaseRequestV2()
 		if err != nil {
