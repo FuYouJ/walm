@@ -137,7 +137,7 @@ func (lint *lintOptions) run() error {
 	}
 
 	/* check metainfo valid */
-	configMaps, err := chartMetaInfo.CheckMetainfoValidate(string(valuesByte))
+	configMaps, err := chartMetaInfo.CheckMetainfoValidate()
 	if err != nil {
 		return errors.Errorf("metainfo error: %s", err.Error())
 	}

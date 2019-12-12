@@ -26,7 +26,8 @@ func (chartMetaInfo *ChartMetaInfo) checkDependencies() error {
 	return nil
 }
 
-func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate(valuesStr string) ([]*MetaConfigTestSet, error) {
+func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate() ([]*MetaConfigTestSet, error) {
+
 	var err error
 	// friendlyName
 	if !(len(chartMetaInfo.FriendlyName) > 0) {
@@ -42,241 +43,6 @@ func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate(valuesStr string) ([]*
 				err = errors.Errorf("Name, MinVersion, MaxVersion, [aliasConfigVar,omitempty], dependencyOptional all required in field dependencies")
 				return nil, err
 			}
-		}
-	}
-
-	var configSets []*MetaConfigTestSet
-
-	// roles
-	if len(chartMetaInfo.ChartRoles) > 0 {
-		for index, chartRole := range chartMetaInfo.ChartRoles {
-
-			if chartRole.Name == "" {
-				err = errors.Errorf("name required in field roles[%d]", index)
-				return nil, err
-			}
-
-			if chartRole.Type == "" {
-				err = errors.Errorf("type required in field roles[%d]", index)
-				return nil, err
-			}
-
-			if chartRole.RoleBaseConfig != nil {
-
-				baseConfig := chartRole.RoleBaseConfig
-				if baseConfig.Image != nil {
-					if baseConfig.Image.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].baseConfig.image", index)
-						return nil, err
-					}
-
-					configSet := &MetaConfigTestSet{
-						MapKey:   baseConfig.Image.MapKey,
-						Required: baseConfig.Image.Required,
-						Type:     "string",
-					}
-					configSets = append(configSets, configSet)
-				}
-
-				if baseConfig.Priority != nil {
-					if baseConfig.Priority.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].baseConfig.priority", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   baseConfig.Priority.MapKey,
-						Required: baseConfig.Priority.Required,
-						Type:     "int",
-					}
-					configSets = append(configSets, configSet)
-				}
-
-				if baseConfig.Replicas != nil {
-					if baseConfig.Replicas.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].baseConfig.replicas", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   baseConfig.Replicas.MapKey,
-						Required: baseConfig.Replicas.Required,
-						Type:     "int",
-					}
-					configSets = append(configSets, configSet)
-				}
-
-				if baseConfig.Env != nil {
-					if baseConfig.Env.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].baseConfig.env", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   baseConfig.Env.MapKey,
-						Required: baseConfig.Env.Required,
-						Type:     "env",
-					}
-					configSets = append(configSets, configSet)
-				}
-
-				if baseConfig.UseHostNetwork != nil {
-					if baseConfig.UseHostNetwork.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].baseConfig.useHostNetwork", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   baseConfig.UseHostNetwork.MapKey,
-						Required: baseConfig.UseHostNetwork.Required,
-						Type:     "boolean",
-					}
-					configSets = append(configSets, configSet)
-				}
-
-				if len(baseConfig.Others) > 0 {
-					for otherIndex, otherConfig := range baseConfig.Others {
-						if otherConfig.Name == "" {
-							err = errors.Errorf("name required in field roles[%d].baseConfig.others[%d]", index, otherIndex)
-							return nil, err
-						}
-						if otherConfig.MapKey == "" {
-							err = errors.Errorf("mapKey required in field roles[%d].baseConfig.others[%d]", index, otherIndex)
-							return nil, err
-						}
-						switch otherConfig.Type {
-						case "boolean", "int", "float", "string", "yaml", "json", "kvPair", "text":
-						default:
-							err = errors.Errorf("type <%s> not support in field roles[%d].baseConfig.others[%d]", otherConfig.Type, index, otherIndex)
-							return nil, err
-						}
-
-						configSet := &MetaConfigTestSet{
-							MapKey:   otherConfig.MapKey,
-							Required: otherConfig.Required,
-							Type:     otherConfig.Type,
-						}
-						configSets = append(configSets, configSet)
-					}
-				}
-			}
-			resourceConfig := chartRole.RoleResourceConfig
-			if resourceConfig != nil {
-				if resourceConfig.LimitsCpu != nil {
-					if resourceConfig.LimitsCpu.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].resources.limitsCpu", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   resourceConfig.LimitsCpu.MapKey,
-						Required: resourceConfig.LimitsCpu.Required,
-						Type:     "float",
-					}
-					configSets = append(configSets, configSet)
-				}
-				if resourceConfig.LimitsMemory != nil {
-					if resourceConfig.LimitsMemory.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].resources.LimitsMemory", index)
-						return nil, err
-					}
-
-					configSet := &MetaConfigTestSet{
-						MapKey:   resourceConfig.LimitsMemory.MapKey,
-						Required: resourceConfig.LimitsMemory.Required,
-						Type:     "string",
-					}
-					configSets = append(configSets, configSet)
-				}
-				if resourceConfig.LimitsGpu != nil {
-					if resourceConfig.LimitsGpu.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].resources.LimitsGpu", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   resourceConfig.LimitsGpu.MapKey,
-						Required: resourceConfig.LimitsGpu.Required,
-						Type:     "float",
-					}
-					configSets = append(configSets, configSet)
-				}
-				if resourceConfig.RequestsMemory != nil {
-					if resourceConfig.RequestsMemory.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].resources.RequestsMemory", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   resourceConfig.RequestsMemory.MapKey,
-						Required: resourceConfig.RequestsMemory.Required,
-						Type:     "string",
-					}
-					configSets = append(configSets, configSet)
-				}
-				if resourceConfig.RequestsCpu != nil {
-					if resourceConfig.RequestsCpu.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].resources.RequestsCpu", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   resourceConfig.RequestsCpu.MapKey,
-						Required: resourceConfig.RequestsCpu.Required,
-						Type:     "float",
-					}
-					configSets = append(configSets, configSet)
-				}
-				if resourceConfig.RequestsGpu != nil {
-					if resourceConfig.RequestsGpu.MapKey == "" {
-						err = errors.Errorf("mapKey required in field roles[%d].resources.RequestsGpu", index)
-						return nil, err
-					}
-					configSet := &MetaConfigTestSet{
-						MapKey:   resourceConfig.RequestsGpu.MapKey,
-						Required: resourceConfig.RequestsGpu.Required,
-						Type:     "float",
-					}
-					configSets = append(configSets, configSet)
-				}
-				if len(resourceConfig.StorageResources) > 0 {
-					for storageIndex, storageResource := range resourceConfig.StorageResources {
-						if storageResource.Name == "" {
-							err = errors.Errorf("name required in field roles[%d].resources.storageResources[%d]", index, storageIndex)
-							return nil, err
-						}
-						if storageResource.MapKey == "" {
-							err = errors.Errorf("mapKey required in field roles[%d].resources.storageResources[%d]", index, storageIndex)
-							return nil, err
-						}
-						configSet := &MetaConfigTestSet{
-							MapKey:   storageResource.MapKey,
-							Required: storageResource.Required,
-							Type:     storageResource.Type,
-						}
-						configSets = append(configSets, configSet)
-					}
-				}
-			}
-		}
-	}
-
-	// params
-	params := chartMetaInfo.ChartParams
-	if len(params) > 0 {
-		for paramIndex, param := range params {
-			if param.Name == "" {
-				err = errors.Errorf("name required in field params[%d]", paramIndex)
-				return nil, err
-			}
-			if param.MapKey == "" {
-				err = errors.Errorf("mapKey required in field params[%d]", paramIndex)
-				return nil, err
-			}
-			switch param.Type {
-			case "boolean", "number", "int", "float", "string", "yaml", "json", "kvPair", "text":
-			default:
-				err = errors.Errorf("type <%s> not support in field params[%d]", param.Type, paramIndex)
-				return nil, err
-			}
-			configSet := &MetaConfigTestSet{
-				MapKey:   param.MapKey,
-				Required: param.Required,
-				Type:     param.Type,
-			}
-			configSets = append(configSets, configSet)
 		}
 	}
 
@@ -299,7 +65,244 @@ func (chartMetaInfo *ChartMetaInfo) CheckMetainfoValidate(valuesStr string) ([]*
 			}
 		}
 	}
+
+	// roles & params
+	var configSets []*MetaConfigTestSet
+	configSets, err = checkMetainfoRoles(chartMetaInfo.ChartRoles)
+	if err != nil {
+		return nil, err
+	}
+	anotherConfigSets, err := checkMetainfoParams(chartMetaInfo.ChartParams)
+	if err != nil {
+		return nil, err
+	}
+
+	configSets = append(configSets, anotherConfigSets...)
 	return configSets, err
+}
+
+func checkMetainfoRoles(roleConfigs []*MetaRoleConfig) ([]*MetaConfigTestSet, error) {
+	if len(roleConfigs) == 0 {
+		return nil, nil
+	}
+
+	var configSets []*MetaConfigTestSet
+
+	for index, chartRole := range roleConfigs {
+		if chartRole.Name == "" {
+			return nil, errors.Errorf("name required in field roles[%d]", index)
+		}
+		if chartRole.Type == "" {
+			return nil, errors.Errorf("type required in field roles[%d]", index)
+		}
+		if chartRole.RoleBaseConfig != nil {
+			baseConfig := chartRole.RoleBaseConfig
+			if baseConfig.Image != nil {
+				if baseConfig.Image.MapKey == "" {
+					err := errors.Errorf("mapKey required in field roles[%d].baseConfig.image", index)
+					return nil, err
+				}
+
+				configSet := &MetaConfigTestSet{
+					MapKey:   baseConfig.Image.MapKey,
+					Required: baseConfig.Image.Required,
+					Type:     "string",
+				}
+				configSets = append(configSets, configSet)
+			}
+
+			if baseConfig.Priority != nil {
+				if baseConfig.Priority.MapKey == "" {
+					err := errors.Errorf("mapKey required in field roles[%d].baseConfig.priority", index)
+					return nil, err
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   baseConfig.Priority.MapKey,
+					Required: baseConfig.Priority.Required,
+					Type:     "int",
+				}
+				configSets = append(configSets, configSet)
+			}
+
+			if baseConfig.Replicas != nil {
+				if baseConfig.Replicas.MapKey == "" {
+					err := errors.Errorf("mapKey required in field roles[%d].baseConfig.replicas", index)
+					return nil, err
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   baseConfig.Replicas.MapKey,
+					Required: baseConfig.Replicas.Required,
+					Type:     "int",
+				}
+				configSets = append(configSets, configSet)
+			}
+
+			if baseConfig.Env != nil {
+				if baseConfig.Env.MapKey == "" {
+					err := errors.Errorf("mapKey required in field roles[%d].baseConfig.env", index)
+					return nil, err
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   baseConfig.Env.MapKey,
+					Required: baseConfig.Env.Required,
+					Type:     "env",
+				}
+				configSets = append(configSets, configSet)
+			}
+
+			if baseConfig.UseHostNetwork != nil {
+				if baseConfig.UseHostNetwork.MapKey == "" {
+					err := errors.Errorf("mapKey required in field roles[%d].baseConfig.useHostNetwork", index)
+					return nil, err
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   baseConfig.UseHostNetwork.MapKey,
+					Required: baseConfig.UseHostNetwork.Required,
+					Type:     "boolean",
+				}
+				configSets = append(configSets, configSet)
+			}
+
+			if len(baseConfig.Others) > 0 {
+				for otherIndex, otherConfig := range baseConfig.Others {
+					if otherConfig.Name == "" {
+						err := errors.Errorf("name required in field roles[%d].baseConfig.others[%d]", index, otherIndex)
+						return nil, err
+					}
+					if otherConfig.MapKey == "" {
+						err := errors.Errorf("mapKey required in field roles[%d].baseConfig.others[%d]", index, otherIndex)
+						return nil, err
+					}
+					switch otherConfig.Type {
+					case "boolean", "int", "float", "string", "yaml", "json", "kvPair", "text":
+					default:
+						err := errors.Errorf("type <%s> not support in field roles[%d].baseConfig.others[%d]", otherConfig.Type, index, otherIndex)
+						return nil, err
+					}
+
+					configSet := &MetaConfigTestSet{
+						MapKey:   otherConfig.MapKey,
+						Required: otherConfig.Required,
+						Type:     otherConfig.Type,
+					}
+					configSets = append(configSets, configSet)
+				}
+			}
+		}
+		if chartRole.RoleResourceConfig != nil {
+			resourceConfig := chartRole.RoleResourceConfig
+			if resourceConfig.LimitsCpu != nil {
+				if resourceConfig.LimitsCpu.MapKey == "" {
+					return nil, errors.Errorf("mapKey required in field roles[%d].resources.limitsCpu", index)
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   resourceConfig.LimitsCpu.MapKey,
+					Required: resourceConfig.LimitsCpu.Required,
+					Type:     "float",
+				}
+				configSets = append(configSets, configSet)
+			}
+			if resourceConfig.LimitsMemory != nil {
+				if resourceConfig.LimitsMemory.MapKey == "" {
+					return nil, errors.Errorf("mapKey required in field roles[%d].resources.LimitsMemory", index)
+				}
+
+				configSet := &MetaConfigTestSet{
+					MapKey:   resourceConfig.LimitsMemory.MapKey,
+					Required: resourceConfig.LimitsMemory.Required,
+					Type:     "string",
+				}
+				configSets = append(configSets, configSet)
+			}
+			if resourceConfig.LimitsGpu != nil {
+				if resourceConfig.LimitsGpu.MapKey == "" {
+					return nil, errors.Errorf("mapKey required in field roles[%d].resources.LimitsGpu", index)
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   resourceConfig.LimitsGpu.MapKey,
+					Required: resourceConfig.LimitsGpu.Required,
+					Type:     "float",
+				}
+				configSets = append(configSets, configSet)
+			}
+			if resourceConfig.RequestsMemory != nil {
+				if resourceConfig.RequestsMemory.MapKey == "" {
+					return nil, errors.Errorf("mapKey required in field roles[%d].resources.RequestsMemory", index)
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   resourceConfig.RequestsMemory.MapKey,
+					Required: resourceConfig.RequestsMemory.Required,
+					Type:     "string",
+				}
+				configSets = append(configSets, configSet)
+			}
+			if resourceConfig.RequestsCpu != nil {
+				if resourceConfig.RequestsCpu.MapKey == "" {
+					return nil, errors.Errorf("mapKey required in field roles[%d].resources.RequestsCpu", index)
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   resourceConfig.RequestsCpu.MapKey,
+					Required: resourceConfig.RequestsCpu.Required,
+					Type:     "float",
+				}
+				configSets = append(configSets, configSet)
+			}
+			if resourceConfig.RequestsGpu != nil {
+				if resourceConfig.RequestsGpu.MapKey == "" {
+					return nil, errors.Errorf("mapKey required in field roles[%d].resources.RequestsGpu", index)
+				}
+				configSet := &MetaConfigTestSet{
+					MapKey:   resourceConfig.RequestsGpu.MapKey,
+					Required: resourceConfig.RequestsGpu.Required,
+					Type:     "float",
+				}
+				configSets = append(configSets, configSet)
+			}
+			if len(resourceConfig.StorageResources) > 0 {
+				for storageIndex, storageResource := range resourceConfig.StorageResources {
+					if storageResource.Name == "" {
+						return nil, errors.Errorf("name required in field roles[%d].resources.storageResources[%d]", index, storageIndex)
+					}
+					if storageResource.MapKey == "" {
+						return nil, errors.Errorf("mapKey required in field roles[%d].resources.storageResources[%d]", index, storageIndex)
+					}
+					configSet := &MetaConfigTestSet{
+						MapKey:   storageResource.MapKey,
+						Required: storageResource.Required,
+						Type:     storageResource.Type,
+					}
+					configSets = append(configSets, configSet)
+				}
+			}
+		}
+	}
+	return configSets, nil
+}
+
+func checkMetainfoParams(params []*MetaCommonConfig) ([]*MetaConfigTestSet, error) {
+	var antoherConfigSets []*MetaConfigTestSet
+	if len(params) > 0 {
+		for paramIndex, param := range params {
+			if param.Name == "" {
+				return nil, errors.Errorf("name required in field params[%d]", paramIndex)
+			}
+			if param.MapKey == "" {
+				return nil, errors.Errorf("mapKey required in field params[%d]", paramIndex)
+			}
+			switch param.Type {
+			case "boolean", "number", "int", "float", "string", "yaml", "json", "kvPair", "text":
+			default:
+				return nil, errors.Errorf("type <%s> not support in field params[%d]", param.Type, paramIndex)
+			}
+			configSet := &MetaConfigTestSet{
+				MapKey:   param.MapKey,
+				Required: param.Required,
+				Type:     param.Type,
+			}
+			antoherConfigSets = append(antoherConfigSets, configSet)
+		}
+	}
+	return antoherConfigSets, nil
 }
 
 func (chartMetaInfo *ChartMetaInfo) CheckParamsInValues(valuesStr string, configSets []*MetaConfigTestSet) error {
@@ -365,7 +368,6 @@ func (chartMetaInfo *ChartMetaInfo) CheckParamsInValues(valuesStr string, config
 			}
 		}
 	}
-
 	return nil
 }
 
