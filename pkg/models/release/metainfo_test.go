@@ -140,13 +140,13 @@ func TestChartMetaInfo_CheckMetainfoValidate(t *testing.T) {
 					Required: true,
 				},
 				{
-					MapKey:   "appConfig.zookeeper.priority",
+					MapKey:   "appConfig.zookeeper.replicas",
 					Type:     "int",
 					Required: true,
 				},
 				{
-					MapKey:   "appConfig.zookeeper.replicas",
-					Type:     "int",
+					MapKey:   "appConfig.zookeeper.containers.zookeeper.envMap",
+					Type:     "envMap",
 					Required: true,
 				},
 				{
@@ -155,13 +155,13 @@ func TestChartMetaInfo_CheckMetainfoValidate(t *testing.T) {
 					Required: false,
 				},
 				{
-					MapKey:   "appConfig.zookeeper.containers.zookeeper.resources.cpu_limit",
-					Type:     "float",
-					Required: false,
+					MapKey:   "appConfig.zookeeper.priority",
+					Type:     "int",
+					Required: true,
 				},
 				{
-					MapKey:   "appConfig.zookeeper.containers.zookeeper.resources.memory_limit",
-					Type:     "string",
+					MapKey:   "appConfig.zookeeper.containers.zookeeper.resources.cpu_limit",
+					Type:     "float",
 					Required: false,
 				},
 				{
@@ -170,7 +170,7 @@ func TestChartMetaInfo_CheckMetainfoValidate(t *testing.T) {
 					Required: false,
 				},
 				{
-					MapKey:   "appConfig.zookeeper.containers.zookeeper.resources.memory_request",
+					MapKey:   "appConfig.zookeeper.containers.zookeeper.resources.memory_limit",
 					Type:     "string",
 					Required: false,
 				},
@@ -182,6 +182,11 @@ func TestChartMetaInfo_CheckMetainfoValidate(t *testing.T) {
 				{
 					MapKey:   "appConfig.zookeeper.containers.zookeeper.resources.gpu_request",
 					Type:     "float",
+					Required: false,
+				},
+				{
+					MapKey:   "appConfig.zookeeper.containers.zookeeper.resources.memory_request",
+					Type:     "string",
 					Required: false,
 				},
 				{
@@ -205,9 +210,9 @@ func TestChartMetaInfo_CheckMetainfoValidate(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		cofigMaps, err := test.chartMetaInfo.CheckMetainfoValidate()
+		configMaps, err := test.chartMetaInfo.CheckMetainfoValidate()
 		assert.IsType(t, test.err, err)
-		assert.Equal(t, test.configMaps, cofigMaps)
+		assert.Equal(t, test.configMaps, configMaps)
 	}
 }
 

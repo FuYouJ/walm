@@ -14,15 +14,16 @@ type MetaInfoCommonConfig struct {
 	Variable    string `json:"variable" description:"config variable (for compatible use)"`
 }
 
-func NewMetaInfoCommonConfig(mapKey, desc, configType, variable string, required bool) MetaInfoCommonConfig{
+func NewMetaInfoCommonConfig(mapKey, desc, configType, variable string, required bool) MetaInfoCommonConfig {
 	return MetaInfoCommonConfig{
-		Variable: variable,
+		Variable:    variable,
 		Description: desc,
-		Type: configType,
-		MapKey: mapKey,
-		Required: required,
+		Type:        configType,
+		MapKey:      mapKey,
+		Required:    required,
 	}
 }
+
 type MetaStringConfig struct {
 	MetaInfoCommonConfig
 	DefaultValue string `json:"defaultValue" description:"default value of mapKey"`
@@ -34,6 +35,14 @@ func (config *MetaStringConfig) BuildDefaultValue(jsonStr string) {
 
 func (config *MetaStringConfig) BuildStringConfigValue(jsonStr string) string {
 	return gjson.Get(jsonStr, config.MapKey).String()
+}
+
+func (config *MetaStringConfig) BuildConfigSet() *MetaConfigTestSet {
+	return &MetaConfigTestSet{
+		MapKey:   config.MapKey,
+		Type:     "string",
+		Required: config.Required,
+	}
 }
 
 type IntConfig struct {
@@ -51,6 +60,14 @@ func (config *MetaIntConfig) BuildDefaultValue(jsonStr string) {
 
 func (config *MetaIntConfig) BuildIntConfigValue(jsonStr string) int64 {
 	return gjson.Get(jsonStr, config.MapKey).Int()
+}
+
+func (config *MetaIntConfig) BuildConfigSet() *MetaConfigTestSet {
+	return &MetaConfigTestSet{
+		MapKey:   config.MapKey,
+		Type:     "int",
+		Required: config.Required,
+	}
 }
 
 type MetaEnvConfig struct {
@@ -80,6 +97,14 @@ func (config *MetaEnvConfig) BuildEnvConfigValue(jsonStr string) []MetaEnv {
 	return metaEnv
 }
 
+func (config *MetaEnvConfig) BuildConfigSet() *MetaConfigTestSet {
+	return &MetaConfigTestSet{
+		MapKey:   config.MapKey,
+		Type:     "env",
+		Required: config.Required,
+	}
+}
+
 type MetaEnvMapConfig struct {
 	MetaInfoCommonConfig
 	DefaultValue map[string]string `json:"defaultValue" description:"default value of mapKey"`
@@ -102,6 +127,14 @@ func (config *MetaEnvMapConfig) BuildEnvConfigValue(jsonStr string) map[string]s
 	return res
 }
 
+func (config *MetaEnvMapConfig) BuildConfigSet() *MetaConfigTestSet {
+	return &MetaConfigTestSet{
+		MapKey:   config.MapKey,
+		Type:     "envMap",
+		Required: config.Required,
+	}
+}
+
 type MetaBoolConfig struct {
 	MetaInfoCommonConfig
 	DefaultValue bool `json:"defaultValue" description:"default value of mapKey"`
@@ -113,6 +146,14 @@ func (config *MetaBoolConfig) BuildDefaultValue(jsonStr string) {
 
 func (config *MetaBoolConfig) BuildBoolConfigValue(jsonStr string) bool {
 	return gjson.Get(jsonStr, config.MapKey).Bool()
+}
+
+func (config *MetaBoolConfig) BuildConfigSet() *MetaConfigTestSet {
+	return &MetaConfigTestSet{
+		MapKey:   config.MapKey,
+		Type:     "boolean",
+		Required: config.Required,
+	}
 }
 
 type FloatConfig struct {
