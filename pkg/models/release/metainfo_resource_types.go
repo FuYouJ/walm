@@ -25,6 +25,14 @@ func (config *MetaResourceMemoryConfig) BuildMemoryConfigValue(jsonStr string) i
 	return utils.ParseK8sResourceMemory(strValue)
 }
 
+func (config *MetaResourceMemoryConfig) BuildConfigSet() *MetaConfigTestSet {
+	return &MetaConfigTestSet{
+		MapKey:   config.MapKey,
+		Type:     "string",
+		Required: config.Required,
+	}
+}
+
 func getResourceStr(jsonStr, mapKey string) string {
 	if jsonStr == "" || mapKey == "" {
 		return ""
@@ -46,6 +54,14 @@ func (config *MetaResourceCpuConfig) BuildCpuConfigValue(jsonStr string) float64
 		return 0
 	}
 	return utils.ParseK8sResourceCpu(strValue)
+}
+
+func (config *MetaResourceCpuConfig) BuildConfigSet() *MetaConfigTestSet {
+	return &MetaConfigTestSet{
+		MapKey:   config.MapKey,
+		Type:     "float",
+		Required: config.Required,
+	}
 }
 
 type ResourceStorage struct {
@@ -132,6 +148,14 @@ func (config *MetaResourceStorageConfig) BuildStorageConfigValue(jsonStr string)
 	}
 
 	return resourceStorageConfigValue
+}
+
+func (config *MetaResourceStorageConfig) BuildConfigSet() *MetaConfigTestSet {
+	return &MetaConfigTestSet{
+		MapKey:   config.MapKey,
+		Type:     config.Type,
+		Required: config.Required,
+	}
 }
 
 func parseResourceStorageWithStringSize(jsonStr, mapKey string) *MetaResourceStorageWithStringSize {
