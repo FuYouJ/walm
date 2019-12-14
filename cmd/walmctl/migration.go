@@ -30,7 +30,14 @@ Out of Cluster:
 	You must set the --kubeconfig or export ${KUBECONFIG}.
 `
 
+const (
+	MigNodeType string = "node"
+	MigPodType  string = "pod"
+)
+const appTypeKey = "transwarp.name"
+
 type migrateOptions struct {
+	client     *walmctlclient.WalmctlClient
 	kind       string
 	name       string
 	kubeconfig string
@@ -49,8 +56,7 @@ func newMigrationCmd(out io.Writer) *cobra.Command {
 			if len(args) != 2 {
 				return errors.New("Arguments error, migrate node/pod nodeName/podName")
 			}
-
-			if args[0] != "pod" && args[0] != "node" {
+			if args[0] != MigPodType && args[0] != MigNodeType {
 				return errors.Errorf("Unsupport kind: %s, pod or node support only", args[0])
 			}
 
@@ -75,24 +81,38 @@ func (migrate *migrateOptions) run() error {
 	if err = client.ValidateHostConnect(); err != nil {
 		return err
 	}
+	migrate.client = client
 
-	if migrate.kind == "pod" {
-		err = migratePodPreCheck(client, namespace, migrate.name, migrate.destNode)
-		if err != nil {
-			return err
-		}
-
-		_, err = client.MigratePod(namespace, &k8sModel.PodMigRequest{
-			PodName:  migrate.name,
-			DestNode: migrate.destNode,
-		})
-		if err != nil {
-			return errors.Errorf("Failed to migrate pod: %s", err.Error())
-		}
-
-		fmt.Printf("Create pod migrate task succeed.\n")
-		return nil
+	switch migrate.kind {
+	case MigPodType:
+		err = migrate.createPodMigTask()
+	case MigNodeType:
+		err = migrate.createNodeMigTask()
 	}
+
+	return err
+}
+
+func (migrate *migrateOptions) createPodMigTask() error {
+	err := migratePodPreCheck(migrate.client, namespace, migrate.name, migrate.destNode)
+	if err != nil {
+		return err
+	}
+
+	_, err = migrate.client.MigratePod(namespace, &k8sModel.PodMigRequest{
+		PodName:  migrate.name,
+		DestNode: migrate.destNode,
+	})
+	if err != nil {
+		return errors.Errorf("Failed to migrate pod: %s", err.Error())
+	}
+
+	fmt.Printf("Create pod migrate task succeed.\n")
+	return nil
+}
+
+func (migrate *migrateOptions) createNodeMigTask() error {
+	var err error
 
 	migrate.kubeconfig, err = filepath.Abs(migrate.kubeconfig)
 	if err != nil {
@@ -103,26 +123,28 @@ func (migrate *migrateOptions) run() error {
 	if err != nil {
 		return err
 	}
-
-	if err = envPreCheck(client, k8sClient, migrate.name, migrate.destNode); err != nil {
+	if err = envPreCheck(migrate.client, k8sClient, migrate.name, migrate.destNode); err != nil {
+		return err
+	}
+	if err = cordonNode(k8sClient, migrate.name); err != nil {
 		return err
 	}
 
-	podList, err := getPodListFromNode(k8sClient, migrate.name)
+	podList, err := getSupportedPodListFromNode(k8sClient, migrate.name)
 	if err != nil {
 		return err
 	}
 
 	/* check all pods ready to be migrated */
 	for _, pod := range podList {
-		err = migratePodPreCheck(client, pod.Namespace, pod.Name, migrate.destNode)
+		err = migratePodPreCheck(migrate.client, pod.Namespace, pod.Name, migrate.destNode)
 		if err != nil {
 			return err
 		}
 	}
 
 	for _, pod := range podList {
-		_, err = client.MigratePod(pod.Namespace, &k8sModel.PodMigRequest{
+		_, err = migrate.client.MigratePod(pod.Namespace, &k8sModel.PodMigRequest{
 			PodName:  pod.Name,
 			DestNode: migrate.destNode,
 			Labels:   map[string]string{"migType": "node", "srcNode": migrate.name},
@@ -137,7 +159,9 @@ func (migrate *migrateOptions) run() error {
 	return nil
 }
 
-func getPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]corev1.Pod, error) {
+func getSupportedPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]corev1.Pod, error) {
+	blackAppList := []string{"txsql", "shiva"}
+
 	podList := &corev1.PodList{
 		Items: []corev1.Pod{},
 	}
@@ -151,6 +175,18 @@ func getPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]core
 		if pod.Spec.NodeName == srcHost {
 			for _, ownerReference := range pod.OwnerReferences {
 				if ownerReference.Kind == "StatefulSet" {
+					if appType, ok := pod.Labels[appTypeKey]; ok {
+						isInBlackList := false
+						for _, blackApp := range blackAppList {
+							if appType == blackApp {
+								isInBlackList = true
+							}
+						}
+						if isInBlackList {
+							klog.Warningf("ignore %s because applicaion type is in blacklist", appType)
+							continue
+						}
+					}
 					podList.Items = append(podList.Items, pod)
 				}
 			}
@@ -160,7 +196,6 @@ func getPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]core
 }
 
 func envPreCheck(client *walmctlclient.WalmctlClient, k8sClient *kubernetes.Clientset, srcHost string, destHost string) error {
-
 	nodeList, err := k8sClient.CoreV1().Nodes().List(metav1.ListOptions{})
 	if err != nil {
 		klog.Errorf("Failed to get nodes: %s", err.Error())
@@ -170,16 +205,10 @@ func envPreCheck(client *walmctlclient.WalmctlClient, k8sClient *kubernetes.Clie
 		return errors.Errorf("Only one node, migration make no sense")
 	}
 
-	srcNode, err := k8sClient.CoreV1().Nodes().Get(srcHost, metav1.GetOptions{})
-	if err != nil {
-		klog.Errorf("Failed to get node %s: %s", srcHost, err.Error())
-		return err
-	}
-
 	if destHost != "" {
 		destNode, err := k8sClient.CoreV1().Nodes().Get(destHost, metav1.GetOptions{})
 		if err != nil {
-			klog.Errorf("Failed to get node %s: %s", srcHost, err.Error())
+			klog.Errorf("Failed to get node %s: %s", destHost, err.Error())
 			return err
 		}
 		if destNode.Spec.Unschedulable {
@@ -198,6 +227,16 @@ func envPreCheck(client *walmctlclient.WalmctlClient, k8sClient *kubernetes.Clie
 		if migStatus.Succeed+len(errMsgs) < migStatus.Total {
 			return errors.Errorf("Node %s is in migration progress, you must not migrate two node at one time", node.Name)
 		}
+	}
+
+	return nil
+}
+
+func cordonNode(k8sClient *kubernetes.Clientset, srcHost string) error {
+	srcNode, err := k8sClient.CoreV1().Nodes().Get(srcHost, metav1.GetOptions{})
+	if err != nil {
+		klog.Errorf("Failed to get node %s: %s", srcHost, err.Error())
+		return err
 	}
 
 	/* cordon node */
@@ -225,6 +264,7 @@ func envPreCheck(client *walmctlclient.WalmctlClient, k8sClient *kubernetes.Clie
 	} else {
 		klog.Infof("Node %s is unschedulable now", srcNode.Name)
 	}
+
 	return nil
 }
 
@@ -234,7 +274,7 @@ func migratePodPreCheck(client *walmctlclient.WalmctlClient, namespace string, n
 	}
 	resp, err := client.GetPodMigration(namespace, name)
 	if err != nil {
-		if !strings.Contains(err.Error(), "not found error") {
+		if !strings.Contains(err.Error(), "not found") {
 			return errors.Errorf("Failed to get pod migration: %s", err.Error())
 		}
 	}

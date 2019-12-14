@@ -15,12 +15,12 @@ import (
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 
 	"WarpCloud/walm/pkg/helm/impl/plugins"
+	"WarpCloud/walm/pkg/k8s/converter"
+	"WarpCloud/walm/pkg/models/common"
+	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/setting"
 	"WarpCloud/walm/pkg/util"
-	"WarpCloud/walm/pkg/models/k8s"
-	"WarpCloud/walm/pkg/k8s/converter"
-	"WarpCloud/walm/pkg/models/release"
-	"WarpCloud/walm/pkg/models/common"
 )
 
 const (
@@ -181,7 +181,7 @@ func ProcessChart(chartInfo *release.ChartDetailInfo, releaseRequest *release.Re
 //     d. merge configs user provided
 // 3. render jsonnet template files to generate native chart templates
 func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace,
-releaseName string, userConfigs, dependencyConfigs map[string]interface{},
+	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
 	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig,
 	isomateConfigValue map[string]interface{}, chartWalmVersion common.WalmVersion) error {
 	jsonnetTemplateFiles := make(map[string]string, 0)

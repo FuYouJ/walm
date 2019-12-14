@@ -154,7 +154,7 @@ func (sc *ServCmd) run() error {
 		klog.Errorf("Failed to creates a new Clientset for the given config: %s", err.Error())
 		return err
 	}
-	
+
 	var k8sInstanceClient *instanceclientset.Clientset
 	if config.CrdConfig == nil || !config.CrdConfig.NotNeedInstance {
 		klog.Info("CRD ApplicationInstance should be installed in the k8s")
