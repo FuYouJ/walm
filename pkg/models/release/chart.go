@@ -21,7 +21,7 @@ type ChartInfo struct {
 	MetaInfo         *ChartMetaInfo `json:"metaInfo,omitempty" description:"transwarp chart meta info"`
 	// Compatible
 	DependencyCharts  []ChartDependencyInfo `json:"dependencyCharts,omitempty" description:"dependency chart name"`
-	ChartPrettyParams *PrettyChartParams     `json:"chartPrettyParams,omitempty" description:"pretty chart params for market"`
+	ChartPrettyParams *PrettyChartParams    `json:"chartPrettyParams,omitempty" description:"pretty chart params for market"`
 	WalmVersion       common.WalmVersion    `json:"walmVersion" description:"chart walm version: v1, v2"`
 }
 

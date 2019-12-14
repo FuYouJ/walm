@@ -56,13 +56,13 @@ var (
 )
 
 type diffCmd struct {
-	release     string
-	name        string
-	kubeconfig	string
-	withchart   string
-	file		string
-	resource    string
-	out io.Writer
+	release    string
+	name       string
+	kubeconfig string
+	withchart  string
+	file       string
+	resource   string
+	out        io.Writer
 }
 
 func newDiffCmd(out io.Writer) *cobra.Command {
@@ -97,17 +97,16 @@ func newDiffCmd(out io.Writer) *cobra.Command {
 }
 
 func (diff *diffCmd) run() error {
-
 	if diff.withchart == "" && diff.file == "" {
 		return errors.Errorf("One of flags --withchart and --file must be set.")
 	}
 
 	var (
-		err error
-		manifest []map[string]interface{}
-		configValues map[string]interface{}
+		err              error
+		manifest         []map[string]interface{}
+		configValues     map[string]interface{}
 		destConfigValues map[string]interface{}
-		releaseInfo release.ReleaseInfoV2
+		releaseInfo      release.ReleaseInfoV2
 	)
 
 	// get original release

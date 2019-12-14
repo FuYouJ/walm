@@ -96,7 +96,6 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	return ws
-
 }
 
 func (handler CrdHandler) ListMigrations(request *restful.Request, response *restful.Response) {
