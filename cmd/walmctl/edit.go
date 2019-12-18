@@ -82,7 +82,7 @@ func newEditCmd(out io.Writer) *cobra.Command {
 	}
 
 	// bind flag structs
-	cmd.Flags().StringVarP(o.PrintFlags.OutputFormat, "output", "o", "yaml", "-o, --output='': Output format for detail description. Support: json, yaml")
+	cmd.PersistentFlags().StringVarP(o.PrintFlags.OutputFormat, "output", "o", "yaml", "-o, --output='': Output format for detail description. Support: json, yaml")
 
 	return cmd
 }

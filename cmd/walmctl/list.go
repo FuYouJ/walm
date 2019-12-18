@@ -77,9 +77,9 @@ func newListCmd(out io.Writer) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&lc.output, "output", "o", "", "output the specified format (json or yaml)")
-	cmd.Flags().StringVarP(&lc.projectName, "project", "p", "", "operate resources of the project")
-	cmd.Flags().StringVar(&lc.labelSelector, "labelSelector", "", "match values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2")
+	cmd.PersistentFlags().StringVarP(&lc.output, "output", "o", "", "output the specified format (json or yaml)")
+	cmd.PersistentFlags().StringVarP(&lc.projectName, "project", "p", "", "operate resources of the project")
+	cmd.PersistentFlags().StringVar(&lc.labelSelector, "labelSelector", "", "match values on the command line (can specify multiple or separate values with commas: key1=val1,key2=val2")
 	return cmd
 }
 

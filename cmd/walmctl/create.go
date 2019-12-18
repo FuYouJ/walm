@@ -65,15 +65,15 @@ func newCreateCmd(out io.Writer) *cobra.Command {
 			return cc.run()
 		},
 	}
-	cmd.Flags().StringVarP(&cc.projectName, "project", "p", "", "operate resources of the project")
-	cmd.Flags().StringVarP(&cc.file, "file", "f", "", "absolutely or relative path to source file")
-	cmd.Flags().StringVar(&cc.name, "name", "", "name for release or project you create, overrides field name in file, required!!!")
-	cmd.Flags().StringVar(&cc.withchart, "withchart", "", "update release with local chart, absolutely or relative path to source file")
-	cmd.Flags().Int64Var(&cc.timeoutSec, "timeoutSec", 0, "timeout")
-	cmd.Flags().BoolVar(&cc.async, "async", false, "whether asynchronous")
-	cmd.Flags().BoolVar(&cc.dryrun, "dryrun", false, "dry run")
+	cmd.PersistentFlags().StringVarP(&cc.projectName, "project", "p", "", "operate resources of the project")
+	cmd.PersistentFlags().StringVarP(&cc.file, "file", "f", "", "absolutely or relative path to source file")
+	cmd.PersistentFlags().StringVar(&cc.name, "name", "", "name for release or project you create, overrides field name in file, required!!!")
+	cmd.PersistentFlags().StringVar(&cc.withchart, "withchart", "", "update release with local chart, absolutely or relative path to source file")
+	cmd.PersistentFlags().Int64Var(&cc.timeoutSec, "timeoutSec", 0, "timeout")
+	cmd.PersistentFlags().BoolVar(&cc.async, "async", false, "whether asynchronous")
+	cmd.PersistentFlags().BoolVar(&cc.dryrun, "dryrun", false, "dry run")
 
-	cmd.MarkFlagRequired("file")
+	cmd.MarkPersistentFlagRequired("name")
 	return cmd
 }
 
@@ -93,19 +93,21 @@ func (cc *createCmd) run() error {
 		}
 	}
 
-	filePath, err = filepath.Abs(cc.file)
-	if err != nil {
-		return err
-	}
-	fileBytes, err = ioutil.ReadFile(filePath)
-	if err != nil {
-		klog.Errorf("read file %s error %v", cc.file, err)
-		return err
-	}
-	err = yaml.Unmarshal(fileBytes, &configValues)
-	if err != nil {
-		klog.Errorf("yaml Unmarshal file %s error %v", cc.file, err)
-		return err
+	if cc.file != "" {
+		filePath, err = filepath.Abs(cc.file)
+		if err != nil {
+			return err
+		}
+		fileBytes, err = ioutil.ReadFile(filePath)
+		if err != nil {
+			klog.Errorf("read file %s error %v", cc.file, err)
+			return err
+		}
+		err = yaml.Unmarshal(fileBytes, &configValues)
+		if err != nil {
+			klog.Errorf("yaml Unmarshal file %s error %v", cc.file, err)
+			return err
+		}
 	}
 
 	destConfigValues, _, _, err := util.SmartConfigValues(configValues)
