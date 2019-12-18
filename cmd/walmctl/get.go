@@ -89,8 +89,8 @@ func newGetCmd(out io.Writer) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&gc.detail, "detail", false, "Print detail migration information for each pod")
-	cmd.Flags().StringVarP(&gc.output, "output", "o", "json", "-o, --output='': Output format for detail description. Support: json, yaml")
+	cmd.PersistentFlags().BoolVar(&gc.detail, "detail", false, "Print detail migration information for each pod")
+	cmd.PersistentFlags().StringVarP(&gc.output, "output", "o", "json", "-o, --output='': Output format for detail description. Support: json, yaml")
 	return cmd
 }
 

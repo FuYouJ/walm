@@ -65,11 +65,11 @@ func newUpdateCmd(out io.Writer) *cobra.Command {
 			return uc.run()
 		},
 	}
-	cmd.Flags().StringVar(&uc.withchart, "withchart", "", "update release with local chart")
-	cmd.Flags().Int64Var(&uc.timeoutSec, "timeoutSec", 0, "timeout, (default 0), available only when update release without local chart.")
-	cmd.Flags().BoolVar(&uc.async, "async", false, "whether asynchronous, available only when update release without local chart.")
-	cmd.Flags().StringVar(&uc.setproperties, "set-string", "", "set values on the command line (can specify multiple or separate values with commas: pathA=valA,pathB.1=valB,...")
-	cmd.Flags().StringVarP(&uc.file, "file", "f", "", "absolutely or relative path to source file")
+	cmd.PersistentFlags().StringVar(&uc.withchart, "withchart", "", "update release with local chart")
+	cmd.PersistentFlags().Int64Var(&uc.timeoutSec, "timeoutSec", 0, "timeout, (default 0), available only when update release without local chart.")
+	cmd.PersistentFlags().BoolVar(&uc.async, "async", false, "whether asynchronous, available only when update release without local chart.")
+	cmd.PersistentFlags().StringVar(&uc.setproperties, "set-string", "", "set values on the command line (can specify multiple or separate values with commas: pathA=valA,pathB.1=valB,...")
+	cmd.PersistentFlags().StringVarP(&uc.file, "file", "f", "", "absolutely or relative path to source file")
 	return cmd
 }
 

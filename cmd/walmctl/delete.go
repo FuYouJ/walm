@@ -66,10 +66,10 @@ func newDeleteCmd(out io.Writer) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolVar(&dc.deletePvcs, "deletePvcs", true, "whether to delete pvcs related release")
-	cmd.Flags().Int64Var(&dc.timeoutSec, "timeoutSec", 0, "timeout (default 0)")
-	cmd.Flags().BoolVar(&dc.async, "async", true, "whether asynchronous")
-	cmd.Flags().StringVarP(&dc.projectName, "project", "p", "", "operate resource of project")
+	cmd.PersistentFlags().BoolVar(&dc.deletePvcs, "deletePvcs", true, "whether to delete pvcs related release")
+	cmd.PersistentFlags().Int64Var(&dc.timeoutSec, "timeoutSec", 0, "timeout (default 0)")
+	cmd.PersistentFlags().BoolVar(&dc.async, "async", true, "whether asynchronous")
+	cmd.PersistentFlags().StringVarP(&dc.projectName, "project", "p", "", "operate resource of project")
 
 	return cmd
 }

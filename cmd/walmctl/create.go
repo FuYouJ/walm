@@ -65,13 +65,13 @@ func newCreateCmd(out io.Writer) *cobra.Command {
 			return cc.run()
 		},
 	}
-	cmd.Flags().StringVarP(&cc.projectName, "project", "p", "", "operate resources of the project")
-	cmd.Flags().StringVarP(&cc.file, "file", "f", "", "absolutely or relative path to source file")
-	cmd.Flags().StringVar(&cc.name, "name", "", "name for release or project you create, overrides field name in file, required!!!")
-	cmd.Flags().StringVar(&cc.withchart, "withchart", "", "update release with local chart, absolutely or relative path to source file")
-	cmd.Flags().Int64Var(&cc.timeoutSec, "timeoutSec", 0, "timeout")
-	cmd.Flags().BoolVar(&cc.async, "async", false, "whether asynchronous")
-	cmd.Flags().BoolVar(&cc.dryrun, "dryrun", false, "dry run")
+	cmd.PersistentFlags().StringVarP(&cc.projectName, "project", "p", "", "operate resources of the project")
+	cmd.PersistentFlags().StringVarP(&cc.file, "file", "f", "", "absolutely or relative path to source file")
+	cmd.PersistentFlags().StringVar(&cc.name, "name", "", "name for release or project you create, overrides field name in file, required!!!")
+	cmd.PersistentFlags().StringVar(&cc.withchart, "withchart", "", "update release with local chart, absolutely or relative path to source file")
+	cmd.PersistentFlags().Int64Var(&cc.timeoutSec, "timeoutSec", 0, "timeout")
+	cmd.PersistentFlags().BoolVar(&cc.async, "async", false, "whether asynchronous")
+	cmd.PersistentFlags().BoolVar(&cc.dryrun, "dryrun", false, "dry run")
 
 	cmd.MarkPersistentFlagRequired("name")
 	return cmd
