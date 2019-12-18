@@ -73,7 +73,7 @@ func newCreateCmd(out io.Writer) *cobra.Command {
 	cmd.Flags().BoolVar(&cc.async, "async", false, "whether asynchronous")
 	cmd.Flags().BoolVar(&cc.dryrun, "dryrun", false, "dry run")
 
-	cmd.MarkFlagRequired("file")
+	cmd.MarkPersistentFlagRequired("name")
 	return cmd
 }
 
@@ -93,19 +93,21 @@ func (cc *createCmd) run() error {
 		}
 	}
 
-	filePath, err = filepath.Abs(cc.file)
-	if err != nil {
-		return err
-	}
-	fileBytes, err = ioutil.ReadFile(filePath)
-	if err != nil {
-		klog.Errorf("read file %s error %v", cc.file, err)
-		return err
-	}
-	err = yaml.Unmarshal(fileBytes, &configValues)
-	if err != nil {
-		klog.Errorf("yaml Unmarshal file %s error %v", cc.file, err)
-		return err
+	if cc.file != "" {
+		filePath, err = filepath.Abs(cc.file)
+		if err != nil {
+			return err
+		}
+		fileBytes, err = ioutil.ReadFile(filePath)
+		if err != nil {
+			klog.Errorf("read file %s error %v", cc.file, err)
+			return err
+		}
+		err = yaml.Unmarshal(fileBytes, &configValues)
+		if err != nil {
+			klog.Errorf("yaml Unmarshal file %s error %v", cc.file, err)
+			return err
+		}
 	}
 
 	destConfigValues, _, _, err := util.SmartConfigValues(configValues)
