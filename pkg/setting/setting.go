@@ -81,6 +81,7 @@ type ChartImageConfig struct {
 
 type LogConfig struct {
 	Level string `json:"level"`
+	LogDir  string `json:"logDir"`
 }
 
 type JsonnetConfig struct {
