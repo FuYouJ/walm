@@ -55,6 +55,7 @@ func newRootCmd(args []string) *cobra.Command {
 		newMigrationCmd(out),
 		newPackageCmd(out),
 		newEditCmd(out),
+		newSyncCmd(out),
 		newLintCmd(),
 		newComposeCmd(),
 		newVersionCmd(),
