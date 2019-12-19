@@ -41,6 +41,7 @@ import (
 	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/thoas/stats"
@@ -298,6 +299,9 @@ func (sc *ServCmd) run() error {
 	// faster router
 	restful.DefaultContainer.Router(restful.CurlyRouter{})
 	restful.Filter(ServerStatsFilter)
+	if err = recordLoggingInit(config.LogConfig.LogDir); err != nil {
+		return err
+	}
 	restful.Filter(RouteLogging)
 	klog.Infoln("Adding Route...")
 
@@ -370,12 +374,38 @@ func RouteLogging(req *restful.Request, resp *restful.Response, chain *restful.F
 		"path":   req.Request.URL.Path,
 		"status": string(resp.StatusCode()),
 	}).Inc()
-	//	float64(time.Since(tBegin)) / float64(time.Millisecond)
+
 	HTTPReqDuration.With(prometheus.Labels{
 		"method": req.Request.Method,
 		"path":   req.Request.URL.Path,
 	}).Observe(float64(duration) / float64(time.Second))
 	klog.Infof("[route-filter (logger)] CLIENT %s OP %s URI %s COST %v RESP %d", req.Request.Host, req.Request.Method, req.Request.URL, duration, resp.StatusCode())
+
+	// logging record
+	if req.Request.Method != "GET" {
+		logrus.WithFields(logrus.Fields{
+			"method":  req.Request.Method,
+			"addr":    req.Request.RemoteAddr,
+			"subPath": req.Request.RequestURI,
+			"status":  resp.StatusCode(),
+		}).Info()
+	}
+}
+
+func recordLoggingInit(logDir string) error {
+	err := os.MkdirAll(logDir, 0755)
+	if err != nil {
+		return err
+	}
+	f, err := os.OpenFile(logDir+"/audit.log", os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		return err
+	}
+	logrus.SetOutput(f)
+	formatter := &logrus.JSONFormatter{}
+	formatter.TimestampFormat = "2006-01-02T15:04:05.999999999Z07:00"
+	logrus.SetFormatter(formatter)
+	return nil
 }
 
 var ServerStats = stats.New()

@@ -34,6 +34,7 @@ jsonnetConfig:
   commonTemplateFilesPath: "test/ksonnet-lib"
 logConfig:
   level: "debug"
+  logDir: "/tmp/transwarp/walm"
 chartImageConfig:
   cacheRootDir: "/chart-cache"
 crdConfig:
