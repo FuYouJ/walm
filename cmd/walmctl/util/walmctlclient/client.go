@@ -462,3 +462,17 @@ func (c *WalmctlClient) GetNodeMigration(name string)  (resp *resty.Response, er
 
 	return resp, err
 }
+
+func (c *WalmctlClient) GetRepoList() (resp *resty.Response, err error) {
+	//api/v1/chart/repolist
+	fullUrl := walmctlClient.baseURL + "/chart/repolist"
+	resp, err = resty.R().
+		Get(fullUrl)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() != 200 {
+		return nil, errors.Errorf(resp.String())
+	}
+	return resp, err
+}
