@@ -123,7 +123,7 @@ func (sc *ServCmd) run() error {
 	if setting.Config.ElectorConfig.ElectionId == "" {
 		setting.Config.ElectorConfig.ElectionId = DefaultElectionId
 	}
-	config := setting.Config
+	config := &setting.Config
 	initLogLevel()
 	stopChan := make(chan struct{})
 
@@ -533,6 +533,9 @@ func initLogLevel() {
 	if setting.Config.LogConfig != nil {
 		if setting.Config.LogConfig.Level == "debug" {
 			pflag.CommandLine.Set("v", "2")
+		}
+		if setting.Config.LogConfig.LogDir == "" {
+			setting.Config.LogConfig.LogDir = "/var/log"
 		}
 	} else {
 		setting.Config.LogConfig = &setting.LogConfig{
