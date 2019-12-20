@@ -123,7 +123,7 @@ func (sc *ServCmd) run() error {
 	if setting.Config.ElectorConfig.ElectionId == "" {
 		setting.Config.ElectorConfig.ElectionId = DefaultElectionId
 	}
-	config := setting.Config
+	config := &setting.Config
 	initLogLevel()
 	stopChan := make(chan struct{})
 
