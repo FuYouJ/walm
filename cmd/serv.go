@@ -299,7 +299,7 @@ func (sc *ServCmd) run() error {
 	// faster router
 	restful.DefaultContainer.Router(restful.CurlyRouter{})
 	restful.Filter(ServerStatsFilter)
-	if err = recordLoggingInit(config.LogConfig.LogDir); err != nil {
+	if err = recordLoggingInit(setting.Config.LogConfig.LogDir); err != nil {
 		return err
 	}
 	restful.Filter(RouteLogging)
