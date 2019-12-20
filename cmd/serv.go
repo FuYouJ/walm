@@ -534,6 +534,9 @@ func initLogLevel() {
 		if setting.Config.LogConfig.Level == "debug" {
 			pflag.CommandLine.Set("v", "2")
 		}
+		if setting.Config.LogConfig.LogDir == "" {
+			setting.Config.LogConfig.LogDir = "/var/log"
+		}
 	} else {
 		setting.Config.LogConfig = &setting.LogConfig{
 			LogDir: "/var/log",
