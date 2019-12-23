@@ -14,6 +14,7 @@ import (
 	"k8s.io/klog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -33,6 +34,7 @@ type composeCmd struct {
 	file        string
 	dryrun      bool
 	waitReady   bool
+	timeoutSec  int64
 	walmClient  *walmctlclient.WalmctlClient
 }
 
@@ -80,6 +82,7 @@ func newComposeCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&compose.dryrun, "dryrun", false, "dry run")
 	cmd.Flags().StringVarP(&compose.projectName, "project", "p", "", "project name")
 	cmd.Flags().BoolVarP(&compose.waitReady, "waitready", "w", false, "wait project ready")
+	cmd.Flags().Int64VarP(&compose.timeoutSec, "timeoutSec", "t", 600, "wait project ready timeout")
 	cmd.MarkFlagRequired("file")
 	cmd.MarkFlagRequired("project")
 
@@ -126,6 +129,14 @@ func (compose *composeCmd) run() error {
 	isSuccess := compose.generateGuardianKeytabSecrets(configValues.GuardianConfigs)
 	if !isSuccess {
 		return errors.New("generate key error")
+	}
+
+	if compose.waitReady {
+		err = compose.waitProjectReady(time.Second * time.Duration(compose.timeoutSec))
+		if err != nil {
+			klog.Errorf("project not ready after waiting time %s s, error %v", strconv.FormatInt(compose.timeoutSec, 10), err)
+			return err
+		}
 	}
 
 	return err
