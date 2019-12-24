@@ -249,7 +249,7 @@ func (compose *composeCmd) waitProjectReady(timeout time.Duration) error {
 		} else {
 			projectResp := project.ProjectInfo{}
 			if resp.IsSuccess() {
-				_ = json.Unmarshal(resp.Body(), projectResp)
+				_ = json.Unmarshal(resp.Body(), &projectResp)
 				if projectResp.Ready {
 					klog.Infof("project %s/%s is ready", namespace, compose.projectName)
 					break
