@@ -16,6 +16,7 @@ import (
 	projecthttp "WarpCloud/walm/pkg/project/delivery/http"
 	projectusecase "WarpCloud/walm/pkg/project/usecase"
 	pvchttp "WarpCloud/walm/pkg/pvc/delivery/http"
+	redisclient "WarpCloud/walm/pkg/redis"
 	"WarpCloud/walm/pkg/redis/impl"
 	releasecache "WarpCloud/walm/pkg/release/cache/redis"
 	releaseconfig "WarpCloud/walm/pkg/release/config"
@@ -217,6 +218,14 @@ func (sc *ServCmd) run() error {
 	redisClient := impl.NewRedisClient(config.RedisConfig)
 	redis := impl.NewRedis(redisClient)
 	redisEx := impl.NewRedisEx(config.RedisConfig, time.Second*30)
+	configByte, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	err = redis.SetKeyWithTTL(redisclient.WalmConfigKey, string(configByte), 0)
+	if err != nil {
+		return err
+	}
 	releaseCache := releasecache.NewCache(redis)
 	releaseUseCase, err := releaseusecase.NewHelm(releaseCache, helm, k8sCache, k8sOperator, task, redisEx)
 	if err != nil {

@@ -43,6 +43,20 @@ func (_m *Cache) CreateOrUpdateReleaseTask(releaseTask *release.ReleaseTask) err
 	return r0
 }
 
+// CreateReleaseBackUp provides a mock function with given fields: namespace, name, releaseInfoV2Byte
+func (_m *Cache) CreateReleaseBackUp(namespace string, name string, releaseInfoV2Byte []byte) error {
+	ret := _m.Called(namespace, name, releaseInfoV2Byte)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string, []byte) error); ok {
+		r0 = rf(namespace, name, releaseInfoV2Byte)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeleteReleaseCache provides a mock function with given fields: namespace, name
 func (_m *Cache) DeleteReleaseCache(namespace string, name string) error {
 	ret := _m.Called(namespace, name)
@@ -69,6 +83,29 @@ func (_m *Cache) DeleteReleaseTask(namespace string, name string) error {
 	}
 
 	return r0
+}
+
+// GetReleaseBackUp provides a mock function with given fields: namespace, name
+func (_m *Cache) GetReleaseBackUp(namespace string, name string) (*release.ReleaseInfoV2, error) {
+	ret := _m.Called(namespace, name)
+
+	var r0 *release.ReleaseInfoV2
+	if rf, ok := ret.Get(0).(func(string, string) *release.ReleaseInfoV2); ok {
+		r0 = rf(namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*release.ReleaseInfoV2)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // GetReleaseCache provides a mock function with given fields: namespace, name
@@ -202,6 +239,29 @@ func (_m *Cache) GetReleaseTasksByReleaseConfigs(releaseConfigs []*k8s.ReleaseCo
 	var r1 error
 	if rf, ok := ret.Get(1).(func([]*k8s.ReleaseConfig) error); ok {
 		r1 = rf(releaseConfigs)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// ListReleasesBackUp provides a mock function with given fields:
+func (_m *Cache) ListReleasesBackUp() ([]*release.ReleaseInfoV2, error) {
+	ret := _m.Called()
+
+	var r0 []*release.ReleaseInfoV2
+	if rf, ok := ret.Get(0).(func() []*release.ReleaseInfoV2); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*release.ReleaseInfoV2)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}

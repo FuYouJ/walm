@@ -6,6 +6,8 @@ import (
 	"WarpCloud/walm/pkg/redis"
 	"encoding/json"
 	"k8s.io/klog"
+	"strings"
+	"time"
 )
 
 type Cache struct {
@@ -197,6 +199,47 @@ func (cache *Cache) DeleteReleaseTask(namespace string, name string) error {
 	}
 	klog.V(2).Infof("succeed to delete release task of %s from redis", name)
 	return nil
+}
+
+func (cache *Cache) CreateReleaseBackUp(namespace string, name string, releaseInfoByte []byte) error {
+	key := redis.BuildMixedTopKey(redis.WalmReleasesKey, redis.BuildFieldName(namespace, name))
+	err := cache.redis.SetKeyWithTTL(key, releaseInfoByte, time.Hour * 24 * 7)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func(cache *Cache) GetReleaseBackUp(namespace string, name string) (*release.ReleaseInfoV2, error) {
+	value, err := cache.redis.GetValue(redis.BuildMixedTopKey(redis.WalmReleasesKey, redis.BuildFieldName(namespace, name)))
+	if err != nil {
+		return nil, err
+	}
+	releaseInfoV2 := &release.ReleaseInfoV2{}
+	err = json.Unmarshal([]byte(value), releaseInfoV2)
+	if err != nil {
+		return nil, err
+	}
+	return releaseInfoV2, nil
+}
+
+func(cache *Cache) ListReleasesBackUp() ([]*release.ReleaseInfoV2, error) {
+	var releaseInfoV2List []*release.ReleaseInfoV2
+	keys, err := cache.redis.GetKeys(redis.BuildMixedTopKey(redis.WalmReleasesKey, "*"))
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys {
+		tokens := strings.FieldsFunc(key, func(r rune) bool {
+			return r == '/' || r == '}'
+		})
+		releaseInfoV2, err := cache.GetReleaseBackUp(tokens[1], tokens[2])
+		if err != nil {
+			return nil, err
+		}
+		releaseInfoV2List = append(releaseInfoV2List, releaseInfoV2)
+	}
+	return releaseInfoV2List, nil
 }
 
 func NewCache(redis redis.Redis) *Cache {

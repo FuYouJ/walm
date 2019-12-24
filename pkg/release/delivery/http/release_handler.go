@@ -45,6 +45,14 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
 	)
 
+	ws.Route(ws.GET("/backup").To(releaseHandler.ListBackUpReleases).
+		Doc("获取所有备份的Release列表").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Writes(releaseModel.ReleaseInfoV2List{}).
+		Returns(200, "OK", releaseModel.ReleaseInfoV2List{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
+	)
+
 	ws.Route(ws.GET("/{namespace}").To(releaseHandler.ListReleaseByNamespace).
 		Doc("获取Namepaces下的所有Release列表").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
@@ -56,6 +64,16 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 
 	ws.Route(ws.GET("/{namespace}/name/{release}").To(releaseHandler.GetRelease).
 		Doc("获取对应Release的详细信息").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Writes(releaseModel.ReleaseInfoV2{}).
+		Returns(200, "OK", releaseModel.ReleaseInfoV2{}).
+		Returns(404, "Not Found", http.ErrorMessageResponse{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
+	ws.Route(ws.GET("/{namespace}/name/{release}/backup").To(releaseHandler.GetBackUpRelease).
+		Doc("获取对应备份的release的详细信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.PathParameter("release", "Release名字").DataType("string")).
@@ -711,4 +729,28 @@ func (handler *ReleaseHandler) GetReleaseEvents(request *restful.Request, respon
 		return
 	}
 	response.WriteEntity(events)
+}
+
+func (handler *ReleaseHandler) GetBackUpRelease(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	info, err := handler.usecase.GetBackUpRelease(namespace, name)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("release %s is not found", name))
+			return
+		}
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get release %s: %s", name, err.Error()))
+		return
+	}
+	response.WriteEntity(info)
+}
+
+func (handler *ReleaseHandler) ListBackUpReleases(request *restful.Request, response *restful.Response) {
+	releases, err := handler.usecase.ListBackUpReleases()
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release: %s", err.Error()))
+		return
+	}
+	response.WriteEntity(releaseModel.ReleaseInfoV2List{Num: len(releases), Items: releases})
 }
