@@ -125,6 +125,110 @@ func TestConvertStatefulSetFromK8s(t *testing.T) {
 			err: nil,
 		},
 		{
+			oriStatefulSet: &appsv1beta1.StatefulSet{
+				TypeMeta: metav1.TypeMeta{
+					Kind: "StatefulSet",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-statefulset",
+					Namespace: "test-namespace",
+					Labels: map[string]string{"test1": "test1"},
+					Annotations: map[string]string{"test2": "test2"},
+				},
+				Spec: appsv1beta1.StatefulSetSpec{
+					Replicas: &testReplicas,
+					Selector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{"test1": "test1", "test2": "test2"},
+					},
+				},
+				Status: appsv1beta1.StatefulSetStatus{
+					Replicas:      3,
+					ReadyReplicas: 3,
+				},
+			},
+
+			pods: []*corev1.Pod{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind: "Pod",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-pod",
+						Namespace: "test-namespace",
+						CreationTimestamp: testCreationTimestamp,
+						DeletionTimestamp: &testCreationTimestamp,
+					},
+					Status: corev1.PodStatus{
+						Phase: "Running",
+						Conditions: []corev1.PodCondition{
+							{
+								Type:   "Ready",
+								Status: "True",
+							},
+						},
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Ready: true,
+								State: corev1.ContainerState{
+									Running: &corev1.ContainerStateRunning{
+										StartedAt: testCreationTimestamp,
+									},
+								},
+							},
+						},
+					},
+
+				},
+			},
+
+			walmStatefulSet: &k8s.StatefulSet{
+				Meta: k8s.Meta{
+					Name:      "test-statefulset",
+					Namespace: "test-namespace",
+					Kind:      "StatefulSet",
+					State: k8s.State{
+						Status:  "Pending",
+						Reason:  "PodTerminating",
+						Message: "Pod test-namespace/test-pod is in state Terminating",
+					},
+				},
+				Labels: map[string]string{"test1": "test1"},
+				Annotations: map[string]string{"test2": "test2"},
+				ExpectedReplicas: 3,
+				ReadyReplicas:    3,
+				Pods: []*k8s.Pod{
+					{
+						Meta: k8s.Meta{
+							Name:      "test-pod",
+							Namespace: "test-namespace",
+							Kind:      "Pod",
+							State: k8s.State{
+								Status:  "Terminating",
+								Reason:  "",
+								Message: "",
+							},
+						},
+						Labels: map[string]string{},
+						Annotations: map[string]string{},
+						Containers: []k8s.Container{
+							{
+								Ready: true,
+								State: k8s.State{
+									Status: "Running",
+									Reason: "",
+									Message: "",
+								},
+							},
+						},
+						Age: duration.ShortHumanDuration(time.Since(testCreationTimestamp.Time)),
+						InitContainers: []k8s.Container{},
+					},
+				},
+				Selector: "test1=test1,test2=test2",
+			},
+			err: nil,
+		},
+		{
 			oriStatefulSet:  nil,
 			pods:            nil,
 			walmStatefulSet: nil,
