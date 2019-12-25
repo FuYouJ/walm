@@ -6,6 +6,7 @@ import (
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	"WarpCloud/walm/pkg/k8s/utils"
+	"fmt"
 )
 
 func ConvertStatefulSetFromK8s(oriStatefulSet *appsv1beta1.StatefulSet, pods []*v1.Pod) (walmStatefulSet *k8s.StatefulSet, err error) {
@@ -48,12 +49,27 @@ func ConvertStatefulSetFromK8s(oriStatefulSet *appsv1beta1.StatefulSet, pods []*
 
 func buildWalmStatefulSetState(statefulSet *appsv1beta1.StatefulSet, pods []*k8s.Pod) (walmState k8s.State) {
 	if isStatefulSetReady(statefulSet) {
-		walmState = k8s.NewState("Ready", "", "")
+		isAnyPodTerminating, reason, message := isAnyPodTerminating(pods)
+		if isAnyPodTerminating {
+			walmState = k8s.NewState("Pending", reason, message)
+		} else {
+			walmState = k8s.NewState("Ready", "", "")
+		}
 	} else {
 		walmState = buildWalmStateByPods(pods, "StatefulSet")
 	}
 	return walmState
 }
+
+func isAnyPodTerminating(pods []*k8s.Pod) (bool, string, string) {
+	for _, pod := range pods {
+		if pod.State.Status == "Terminating" {
+			return true, "PodTerminating", fmt.Sprintf("Pod %s/%s is in state Terminating", pod.Namespace, pod.Name)
+		}
+	}
+	return false, "", ""
+}
+
 func isStatefulSetReady(statefulSet *appsv1beta1.StatefulSet) bool {
 	if statefulSet.Spec.Replicas != nil && statefulSet.Status.ReadyReplicas < *statefulSet.Spec.Replicas {
 		return false
