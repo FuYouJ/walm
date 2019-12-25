@@ -122,6 +122,33 @@ func (redis *Redis) DeleteField(key, namespace, name string) error {
 	return nil
 }
 
+func (redis *Redis) GetValue(key string) (value string, err error) {
+	value, err = redis.client.Get(key).Result()
+	if err != nil {
+		klog.Errorf("failed to get value of key %s from redis : %s", key, err.Error())
+		return "", err
+	}
+	return
+}
+
+func (redis *Redis) SetKeyWithTTL(key string, value interface{}, duration time.Duration) error {
+	err := redis.client.Set(key, value, duration).Err()
+	if err != nil {
+		klog.Errorf("failed to set key %s with expire time : %s", key, err.Error())
+		return err
+	}
+	return nil
+}
+
+func (redis *Redis) GetKeys(regex string) ([]string, error) {
+	keys, _, err := redis.client.Scan(0, regex, 0).Result()
+	if err != nil {
+		klog.Errorf("failed to get keys with regex %s : %s", regex, err.Error())
+		return nil, err
+	}
+	return keys, nil
+}
+
 func NewRedisClient(redisConfig *setting.RedisConfig) *redis.Client {
 	return redis.NewClient(&redis.Options{
 		Addr:         redisConfig.Addr,

@@ -90,6 +90,29 @@ func (_m *UseCase) DryRunRelease(namespace string, releaseRequest *release.Relea
 	return r0, r1
 }
 
+// GetBackUpRelease provides a mock function with given fields: namespace, name
+func (_m *UseCase) GetBackUpRelease(namespace string, name string) (*release.ReleaseInfoV2, error) {
+	ret := _m.Called(namespace, name)
+
+	var r0 *release.ReleaseInfoV2
+	if rf, ok := ret.Get(0).(func(string, string) *release.ReleaseInfoV2); ok {
+		r0 = rf(namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*release.ReleaseInfoV2)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetRelease provides a mock function with given fields: namespace, name
 func (_m *UseCase) GetRelease(namespace string, name string) (*release.ReleaseInfoV2, error) {
 	ret := _m.Called(namespace, name)
@@ -162,6 +185,29 @@ func (_m *UseCase) InstallUpgradeReleaseWithRetry(namespace string, releaseReque
 	}
 
 	return r0
+}
+
+// ListBackUpReleases provides a mock function with given fields: namespace
+func (_m *UseCase) ListBackUpReleases(namespace string) ([]*release.ReleaseInfoV2, error) {
+	ret := _m.Called(namespace)
+
+	var r0 []*release.ReleaseInfoV2
+	if rf, ok := ret.Get(0).(func(string) []*release.ReleaseInfoV2); ok {
+		r0 = rf(namespace)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*release.ReleaseInfoV2)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(namespace)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // ListReleases provides a mock function with given fields: namespace, filter

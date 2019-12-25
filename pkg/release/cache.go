@@ -17,4 +17,7 @@ type Cache interface {
 	GetReleaseTasksByReleaseConfigs(releaseConfigs []*k8s.ReleaseConfig) ([]*release.ReleaseTask, error)
 	CreateOrUpdateReleaseTask(releaseTask *release.ReleaseTask) error
 	DeleteReleaseTask(namespace string, name string) error
+	CreateReleaseBackUp(namespace string, name string, releaseInfoV2Byte []byte) error
+	GetReleaseBackUp(namespace string, name string) (*release.ReleaseInfoV2, error)
+	ListReleasesBackUp(namespace string) ([]*release.ReleaseInfoV2, error)
 }

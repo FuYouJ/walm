@@ -293,6 +293,7 @@ func TestHelm_doDeleteRelease(t *testing.T) {
 				mockK8sCache.On("GetResource", mock.Anything, mock.Anything, mock.Anything).Return(&k8s.ReleaseConfig{}, nil)
 				mockHelm.On("DeleteRelease", mock.Anything, mock.Anything).Return(nil)
 				mockReleaseCache.On("DeleteReleaseCache", mock.Anything, mock.Anything).Return(nil)
+				mockReleaseCache.On("CreateReleaseBackUp", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				mockK8sOperator.On("DeleteStatefulSetPvcs", mock.Anything).Return(nil)
 			},
 			deletePvcs: true,
@@ -306,9 +307,11 @@ func TestHelm_doDeleteRelease(t *testing.T) {
 				mockK8sCache.On("GetResource", mock.Anything, mock.Anything, mock.Anything).Return(&k8s.ReleaseConfig{}, nil)
 				mockHelm.On("DeleteRelease", mock.Anything, mock.Anything).Return(nil)
 				mockReleaseCache.On("DeleteReleaseCache", mock.Anything, mock.Anything).Return(nil)
+				mockReleaseCache.On("CreateReleaseBackUp", mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
+
 			},
 			deletePvcs: false,
-			err: nil,
+			err: errors.New(""),
 		},
 	}
 

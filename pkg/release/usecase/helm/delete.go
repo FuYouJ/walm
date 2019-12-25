@@ -3,6 +3,7 @@ package helm
 import (
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/release"
+	"encoding/json"
 	"k8s.io/klog"
 	"strings"
 	"time"
@@ -91,5 +92,16 @@ func (helm *Helm) doDeleteRelease(namespace, releaseName string, deletePvcs bool
 	}
 
 	klog.Infof("succeed to delete release %s/%s", namespace, releaseName)
+
+	releaseInfoByte, err := json.Marshal(releaseInfo)
+	if err != nil {
+		return err
+	}
+	err = helm.releaseCache.CreateReleaseBackUp(namespace, releaseName, releaseInfoByte)
+	if err != nil {
+		klog.Errorf("failed to backup releaseInfo of release which to be deleted : %s", err.Error())
+		return err
+	}
+
 	return nil
 }

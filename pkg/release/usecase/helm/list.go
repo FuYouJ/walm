@@ -27,6 +27,14 @@ func (helm *Helm) GetRelease(namespace, name string) (releaseV2 *releaseModel.Re
 	return helm.buildReleaseInfoV2ByReleaseTask(releaseTask, nil)
 }
 
+func(helm *Helm) GetBackUpRelease(namespace string, name string) (releaseRequestV2 *releaseModel.ReleaseInfoV2 , err error) {
+	releaseRequestV2, err = helm.releaseCache.GetReleaseBackUp(namespace, name)
+	if err != nil {
+		return nil, err
+	}
+	return
+}
+
 func (helm *Helm) buildReleaseInfoV2ByReleaseTask(releaseTask *releaseModel.ReleaseTask, releaseCache *releaseModel.ReleaseCache) (releaseV2 *releaseModel.ReleaseInfoV2, err error) {
 	releaseV2 = &releaseModel.ReleaseInfoV2{
 		ReleaseInfo: releaseModel.ReleaseInfo{
@@ -264,6 +272,16 @@ func (helm *Helm) ListReleasesByLabels(namespace string, labelSelectorStr string
 	}
 
 	return helm.listReleasesByReleaseConfigs(releaseConfigs)
+}
+
+func(helm *Helm) ListBackUpReleases(namespace string) ([]*releaseModel.ReleaseInfoV2, error) {
+
+	releaseInfoV2List, err := helm.releaseCache.ListReleasesBackUp(namespace)
+	if err != nil {
+		klog.Errorf("failed to list backup releases : %s", err.Error())
+		return nil, err
+	}
+	return releaseInfoV2List, nil
 }
 
 func (helm *Helm) listReleasesByReleaseConfigs(releaseConfigs []*k8sModel.ReleaseConfig) ([]*releaseModel.ReleaseInfoV2, error) {
