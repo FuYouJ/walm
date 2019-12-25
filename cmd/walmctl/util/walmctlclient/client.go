@@ -25,14 +25,12 @@ var walmctlClient *WalmctlClient
 var NotFoundError errModels.NotFoundError
 
 func CreateNewClient(hostURL string) *WalmctlClient {
-	if walmctlClient == nil {
-		walmctlClient = &WalmctlClient{
-			protocol:   "http://",
-			hostURL:    hostURL,
-			apiVersion: "/api/v1",
-		}
-		walmctlClient.baseURL = walmctlClient.protocol + walmctlClient.hostURL + walmctlClient.apiVersion
+	walmctlClient = &WalmctlClient{
+		protocol:   "http://",
+		hostURL:    hostURL,
+		apiVersion: "/api/v1",
 	}
+	walmctlClient.baseURL = walmctlClient.protocol + walmctlClient.hostURL + walmctlClient.apiVersion
 	return walmctlClient
 }
 
@@ -40,7 +38,7 @@ func (c *WalmctlClient) ValidateHostConnect() error {
 	timeout := time.Duration(5 * time.Second)
 	_, err := net.DialTimeout("tcp", walmctlClient.hostURL, timeout)
 	if err != nil {
-		return errors.Errorf("WalmServer unreachable, error: %s", err.Error())
+		return errors.Errorf("WalmServer %s unreachable, error: %s", walmctlClient.hostURL, err.Error())
 	}
 	return nil
 }
