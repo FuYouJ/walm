@@ -164,9 +164,10 @@ func saveCharts(client *walmctlclient.WalmctlClient, releaseInfo release.Release
 		}
 		err = registryClient.PullChart(ref)
 		if err != nil {
-			klog.Errorf("failed to push chart image : %s", err.Error())
+			klog.Errorf("failed to pull chart image : %s", err.Error())
 			return "", err
 		}
+		// Todo: parse *chart.Chart into files
 	} else {
 		resp, err := client.GetRepoList()
 		if err != nil {
