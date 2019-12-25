@@ -223,9 +223,15 @@ func(cache *Cache) GetReleaseBackUp(namespace string, name string) (*release.Rel
 	return releaseInfoV2, nil
 }
 
-func(cache *Cache) ListReleasesBackUp() ([]*release.ReleaseInfoV2, error) {
+func(cache *Cache) ListReleasesBackUp(namespace string) ([]*release.ReleaseInfoV2, error) {
 	var releaseInfoV2List []*release.ReleaseInfoV2
-	keys, err := cache.redis.GetKeys(redis.BuildMixedTopKey(redis.WalmReleasesKey, "*"))
+	regex := ""
+	if namespace != "" {
+		regex = redis.BuildMixedTopKey(redis.WalmReleasesKey, namespace + "/*")
+	} else {
+		regex = redis.BuildMixedTopKey(redis.WalmReleasesKey, "*")
+	}
+	keys, err := cache.redis.GetKeys(regex)
 	if err != nil {
 		return nil, err
 	}

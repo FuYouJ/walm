@@ -274,11 +274,12 @@ func (helm *Helm) ListReleasesByLabels(namespace string, labelSelectorStr string
 	return helm.listReleasesByReleaseConfigs(releaseConfigs)
 }
 
-func(helm *Helm) ListBackUpReleases() ([]*releaseModel.ReleaseInfoV2, error) {
+func(helm *Helm) ListBackUpReleases(namespace string) ([]*releaseModel.ReleaseInfoV2, error) {
 
-	releaseInfoV2List, err := helm.releaseCache.ListReleasesBackUp()
+	releaseInfoV2List, err := helm.releaseCache.ListReleasesBackUp(namespace)
 	if err != nil {
 		klog.Errorf("failed to list backup releases : %s", err.Error())
+		return nil, err
 	}
 	return releaseInfoV2List, nil
 }

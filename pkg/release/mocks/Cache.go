@@ -246,13 +246,13 @@ func (_m *Cache) GetReleaseTasksByReleaseConfigs(releaseConfigs []*k8s.ReleaseCo
 	return r0, r1
 }
 
-// ListReleasesBackUp provides a mock function with given fields:
-func (_m *Cache) ListReleasesBackUp() ([]*release.ReleaseInfoV2, error) {
-	ret := _m.Called()
+// ListReleasesBackUp provides a mock function with given fields: namespace
+func (_m *Cache) ListReleasesBackUp(namespace string) ([]*release.ReleaseInfoV2, error) {
+	ret := _m.Called(namespace)
 
 	var r0 []*release.ReleaseInfoV2
-	if rf, ok := ret.Get(0).(func() []*release.ReleaseInfoV2); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(string) []*release.ReleaseInfoV2); ok {
+		r0 = rf(namespace)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*release.ReleaseInfoV2)
@@ -260,8 +260,8 @@ func (_m *Cache) ListReleasesBackUp() ([]*release.ReleaseInfoV2, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(string) error); ok {
+		r1 = rf(namespace)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -15,7 +15,7 @@ type UseCase interface {
 	GetBackUpRelease(namespace string, name string) (*release.ReleaseInfoV2 , error)
 	GetReleaseEvents(namespace, name string) (*k8s.EventList , error)
 	ListReleases(namespace, filter string) ([]*release.ReleaseInfoV2, error)
-	ListBackUpReleases() ([]*release.ReleaseInfoV2, error)
+	ListBackUpReleases(namespace string) ([]*release.ReleaseInfoV2, error)
 	ListReleasesByLabels(namespace string, labelSelectorStr string) ([]*release.ReleaseInfoV2, error)
 	DryRunRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) ([]map[string]interface{}, error)
 	ComputeResourcesByDryRunRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (*release.ReleaseResources, error)

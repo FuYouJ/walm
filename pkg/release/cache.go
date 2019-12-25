@@ -19,5 +19,5 @@ type Cache interface {
 	DeleteReleaseTask(namespace string, name string) error
 	CreateReleaseBackUp(namespace string, name string, releaseInfoV2Byte []byte) error
 	GetReleaseBackUp(namespace string, name string) (*release.ReleaseInfoV2, error)
-	ListReleasesBackUp() ([]*release.ReleaseInfoV2, error)
+	ListReleasesBackUp(namespace string) ([]*release.ReleaseInfoV2, error)
 }

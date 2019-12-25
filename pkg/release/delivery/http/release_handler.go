@@ -62,6 +62,14 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Returns(200, "OK", releaseModel.ReleaseInfoV2List{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
+	ws.Route(ws.GET("/{namespace}/backup").To(releaseHandler.ListBackUpReleaseByNamespace).
+		Doc("获取Namespaces下的所有备份的Release列表").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Writes(releaseModel.ReleaseInfoV2List{}).
+		Returns(200, "OK", releaseModel.ReleaseInfoV2List{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+	
 	ws.Route(ws.GET("/{namespace}/name/{release}").To(releaseHandler.GetRelease).
 		Doc("获取对应Release的详细信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
@@ -533,7 +541,7 @@ func (handler *ReleaseHandler) ListReleaseByNamespace(request *restful.Request, 
 		}
 	}
 
-	response.WriteEntity(releaseModel.ReleaseInfoV2List{len(infos), infos})
+	response.WriteEntity(releaseModel.ReleaseInfoV2List{ Num: len(infos), Items: infos})
 }
 
 func (handler *ReleaseHandler) ListRelease(request *restful.Request, response *restful.Response) {
@@ -554,7 +562,7 @@ func (handler *ReleaseHandler) ListRelease(request *restful.Request, response *r
 		}
 	}
 
-	response.WriteEntity(releaseModel.ReleaseInfoV2List{len(infos), infos})
+	response.WriteEntity(releaseModel.ReleaseInfoV2List{ Num: len(infos), Items: infos})
 }
 
 func (handler *ReleaseHandler) GetRelease(request *restful.Request, response *restful.Response) {
@@ -747,10 +755,21 @@ func (handler *ReleaseHandler) GetBackUpRelease(request *restful.Request, respon
 }
 
 func (handler *ReleaseHandler) ListBackUpReleases(request *restful.Request, response *restful.Response) {
-	releases, err := handler.usecase.ListBackUpReleases()
+	infos, err := handler.usecase.ListBackUpReleases("")
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release: %s", err.Error()))
 		return
 	}
-	response.WriteEntity(releaseModel.ReleaseInfoV2List{Num: len(releases), Items: releases})
+
+	response.WriteEntity(releaseModel.ReleaseInfoV2List{Num: len(infos), Items: infos})
+}
+
+func (handler *ReleaseHandler) ListBackUpReleaseByNamespace(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	infos, err := handler.usecase.ListBackUpReleases(namespace)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list release by namespace %s : %s", namespace, err.Error()))
+		return
+	}
+	response.WriteEntity(releaseModel.ReleaseInfoV2List{Num: len(infos), Items: infos})
 }
