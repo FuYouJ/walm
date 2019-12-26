@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/gjson"
-	"golang.org/x/crypto/ssh"
+	"helm.sh/helm/pkg/chartutil"
 	"helm.sh/helm/pkg/registry"
 	"helm.sh/helm/pkg/repo"
 	"io"
@@ -25,15 +25,22 @@ import (
 	"strings"
 )
 
+var longSyncHelp = `
+To ensure release sync works well, you need to follow these instructions:
+When you run sync command on hostA:
+
+1. save releaseConfigs on local:
+-s xxx sync release xxx --save ...
+2. run release on hostB
+-s xxx sync release xxx --target-server hostB --target-namespace
+
+`
+
 type syncCmd struct {
-	name       string
-	file       string
-	clusterIP  string
-	user       string
-	password   string
-	sshPort    string
-	kubeconfig string
-	out        io.Writer
+	name         string
+	file         string
+	targetServer string
+	out          io.Writer
 }
 
 func newSyncCmd(out io.Writer) *cobra.Command {
@@ -42,6 +49,7 @@ func newSyncCmd(out io.Writer) *cobra.Command {
 		Use:                   "sync release",
 		DisableFlagsInUseLine: false,
 		Short:                 i18n.T("sync instance of your app to other k8s cluster or save into files"),
+		Long:                  longSyncHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 2 {
 				return errors.Errorf("Arguments invalid, format like `sync release zookeeper-test` instead")
@@ -57,10 +65,7 @@ func newSyncCmd(out io.Writer) *cobra.Command {
 		},
 	}
 	cmd.PersistentFlags().StringVar(&sync.file, "save", "/tmp/walm-sync", "filepath to save instance of app")
-	cmd.PersistentFlags().StringVar(&sync.clusterIP, "cluster-ip", "", "ip address for k8s cluster")
-	cmd.PersistentFlags().StringVarP(&sync.user, "user", "u", "root", "user for k8s cluster")
-	cmd.PersistentFlags().StringVarP(&sync.password, "password", "p", "", "password for k8s cluster")
-	cmd.PersistentFlags().StringVar(&sync.sshPort, "sshPort", "22", "sshPort, default 22")
+	cmd.PersistentFlags().StringVar(&sync.targetServer, "target-server", "", "walm server address of target cluster")
 	return cmd
 }
 
@@ -76,91 +81,66 @@ func (sync *syncCmd) run() error {
 	}
 
 	var releaseInfo release.ReleaseInfoV2
+	var configValues map[string]interface{}
 	err = json.Unmarshal(resp.Body(), &releaseInfo)
 	if err != nil {
 		return err
 	}
+	releaseRequest := releaseInfo.BuildReleaseRequestV2()
 
-	dirName := releaseInfo.Namespace + "-" + releaseInfo.Name
+	dirName := releaseInfo.Namespace + "_" + releaseInfo.Name
 	targetDir := filepath.Join(sync.file, dirName)
-	configValuesByte, err := json.Marshal(releaseInfo.ConfigValues)
+	releaseRequestByte, err := json.Marshal(releaseRequest)
 	if err != nil {
-		klog.Errorf("failed to write configValues.yaml : %s", err.Error())
 		return err
 	}
+
 	tmpDir, err := createTempDir()
 	if err != nil {
+		klog.Errorf("failed to create tmp dir : %s", err.Error())
 		return err
 	}
-	tmpCvPath := filepath.Join(tmpDir, "configValues.yaml")
-	if err := ioutil.WriteFile(tmpCvPath, configValuesByte, 0644); err != nil {
-		klog.Errorf("failed to write chart : %s", err.Error())
+	defer os.RemoveAll(tmpDir)
+
+	tmpReleaseRequestPath := filepath.Join(tmpDir, "releaseRequest.yaml")
+	if err := ioutil.WriteFile(tmpReleaseRequestPath, releaseRequestByte, 0644); err != nil {
+		klog.Errorf("failed to write releaseRequest.yaml : %s", err.Error())
 		return err
 	}
 
-	chartName, err := saveCharts(client, releaseInfo, tmpDir)
+	tmpChartPath, err := saveCharts(client, releaseInfo, tmpDir)
 	if err != nil {
 		return err
 	}
-	tmpChartPath := filepath.Join(tmpDir, chartName)
+	pathTokens := strings.SplitAfter(tmpChartPath, "/")
+	chartName := pathTokens[len(pathTokens)-1]
 
-	// transfer files to target cluster
-	if sync.clusterIP != "" {
-		sshConfig := &ssh.ClientConfig{
-			User: sync.user,
-			Auth: []ssh.AuthMethod{
-				ssh.Password(sync.password),
-			},
-			HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		}
-		sshClient, err := ssh.Dial("tcp", sync.clusterIP+":"+sync.sshPort, sshConfig)
-		if err != nil {
-			klog.Errorf("%s sshPort %s not reachable: %s", sync.clusterIP, sync.sshPort, err.Error())
+	// deploy release to another cluster
+	if sync.targetServer != "" {
+		targetClient := walmctlclient.CreateNewClient(sync.targetServer)
+		if err := targetClient.ValidateHostConnect(); err != nil {
 			return err
 		}
-		defer sshClient.Close()
-		session, err := sshClient.NewSession()
+		err = json.Unmarshal(releaseRequestByte, &configValues)
 		if err != nil {
-			klog.Errorf("failed to create session: %s", err.Error())
 			return err
 		}
-		defer session.Close()
-		chartFile, _ := os.Open(tmpCvPath)
-		defer chartFile.Close()
-		chartStat, _ := chartFile.Stat()
-		cvFile, _ := os.Open(tmpChartPath)
-		defer cvFile.Close()
-		cvStat, _ := cvFile.Stat()
-		go func() {
-			w, _ := session.StdinPipe()
-			defer w.Close()
-			_, err = fmt.Fprintln(w, "D0755", 0, dirName) // mkdir
-			if err != nil {
-				klog.Errorf("file %s exists: %s", targetDir, err.Error())
-			}
-			fmt.Fprintf(w, "C0664 %d %s\n", chartStat.Size(), chartName)
-			io.Copy(w, chartFile)
-			fmt.Fprint(w, "\x00")
-			fmt.Fprintf(w, "C0664 %d %s\n", cvStat.Size(), "configValues.yaml")
-			io.Copy(w, cvFile)
-			fmt.Fprint(w, "\x00")
-		}()
-		if err := session.Run("/usr/bin/scp -tr " + targetDir); err != nil {
-			return errors.Errorf("failed to run: %s  may not exist in %s", targetDir, sync.clusterIP)
+		_, err = targetClient.CreateRelease(releaseInfo.Namespace, tmpChartPath, releaseInfo.Name, false, 0, configValues)
+		if err != nil {
+			return err
 		}
+		klog.Infof("Sync release to deploy on namespace %s of target cluster succeed.", releaseInfo.Namespace)
 	} else {
-		if _, err = copyFile(tmpCvPath, filepath.Join(targetDir, "configValues.yaml")); err != nil {
-			return errors.Errorf("failed to copy configValues.yaml to %s: %s", targetDir, err.Error())
+		if _, err = copyFile(tmpReleaseRequestPath, filepath.Join(targetDir, "releaseRequest.yaml")); err != nil {
+			return errors.Errorf("failed to copy releaseRequest.yaml to %s: %s", targetDir, err.Error())
 		}
 
 		if _, err = copyFile(tmpChartPath, filepath.Join(targetDir, chartName)); err != nil {
 			return errors.Errorf("failed to copy %s to %s: %s", chartName, targetDir, err.Error())
 		}
+		klog.Infof("Sync release to store on %s of local succeed.", targetDir)
 	}
-	err = os.RemoveAll(tmpDir)
-	if err != nil {
-		return errors.Errorf("failed to remove tmp dir: %s", err.Error())
-	}
+	fmt.Println("Succeed to sync release.")
 	return nil
 }
 
@@ -171,6 +151,9 @@ func saveCharts(client *walmctlclient.WalmctlClient, releaseInfo release.Release
 	chartName := releaseInfo.ChartName
 	chartVersion := releaseInfo.ChartVersion
 	name := ""
+	if chartRepo == "" {
+		return "", errors.Errorf("repoName for release is empty, no access to fetch charts")
+	}
 	registryClient, err := impl.NewRegistryClient(&setting.ChartImageConfig{CacheRootDir: "/chart-cache"})
 	if err != nil {
 		return "", err
@@ -181,11 +164,18 @@ func saveCharts(client *walmctlclient.WalmctlClient, releaseInfo release.Release
 			klog.Errorf("failed to parse chart image %s : %s", chartImage, err.Error())
 			return "", errors.Wrapf(err, "failed to parse chart image %s", chartImage)
 		}
-		err = registryClient.PullChart(ref)
+		ch, err := registryClient.LoadChart(ref)
 		if err != nil {
-			klog.Errorf("failed to push chart image : %s", err.Error())
+			klog.Errorf("failed to load chart : %s", err.Error())
 			return "", err
 		}
+		// Save the chart to local destination directory
+		dest, err := chartutil.Save(ch, tmpDir)
+		if err != nil {
+			klog.Errorf("failed to save the chart to local destination directory")
+			return "", err
+		}
+		return dest, nil
 	} else {
 		resp, err := client.GetRepoList()
 		if err != nil {
@@ -200,7 +190,9 @@ func saveCharts(client *walmctlclient.WalmctlClient, releaseInfo release.Release
 				break
 			}
 		}
-
+		if repoUrl == "" {
+			return "", errors.Errorf("release repo %s not exist in repoList, no access to fetch charts.", chartRepo)
+		}
 		repoIndex := &repo.IndexFile{}
 		chartInfoList := new(release.ChartInfoList)
 		chartInfoList.Items = make([]*release.ChartInfo, 0)
@@ -239,11 +231,11 @@ func saveCharts(client *walmctlclient.WalmctlClient, releaseInfo release.Release
 			return "", err
 		}
 		name = filepath.Base(absoluteChartURL)
-		if err := ioutil.WriteFile(filepath.Join(tmpDir, name), resp.Body(), 0644); err != nil {
+		dest := filepath.Join(tmpDir, name)
+		if err := ioutil.WriteFile(dest, resp.Body(), 0644); err != nil {
 			klog.Errorf("failed to write chart : %s", err.Error())
 			return "", err
 		}
+		return dest, nil
 	}
-
-	return name, nil
 }
