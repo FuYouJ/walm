@@ -30,6 +30,7 @@ import (
 	tenanthttp "WarpCloud/walm/pkg/tenant/delivery/http"
 	tenantusecase "WarpCloud/walm/pkg/tenant/usecase"
 	httpUtils "WarpCloud/walm/pkg/util/http"
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -46,6 +47,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/thoas/stats"
+	"io/ioutil"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -375,6 +377,16 @@ func (sc *ServCmd) run() error {
 
 func RouteLogging(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
 	now := time.Now()
+
+	// put back the content of the body by setting it after reading it
+	body, err := ioutil.ReadAll(req.Request.Body)
+	if err != nil {
+		resp.WriteErrorString(http.StatusInternalServerError, err.Error()+"\n")
+		return
+	}
+	req.Request.Body.Close()
+	req.Request.Body = ioutil.NopCloser(bytes.NewReader(body))
+
 	chain.ProcessFilter(req, resp)
 
 	duration := time.Now().Sub(now)
@@ -396,6 +408,7 @@ func RouteLogging(req *restful.Request, resp *restful.Response, chain *restful.F
 			"method":  req.Request.Method,
 			"addr":    req.Request.RemoteAddr,
 			"subPath": req.Request.RequestURI,
+			"body":    string(body),
 			"status":  resp.StatusCode(),
 		}).Info()
 	}
