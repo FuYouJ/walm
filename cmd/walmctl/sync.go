@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/tidwall/gjson"
+	"helm.sh/helm/pkg/chartutil"
 	"helm.sh/helm/pkg/registry"
 	"helm.sh/helm/pkg/repo"
 	"io"
@@ -107,11 +108,12 @@ func (sync *syncCmd) run() error {
 		return err
 	}
 
-	chartName, err := saveCharts(client, releaseInfo, tmpDir)
+	tmpChartPath, err := saveCharts(client, releaseInfo, tmpDir)
 	if err != nil {
 		return err
 	}
-	tmpChartPath := filepath.Join(tmpDir, chartName)
+	pathTokens := strings.SplitAfter(tmpChartPath, "/")
+	chartName := pathTokens[len(pathTokens)-1]
 
 	// deploy release to another cluster
 	if sync.targetServer != "" {
@@ -127,7 +129,7 @@ func (sync *syncCmd) run() error {
 		if err != nil {
 			return err
 		}
-		klog.Infof("Sync release to deploy on target cluster succeed.")
+		klog.Infof("Sync release to deploy on namespace %s of target cluster succeed.", releaseInfo.Namespace)
 	} else {
 		if _, err = copyFile(tmpReleaseRequestPath, filepath.Join(targetDir, "releaseRequest.yaml")); err != nil {
 			return errors.Errorf("failed to copy releaseRequest.yaml to %s: %s", targetDir, err.Error())
@@ -162,12 +164,18 @@ func saveCharts(client *walmctlclient.WalmctlClient, releaseInfo release.Release
 			klog.Errorf("failed to parse chart image %s : %s", chartImage, err.Error())
 			return "", errors.Wrapf(err, "failed to parse chart image %s", chartImage)
 		}
-		err = registryClient.PullChart(ref)
+		ch, err := registryClient.LoadChart(ref)
 		if err != nil {
-			klog.Errorf("failed to pull chart image : %s", err.Error())
+			klog.Errorf("failed to load chart : %s", err.Error())
 			return "", err
 		}
-		// Todo: parse *chart.Chart into files
+		// Save the chart to local destination directory
+		dest, err := chartutil.Save(ch, tmpDir)
+		if err != nil {
+			klog.Errorf("failed to save the chart to local destination directory")
+			return "", err
+		}
+		return dest, nil
 	} else {
 		resp, err := client.GetRepoList()
 		if err != nil {
@@ -223,11 +231,11 @@ func saveCharts(client *walmctlclient.WalmctlClient, releaseInfo release.Release
 			return "", err
 		}
 		name = filepath.Base(absoluteChartURL)
-		if err := ioutil.WriteFile(filepath.Join(tmpDir, name), resp.Body(), 0644); err != nil {
+		dest := filepath.Join(tmpDir, name)
+		if err := ioutil.WriteFile(dest, resp.Body(), 0644); err != nil {
 			klog.Errorf("failed to write chart : %s", err.Error())
 			return "", err
 		}
+		return dest, nil
 	}
-
-	return name, nil
 }
