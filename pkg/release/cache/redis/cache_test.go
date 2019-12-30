@@ -513,3 +513,136 @@ func TestCache_DeleteReleaseTask(t *testing.T) {
 		mockRedis.AssertExpectations(t)
 	}
 }
+
+func TestCache_CreateReleaseBackUp(t *testing.T) {
+
+	var mockRedis *mocks.Redis
+	var mockCache *Cache
+
+	refreshMocks := func() {
+		mockRedis = &mocks.Redis{}
+		mockCache = NewCache(mockRedis)
+	}
+
+	releaseInfo := release.ReleaseInfoV2{}
+	releaseInfoByte, _ := json.Marshal(releaseInfo)
+	tests := []struct {
+		initMock func()
+		releaseInfoByte []byte
+		err      error
+	}{
+		{
+			initMock: func() {
+				refreshMocks()
+				mockRedis.On("SetKeyWithTTL", mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
+			},
+			releaseInfoByte: releaseInfoByte,
+			err: errors.New(""),
+		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockRedis.On("SetKeyWithTTL", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+			},
+			releaseInfoByte: releaseInfoByte,
+			err: nil,
+		},
+	}
+	for _, test := range tests {
+		test.initMock()
+		err := mockCache.CreateReleaseBackUp("testns", "testnm", test.releaseInfoByte)
+		assert.IsType(t, test.err, err)
+		mockRedis.AssertExpectations(t)
+	}
+}
+
+func TestCache_GetReleaseBackUp(t *testing.T) {
+	var mockRedis *mocks.Redis
+	var mockCache *Cache
+
+	refreshMocks := func() {
+		mockRedis = &mocks.Redis{}
+		mockCache = NewCache(mockRedis)
+	}
+
+	releaseInfo, _ := json.Marshal(&release.ReleaseInfoV2{})
+
+	tests := []struct {
+		initMock func()
+		err      error
+	}{
+		{
+			initMock: func() {
+				refreshMocks()
+				mockRedis.On("GetValue", mock.Anything).Return(string(releaseInfo), errors.New(""))
+			},
+			err: errors.New(""),
+		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockRedis.On("GetValue", mock.Anything).Return(string(releaseInfo), nil)
+			},
+			err: nil,
+		},
+	}
+	for _, test := range tests {
+		test.initMock()
+		_, err := mockCache.GetReleaseBackUp("testns", "testnm")
+		assert.IsType(t, test.err, err)
+		mockRedis.AssertExpectations(t)
+	}
+}
+
+func TestCache_ListReleasesBackUp(t *testing.T) {
+	var mockRedis *mocks.Redis
+	var mockCache *Cache
+
+	refreshMocks := func() {
+		mockRedis = &mocks.Redis{}
+		mockCache = NewCache(mockRedis)
+	}
+	releaseInfo, _ := json.Marshal(&release.ReleaseInfoV2{})
+
+	tests := []struct {
+		initMock func()
+		err      error
+	}{
+		{
+			initMock: func() {
+				refreshMocks()
+				mockRedis.On("GetKeys", mock.Anything).Return([]string{}, errors.New(""))
+			},
+			err: errors.New(""),
+		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockRedis.On("GetKeys", mock.Anything).Return([]string{}, nil)
+			},
+			err: nil,
+		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockRedis.On("GetKeys", mock.Anything).Return([]string{"{walm-releases}test3/test3-yarn"}, nil)
+				mockRedis.On("GetValue", mock.Anything).Return(mock.Anything, errors.New(""))
+			},
+			err: errors.New(""),
+		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockRedis.On("GetKeys", mock.Anything).Return([]string{"{walm-releases}test3/test3-yarn"}, nil)
+				mockRedis.On("GetValue", "{walm-releases}test3/test3-yarn").Return(string(releaseInfo), nil)
+			},
+			err: nil,
+		},
+	}
+	for _, test := range tests {
+		test.initMock()
+		_, err := mockCache.ListReleasesBackUp("test3")
+		assert.IsType(t, test.err, err)
+		mockRedis.AssertExpectations(t)
+	}
+}
