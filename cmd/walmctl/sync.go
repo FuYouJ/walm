@@ -32,7 +32,7 @@ When you run sync command on hostA:
 1. save releaseConfigs on local:
 -s xxx sync release xxx --save ...
 2. run release on hostB
--s xxx sync release xxx --target-server hostB --target-namespace
+-s xxx sync release xxx --target-server hostB
 
 `
 
@@ -40,6 +40,7 @@ type syncCmd struct {
 	name         string
 	file         string
 	targetServer string
+	client       *walmctlclient.WalmctlClient
 	out          io.Writer
 }
 
@@ -74,26 +75,7 @@ func (sync *syncCmd) run() error {
 	if err := client.ValidateHostConnect(); err != nil {
 		return err
 	}
-
-	resp, err := client.GetRelease(namespace, sync.name)
-	if err != nil {
-		return err
-	}
-
-	var releaseInfo release.ReleaseInfoV2
-	var configValues map[string]interface{}
-	err = json.Unmarshal(resp.Body(), &releaseInfo)
-	if err != nil {
-		return err
-	}
-	releaseRequest := releaseInfo.BuildReleaseRequestV2()
-
-	dirName := releaseInfo.Namespace + "_" + releaseInfo.Name
-	targetDir := filepath.Join(sync.file, dirName)
-	releaseRequestByte, err := json.Marshal(releaseRequest)
-	if err != nil {
-		return err
-	}
+	sync.client = client
 
 	tmpDir, err := createTempDir()
 	if err != nil {
@@ -102,45 +84,81 @@ func (sync *syncCmd) run() error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	tmpReleaseRequestPath := filepath.Join(tmpDir, "releaseRequest.yaml")
-	if err := ioutil.WriteFile(tmpReleaseRequestPath, releaseRequestByte, 0644); err != nil {
-		klog.Errorf("failed to write releaseRequest.yaml : %s", err.Error())
-		return err
-	}
-
-	tmpChartPath, err := saveCharts(client, releaseInfo, tmpDir)
+	tmpReleaseRequestPath, tmpChartPath, err := sync.saveRelease(tmpDir)
 	if err != nil {
 		return err
 	}
+
 	pathTokens := strings.SplitAfter(tmpChartPath, "/")
 	chartName := pathTokens[len(pathTokens)-1]
+	targetDir := filepath.Join(sync.file, namespace+"_"+sync.name)
 
-	// deploy release to another cluster
 	if sync.targetServer != "" {
-		targetClient := walmctlclient.CreateNewClient(sync.targetServer)
-		if err := targetClient.ValidateHostConnect(); err != nil {
-			return err
-		}
-		err = json.Unmarshal(releaseRequestByte, &configValues)
+		err = sync.deployRelease(tmpReleaseRequestPath, tmpChartPath)
 		if err != nil {
+			klog.Errorf("failed to deploy release to target server : %s", err.Error())
 			return err
 		}
-		_, err = targetClient.CreateRelease(releaseInfo.Namespace, tmpChartPath, releaseInfo.Name, false, 0, configValues)
-		if err != nil {
-			return err
-		}
-		klog.Infof("Sync release to deploy on namespace %s of target cluster succeed.", releaseInfo.Namespace)
+		klog.Infof("Sync release to deploy namespace %s of target server.", namespace)
 	} else {
 		if _, err = copyFile(tmpReleaseRequestPath, filepath.Join(targetDir, "releaseRequest.yaml")); err != nil {
 			return errors.Errorf("failed to copy releaseRequest.yaml to %s: %s", targetDir, err.Error())
 		}
-
 		if _, err = copyFile(tmpChartPath, filepath.Join(targetDir, chartName)); err != nil {
 			return errors.Errorf("failed to copy %s to %s: %s", chartName, targetDir, err.Error())
 		}
 		klog.Infof("Sync release to store on %s of local succeed.", targetDir)
 	}
 	fmt.Println("Succeed to sync release.")
+	return nil
+}
+
+func (sync *syncCmd) saveRelease(tmpDir string) (string, string, error) {
+
+	var releaseInfo release.ReleaseInfoV2
+	resp, err := sync.client.GetRelease(namespace, sync.name)
+	if err != nil {
+		return "", "", err
+	}
+	err = json.Unmarshal(resp.Body(), &releaseInfo)
+	if err != nil {
+		return "", "", err
+	}
+	releaseRequest := releaseInfo.BuildReleaseRequestV2()
+	releaseRequestByte, err := json.Marshal(releaseRequest)
+	if err != nil {
+		return "", "", err
+	}
+	tmpReleaseRequestPath := filepath.Join(tmpDir, "releaseRequest.yaml")
+	if err := ioutil.WriteFile(tmpReleaseRequestPath, releaseRequestByte, 0644); err != nil {
+		return "", "", err
+	}
+	tmpChartPath, err := saveCharts(sync.client, releaseInfo, tmpDir)
+	if err != nil {
+		return "", "", err
+
+	}
+	return tmpReleaseRequestPath, tmpChartPath, err
+}
+
+func (sync *syncCmd) deployRelease(tmpReleaseRequestPath string, tmpChartPath string) error {
+	targetClient := walmctlclient.CreateNewClient(sync.targetServer)
+	if err := targetClient.ValidateHostConnect(); err != nil {
+		return err
+	}
+	releaseRequestByte, err := ioutil.ReadFile(tmpReleaseRequestPath)
+	if err != nil {
+		return err
+	}
+	var configValues map[string]interface{}
+	err = json.Unmarshal(releaseRequestByte, &configValues)
+	if err != nil {
+		return err
+	}
+	_, err = targetClient.CreateRelease(namespace, tmpChartPath, sync.name, false, 0, configValues)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
