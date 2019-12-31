@@ -14,7 +14,7 @@ var globalUsage = `walmctl controls the walm application lifecycle manager.
 To begin working with walmctl,Find detail docs at:
 https://github.com/WarpCloud/walm/tree/master/docs/walmcli.md
 Environment:
-  $WALM_HOST		Set WALM_HOST env to substitute --server/-s in commands. The format is host:port (export $WALM_HOST=...)
+  $WALMSERVER		Set WALMSERVER env to substitute --server/-s in commands. The format is host:port (export $WALMSERVER=...)
 
 `
 
@@ -38,7 +38,7 @@ func newRootCmd(args []string) *cobra.Command {
 
 	flags := cmd.PersistentFlags()
 
-	flags.StringVarP(&walmserver, "server", "s", os.Getenv("WALM_HOST"), "walm apiserver address")
+	flags.StringVarP(&walmserver, "server", "s", os.Getenv("WALMSERVER"), "walm apiserver address")
 	flags.StringVarP(&namespace, "namespace", "n", "default", "kubernetes namespace")
 
 	settings.AddFlags(flags)

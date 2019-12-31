@@ -181,12 +181,7 @@ func SmartConfigValues(configValues map[string]interface{}) (destConfigValues ma
 			klog.Errorf("json convert release plugins error %v", err)
 			return
 		}
-		//releasePluginsBytes, err := json.Marshal(releasePlugins)
-		//if err != nil {
-		//	retErr = err
-		//	klog.Errorf("json marshal release plugins error %v", err)
-		//	return
-		//}
+
 		destConfigValues[PLUGINS_KEY] = releasePlugins
 	}
 	metaInfoValuesInterface, ok := configValues[METAINFO_KEY]
@@ -211,12 +206,7 @@ func SmartConfigValues(configValues map[string]interface{}) (destConfigValues ma
 				retErr = err
 				return
 			}
-			//metaInfoParamParamsBytes, err := json.Marshal(metaInfoParamParams)
-			//if err != nil {
-			//	klog.Errorf("json marshal metainfo params error %v", err)
-			//	retErr = err
-			//	return
-			//}
+
 			destConfigValuesMap := destConfigValues[METAINFO_KEY].(map[string]interface{})
 			destConfigValuesMap[METAINFOPARAMS_KEY] = metaInfoParamParams
 		}
