@@ -86,7 +86,7 @@ func (dc *deleteCmd) run() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("project %s deleted", dc.projectName)
+		fmt.Printf("project %s deleted\n", dc.projectName)
 
 	} else {
 		if dc.projectName == "" {
@@ -95,14 +95,14 @@ func (dc *deleteCmd) run() error {
 				return err
 			}
 
-			fmt.Printf("release %s deleted", dc.releaseName)
+			fmt.Printf("release %s deleted\n", dc.releaseName)
 
 		} else {
 			_, err = client.DeleteReleaseInProject(namespace, dc.projectName, dc.releaseName, dc.async, dc.timeoutSec, dc.deletePvcs)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("release %s in project %s deleted", dc.releaseName, dc.projectName)
+			fmt.Printf("release %s in project %s deleted\n", dc.releaseName, dc.projectName)
 		}
 	}
 
