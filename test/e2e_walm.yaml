@@ -28,9 +28,6 @@ jsonnetConfig:
   commonTemplateFilesPath: "ksonnet-lib"
 logConfig:
   level: "debug"
-crdConfig:
-  notNeedInstance: false
-  enableMigrationCRD: true
 chartImageConfig:
   cacheRootDir: "/chart-cache"
 
