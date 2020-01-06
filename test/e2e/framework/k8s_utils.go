@@ -9,10 +9,14 @@ import(
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clienthelm "WarpCloud/walm/pkg/k8s/client/helm"
-	appsv1 "k8s.io/api/apps/v1beta1"
+	transwarpv1beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
+	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
+	appsv1beta1 "k8s.io/api/apps/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/klog"
 	"path/filepath"
+	applicationinstanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -27,6 +31,10 @@ import(
 
 func GetKubeClient() *clienthelm.Client {
 	return kubeClients
+}
+
+func GetK8sInstanceClient() *applicationinstanceclientset.Clientset {
+	return k8sInstanceClient
 }
 
 func GetK8sMigrationClient() *migrationclientset.Clientset {
@@ -268,8 +276,8 @@ func CreateService(namespace, name string, selector map[string]string) (*v1.Serv
 	return k8sClient.CoreV1().Services(namespace).Create(resource)
 }
 
-func CreateStatefulSet(namespace, name string, labels map[string]string) (*appsv1.StatefulSet, error) {
-	statefulSet := &appsv1.StatefulSet{}
+func CreateStatefulSet(namespace, name string, labels map[string]string) (*appsv1beta1.StatefulSet, error) {
+	statefulSet := &appsv1beta1.StatefulSet{}
 	statefulSet.Name = name
 	statefulSet.Labels = labels
 	statefulSet.Spec.Selector = &metav1.LabelSelector{
@@ -339,6 +347,64 @@ func CreateSecret(namespace, name string, labels map[string]string) (*v1.Secret,
 	resource.Name = name
 	resource.Labels = labels
 	return k8sClient.CoreV1().Secrets(namespace).Create(resource)
+}
+
+func CreateReplicaSet(namespace, name string, labels map[string]string) (*appsv1.ReplicaSet, error) {
+	replicas := int32(1)
+	resource := &appsv1.ReplicaSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{"app": "guestbook", "tier": "frontend"},
+		},
+		Spec:       appsv1.ReplicaSetSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"tier": "frontend",
+				},
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key: "tier",
+						Operator: metav1.LabelSelectorOpIn,
+						Values: []string{"frontend"},
+					},
+				},
+			},
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"app": "guestbook",
+						"tier": "frontend",
+					},
+				},
+				Spec:       v1.PodSpec{
+						Containers: []v1.Container{
+							{
+								Name: "redis",
+								Image: "docker.io/library/redis",
+							},
+						},
+				},
+			},
+		},
+		Status:     appsv1.ReplicaSetStatus{},
+	}
+	resource.Name = name
+	resource.Labels = labels
+	return k8sClient.AppsV1().ReplicaSets(namespace).Create(resource)
+}
+
+func CreateInstance(namespace, name string, labels map[string]string) (*transwarpv1beta1.ApplicationInstance, error) {
+	resource := &transwarpv1beta1.ApplicationInstance{}
+	resource.Name = name
+	resource.Labels = labels
+	return k8sInstanceClient.TranswarpV1beta1().ApplicationInstances(namespace).Create(resource)
+}
+
+func CreateMigration(namespace, name string, labels map[string]string) (*tosv1beta1.Mig, error) {
+	resource := &tosv1beta1.Mig{}
+	resource.Name = name
+	resource.Labels = labels
+	return k8sMigrationClient.ApiextensionsV1beta1().Migs(namespace).Create(resource)
 }
 
 func CreateStorageClass(namespace, name string, labels map[string]string) (*storagev1.StorageClass, error) {

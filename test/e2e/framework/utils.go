@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"runtime"
 	"strings"
+	applicationinstanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 )
 
@@ -22,6 +23,7 @@ var k8sClient *kubernetes.Clientset
 var k8sReleaseConfigClient *releaseconfigclientset.Clientset
 var kubeClients *clienthelm.Client
 var k8sMigrationClient *migrationclientset.Clientset
+var k8sInstanceClient *applicationinstanceclientset.Clientset
 
 const (
 	maxNameLength                = 62
@@ -142,6 +144,11 @@ func InitFramework() error {
 	k8sMigrationClient, err = client.NewMigrationClient("", kubeConfig)
 	if err != nil {
 		logrus.Errorf("failed to create k8s crd client : %s", err.Error())
+	}
+
+	k8sInstanceClient, err = client.NewInstanceClient("", kubeConfig)
+	if err != nil {
+		logrus.Errorf("failed to create k8s instance client : %s", err.Error())
 	}
 
 	kubeClients = clienthelm.NewHelmKubeClient(kubeConfig, kubeContext, nil)
