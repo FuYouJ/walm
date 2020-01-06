@@ -1,24 +1,25 @@
 package http
 
 import (
-	"testing"
-	"net/http/httptest"
-	"github.com/emicklei/go-restful"
-	"net/http"
-	"WarpCloud/walm/pkg/release/mocks"
-	"github.com/stretchr/testify/assert"
-	"errors"
-	"encoding/json"
-	"bytes"
-	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/release/mocks"
 	"WarpCloud/walm/test/e2e/framework"
-	"mime/multipart"
-	"io/ioutil"
-	"path/filepath"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"github.com/emicklei/go-restful"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
 	neturl "net/url"
+	"path/filepath"
+	"testing"
 )
 
 func TestReleaseHandler_DeleteRelease(t *testing.T) {
@@ -1245,3 +1246,507 @@ func TestReleaseHandler_RestartRelease(t *testing.T) {
 	}
 }
 
+func TestReleaseHandler_UpdateReleaseIngress(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		body       interface{}
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+			},
+			body:       "notvalid",
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("UpdateReleaseIngress", "test-ns", "test-name", "test-ingress", &k8s.IngressRequestBody{}).Return(nil)
+			},
+			body:       k8s.IngressRequestBody{},
+			statusCode: 200,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("UpdateReleaseIngress", "test-ns", "test-name", "test-ingress", &k8s.IngressRequestBody{}).Return(errors.New(""))
+			},
+			body:       k8s.IngressRequestBody{},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("UpdateReleaseIngress", "test-ns", "test-name", "test-ingress", &k8s.IngressRequestBody{
+					Host:        "happy.k8s.io",
+					Annotations: map[string]string{"test1": "test2"},
+					Path:        "/*",
+				}).Return(nil)
+			},
+			body: k8s.IngressRequestBody{
+				Host:        "happy.k8s.io",
+				Annotations: map[string]string{"test1": "test2"},
+				Path:        "/*",
+			},
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/test-ns" + "/name" + "/test-name" + "/ingresses" + "/test-ingress"
+
+		bodyBytes, err := json.Marshal(test.body)
+		assert.IsType(t, nil, err)
+
+		httpRequest, _ := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+		httpRequest.Header.Set("Content-Type", restful.MIME_JSON)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
+
+func TestReleaseHandler_UpdateReleaseConfigMap(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		body       interface{}
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+			},
+			body:       "notvalid",
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("UpdateReleaseConfigMap", "test-ns", "test-name", "test-configmap", &k8s.ConfigMapRequestBody{}).Return(nil)
+			},
+			body:       k8s.ConfigMapRequestBody{},
+			statusCode: 200,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("UpdateReleaseConfigMap", "test-ns", "test-name", "test-configmap", &k8s.ConfigMapRequestBody{}).Return(errors.New(""))
+			},
+			body:       k8s.ConfigMapRequestBody{},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("UpdateReleaseConfigMap", "test-ns", "test-name", "test-configmap", &k8s.ConfigMapRequestBody{
+					Data: map[string]string{"test1": "test2"},
+				}).Return(nil)
+			},
+			body: k8s.ConfigMapRequestBody{
+				Data: map[string]string{"test1": "test2"},
+			},
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/test-ns" + "/name" + "/test-name" + "/configmaps" + "/test-configmap"
+
+		bodyBytes, err := json.Marshal(test.body)
+		assert.IsType(t, nil, err)
+
+		httpRequest, _ := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+		httpRequest.Header.Set("Content-Type", restful.MIME_JSON)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
+
+func TestReleaseHandler_GetReleaseEvents(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetReleaseEvents", "testns", "testname").Return(nil, errors.New(""))
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetReleaseEvents", "testns", "testname").Return(nil, errorModel.NotFoundError{})
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetReleaseEvents", "testns", "testname").Return(nil, nil)
+			},
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/testns/name/testname/events"
+		httpRequest, _ := http.NewRequest("GET", url, nil)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
+
+func TestReleaseHandler_GetBackUpRelease(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetBackUpRelease", "testns", "testname").Return(nil, errors.New(""))
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetBackUpRelease", "testns", "testname").Return(nil, errorModel.NotFoundError{})
+			},
+			statusCode: 404,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetBackUpRelease", "testns", "testname").Return(nil, nil)
+			},
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/testns/name/testname/backup"
+		httpRequest, _ := http.NewRequest("GET", url, nil)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
+
+func TestReleaseHandler_ListBackUpReleaseByNamespace(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListBackUpReleases", "testns").Return(nil, errors.New(""))
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListBackUpReleases", "testns").Return(nil, errorModel.NotFoundError{})
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListBackUpReleases", "testns").Return(nil, nil)
+			},
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/testns/backup"
+		httpRequest, _ := http.NewRequest("GET", url, nil)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
+
+func TestReleaseHandler_ListBackUpReleases(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListBackUpReleases", "").Return(nil, errors.New(""))
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListBackUpReleases", "").Return(nil, errorModel.NotFoundError{})
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListBackUpReleases", "").Return(nil, nil)
+			},
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/backup"
+		httpRequest, _ := http.NewRequest("GET", url, nil)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
+
+func TestReleaseHandler_GetReleaseConfig(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetRelease", "testns", "testname").Return(nil, errors.New(""))
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetRelease", "testns", "testname").Return(nil, errorModel.NotFoundError{})
+			},
+			statusCode: 404,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("GetRelease", "testns", "testname").Return(&release.ReleaseInfoV2{}, nil)
+			},
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/config/testns/name/testname"
+		httpRequest, _ := http.NewRequest("GET", url, nil)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
+
+func TestReleaseHandler_ListReleaseConfig(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		queryUrl   string
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListReleases", "", "").Return(nil, errors.New(""))
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListReleases", "", "").Return([]*release.ReleaseInfoV2{}, nil)
+			},
+			statusCode: 200,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListReleasesByLabels", "", "test=true").Return(nil, errors.New(""))
+			},
+			queryUrl:   "?labelselector=test=true",
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListReleasesByLabels", "", "test=true").Return([]*release.ReleaseInfoV2{}, nil)
+			},
+			queryUrl:   "?labelselector=test=true",
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/config/" + test.queryUrl
+		httpRequest, _ := http.NewRequest("GET", url, nil)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
+
+func TestReleaseHandler_ListReleaseConfigByNamespace(t *testing.T) {
+	var mockUseCase *mocks.UseCase
+	var mockReleaseHandler ReleaseHandler
+
+	container := restful.NewContainer()
+	container.Add(RegisterReleaseHandler(&mockReleaseHandler))
+
+	refreshMockUseCase := func() {
+		mockUseCase = &mocks.UseCase{}
+		mockReleaseHandler.usecase = mockUseCase
+	}
+
+	tests := []struct {
+		initMock   func()
+		queryUrl   string
+		statusCode int
+	}{
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListReleases", "testns", "").Return(nil, errors.New(""))
+			},
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListReleases", "testns", "").Return([]*release.ReleaseInfoV2{}, nil)
+			},
+			statusCode: 200,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListReleasesByLabels", "testns", "test=true").Return(nil, errors.New(""))
+			},
+			queryUrl:   "?labelselector=test=true",
+			statusCode: 500,
+		},
+		{
+			initMock: func() {
+				refreshMockUseCase()
+				mockUseCase.On("ListReleasesByLabels", "testns", "test=true").Return([]*release.ReleaseInfoV2{}, nil)
+			},
+			queryUrl:   "?labelselector=test=true",
+			statusCode: 200,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		url := releaseRootPath + "/config/testns/" + test.queryUrl
+		httpRequest, _ := http.NewRequest("GET", url, nil)
+		httpWriter := httptest.NewRecorder()
+		container.ServeHTTP(httpWriter, httpRequest)
+		assert.Equal(t, test.statusCode, httpWriter.Code)
+	}
+}
