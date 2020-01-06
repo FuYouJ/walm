@@ -823,3 +823,158 @@ func Test_buildReleaseNotReadyMsgCode(t *testing.T) {
 		assert.Equal(t, test.msgCode, msgCode)
 	}
 }
+
+func TestHelm_GetBackUpRelease(t *testing.T) {
+	var mockReleaseCache *mocks.Cache
+	var mockHelm *helmMocks.Helm
+	var mockK8sOperator *k8sMocks.Operator
+	var mockK8sCache *k8sMocks.Cache
+	var mockTask *taskMocks.Task
+	var mockReleaseManager *Helm
+	var mockRedisEx *redisExMocks.RedisEx
+
+	var mockTaskState *taskMocks.TaskState
+
+	refreshMocks := func() {
+		mockReleaseCache = &mocks.Cache{}
+		mockHelm = &helmMocks.Helm{}
+		mockK8sOperator = &k8sMocks.Operator{}
+		mockK8sCache = &k8sMocks.Cache{}
+		mockTask = &taskMocks.Task{}
+
+		mockTaskState = &taskMocks.TaskState{}
+		mockRedisEx = &redisExMocks.RedisEx{}
+
+		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
+		mockRedisEx.On("Init", mock.Anything).Return(nil)
+
+		var err error
+		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask, mockRedisEx)
+		assert.IsType(t, err, nil)
+	}
+
+	tests := []struct{
+		initMock    func()
+		releaseInfo *release.ReleaseInfoV2
+		err         error
+	}{
+		{
+			initMock: func() {
+				refreshMocks()
+				mockReleaseCache.On("GetReleaseBackUp", mock.Anything, mock.Anything).Return(nil, errors.New("failed"))
+			},
+			releaseInfo: nil,
+			err: errors.New("failed"),
+		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockReleaseCache.On("GetReleaseBackUp", mock.Anything, mock.Anything).Return(&release.ReleaseInfoV2{
+					ReleaseInfo:              release.ReleaseInfo{
+						ReleaseSpec: release.ReleaseSpec{
+							Name:            "test-name",
+							Namespace:       "test-ns",
+						},
+					},
+				}, nil)
+			},
+			releaseInfo: &release.ReleaseInfoV2{
+				ReleaseInfo:              release.ReleaseInfo{
+					ReleaseSpec: release.ReleaseSpec{
+						Name:            "test-name",
+						Namespace:       "test-ns",
+					},
+				},
+			},
+			err: nil,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		releaseInfo, err := mockReleaseManager.GetBackUpRelease("test-ns", "test-name")
+		assert.IsType(t, test.err, err)
+		assert.Equal(t, test.releaseInfo, releaseInfo)
+
+		mockReleaseCache.AssertExpectations(t)
+		mockHelm.AssertExpectations(t)
+		mockK8sOperator.AssertExpectations(t)
+		mockK8sCache.AssertExpectations(t)
+		mockTask.AssertExpectations(t)
+
+		mockTaskState.AssertExpectations(t)
+	}
+}
+
+func TestHelm_ListBackUpReleases(t *testing.T) {
+	var mockReleaseCache *mocks.Cache
+	var mockHelm *helmMocks.Helm
+	var mockK8sOperator *k8sMocks.Operator
+	var mockK8sCache *k8sMocks.Cache
+	var mockTask *taskMocks.Task
+	var mockReleaseManager *Helm
+	var mockRedisEx *redisExMocks.RedisEx
+
+	var mockTaskState *taskMocks.TaskState
+
+	refreshMocks := func() {
+		mockReleaseCache = &mocks.Cache{}
+		mockHelm = &helmMocks.Helm{}
+		mockK8sOperator = &k8sMocks.Operator{}
+		mockK8sCache = &k8sMocks.Cache{}
+		mockTask = &taskMocks.Task{}
+
+		mockTaskState = &taskMocks.TaskState{}
+		mockRedisEx = &redisExMocks.RedisEx{}
+
+		mockTask.On("RegisterTask", mock.Anything, mock.Anything).Return(nil)
+		mockRedisEx.On("Init", mock.Anything).Return(nil)
+
+		var err error
+		mockReleaseManager, err = NewHelm(mockReleaseCache, mockHelm, mockK8sCache, mockK8sOperator, mockTask, mockRedisEx)
+		assert.IsType(t, err, nil)
+	}
+
+	tests := []struct {
+		initMock     func()
+		releaseInfos []*release.ReleaseInfoV2
+		err          error
+	}{
+		{
+			initMock: func() {
+				refreshMocks()
+				mockReleaseCache.On("ListReleasesBackUp", mock.Anything).Return(nil, errors.New("failed"))
+			},
+			releaseInfos: nil,
+			err: errors.New("failed"),
+		},
+		{
+			initMock: func() {
+				refreshMocks()
+				mockReleaseCache.On("ListReleasesBackUp", mock.Anything).Return([]*release.ReleaseInfoV2{}, nil)
+			},
+			releaseInfos: []*release.ReleaseInfoV2{},
+			err: nil,
+		},
+	}
+
+	for _, test := range tests {
+		test.initMock()
+		releaseInfos, err := mockReleaseManager.ListBackUpReleases("test-ns")
+		assert.IsType(t, test.err, err)
+		assert.Equal(t, test.releaseInfos, releaseInfos)
+
+		mockReleaseCache.AssertExpectations(t)
+		mockHelm.AssertExpectations(t)
+		mockK8sOperator.AssertExpectations(t)
+		mockK8sCache.AssertExpectations(t)
+		mockTask.AssertExpectations(t)
+
+		mockTaskState.AssertExpectations(t)
+	}
+}
+
+func TestHelm_GetReleaseEvents(t *testing.T) {
+
+}
+
