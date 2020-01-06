@@ -1,18 +1,18 @@
 package cache
 
 import (
-	. "github.com/onsi/gomega"
-	. "github.com/onsi/ginkgo"
-	"WarpCloud/walm/test/e2e/framework"
 	"WarpCloud/walm/pkg/k8s/cache/informer"
-	"time"
 	errorModel "WarpCloud/walm/pkg/models/error"
+	"WarpCloud/walm/test/e2e/framework"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"time"
 
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/models/release"
+	"WarpCloud/walm/pkg/models/tenant"
 	storagev1 "k8s.io/api/storage/v1"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
-	"WarpCloud/walm/pkg/models/tenant"
-	"WarpCloud/walm/pkg/models/release"
-	k8sModel "WarpCloud/walm/pkg/models/k8s"
 )
 
 var _ = Describe("K8sCache", func() {
@@ -29,7 +29,7 @@ var _ = Describe("K8sCache", func() {
 		namespace, err = framework.CreateRandomNamespace("k8sCacheTest", nil)
 		Expect(err).NotTo(HaveOccurred())
 		stopChan = make(chan struct{})
-		k8sCache = informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), nil, nil, 0, stopChan)
+		k8sCache = informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), framework.GetK8sInstanceClient(), framework.GetK8sMigrationClient(), 0, stopChan)
 	})
 
 	AfterEach(func() {
@@ -97,6 +97,13 @@ var _ = Describe("K8sCache", func() {
 			secret, err := framework.CreateSecret(namespace, "test-secret", nil)
 			Expect(err).NotTo(HaveOccurred())
 
+			replicaSet, err := framework.CreateReplicaSet(namespace, "test-replicaset", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			instance, err := framework.CreateInstance(namespace, "test-instance", nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			migration, err := framework.CreateMigration(namespace, "test-migration", nil)
 			node, err := framework.GetTestNode()
 			Expect(err).NotTo(HaveOccurred())
 
@@ -164,6 +171,24 @@ var _ = Describe("K8sCache", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resource.GetKind()).To(Equal(k8sModel.SecretKind))
 			_, err = k8sCache.GetResource(k8sModel.SecretKind, namespace, "notExisted")
+			Expect(err).To(Equal(errorModel.NotFoundError{}))
+
+			resource, err = k8sCache.GetResource(k8sModel.ReplicaSetKind, namespace, replicaSet.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resource.GetKind()).To(Equal(k8sModel.ReplicaSetKind))
+			_, err = k8sCache.GetResource(k8sModel.ReplicaSetKind, namespace, "notExisted")
+			Expect(err).To(Equal(errorModel.NotFoundError{}))
+
+			resource, err = k8sCache.GetResource(k8sModel.InstanceKind, namespace, instance.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resource.GetKind()).To(Equal(k8sModel.InstanceKind))
+			_, err = k8sCache.GetResource(k8sModel.InstanceKind, namespace, "notExisted")
+			Expect(err).To(Equal(errorModel.NotFoundError{}))
+
+			resource, err = k8sCache.GetResource(k8sModel.MigKind, namespace, migration.Name)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resource.GetKind()).To(Equal(k8sModel.MigKind))
+			_, err = k8sCache.GetResource(k8sModel.MigKind, namespace, "notExisted")
 			Expect(err).To(Equal(errorModel.NotFoundError{}))
 
 			resource, err = k8sCache.GetResource(k8sModel.NodeKind, namespace, node.Name)
