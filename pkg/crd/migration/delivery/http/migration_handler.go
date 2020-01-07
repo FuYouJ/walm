@@ -101,7 +101,7 @@ func RegisterCrdHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restful.W
 func (handler CrdHandler) ListMigrations(request *restful.Request, response *restful.Response) {
 
 	labelSelectorStr := request.QueryParameter("labelselector")
-	migs, err := handler.k8sCache.ListMigrations(labelSelectorStr)
+	migs, err := handler.k8sCache.ListMigrations("default", labelSelectorStr)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list migrations: %s", err.Error()))
 		return
@@ -179,7 +179,7 @@ func (handler CrdHandler) MigratePod(request *restful.Request, response *restful
 func (handler CrdHandler) GetNodeMigration(request *restful.Request, response *restful.Response) {
 
 	node := request.PathParameter("node")
-	migList, err := handler.k8sCache.GetNodeMigration(node)
+	migList, err := handler.k8sCache.GetNodeMigration("default", node)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
 			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("migration for node %s is not found", node))

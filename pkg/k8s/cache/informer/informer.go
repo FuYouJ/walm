@@ -428,7 +428,7 @@ func (informer *Informer) ListReleaseConfigs(namespace, labelSelectorStr string)
 	return releaseConfigs, nil
 }
 
-func (informer *Informer) GetNodeMigration(node string) (*k8s.MigStatus, error) {
+func (informer *Informer) GetNodeMigration(namespace, node string) (*k8s.MigStatus, error) {
 	var migs []*k8s.Mig
 	selector, err := utils.ConvertLabelSelectorToSelector(&metav1.LabelSelector{
 		MatchLabels: map[string]string{"migType": "node", "srcNode": node},
@@ -437,7 +437,7 @@ func (informer *Informer) GetNodeMigration(node string) (*k8s.MigStatus, error) 
 		klog.Errorf("failed to convert label selector to selector: %s", err.Error())
 		return nil, err
 	}
-	k8sMigs, err := informer.migrationLister.Migs("default").List(selector)
+	k8sMigs, err := informer.migrationLister.Migs(namespace).List(selector)
 	if err != nil {
 		klog.Errorf("failed to list pod migs of node: %s", err.Error())
 		return nil, err
@@ -464,14 +464,14 @@ func (informer *Informer) GetNodeMigration(node string) (*k8s.MigStatus, error) 
 }
 
 
-func (informer *Informer) ListMigrations(labelSelectorStr string) ([]*k8s.Mig, error) {
+func (informer *Informer) ListMigrations(namespace, labelSelectorStr string) ([]*k8s.Mig, error) {
 	var k8sMigs []*tosv1beta1.Mig
 	selector, err := labels.Parse(labelSelectorStr)
 	if err != nil {
 		klog.Errorf("failed to parse label string %s : %s", labelSelectorStr, err.Error())
 		return nil, err
 	}
-	k8sMigs, err = informer.migrationLister.Migs("default").List(selector)
+	k8sMigs, err = informer.migrationLister.Migs(namespace).List(selector)
 
 	var migs []*k8s.Mig
 	for _, k8sMig := range k8sMigs {
