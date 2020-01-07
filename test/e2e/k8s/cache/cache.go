@@ -7,12 +7,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"time"
+	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/models/tenant"
 	storagev1 "k8s.io/api/storage/v1"
-	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 )
 
 var _ = Describe("K8sCache", func() {
@@ -495,6 +495,43 @@ var _ = Describe("K8sCache", func() {
 		Expect(scts.Items).To(HaveLen(1))
 	})
 
+	It("test eventLists", func() {
+		By("list deployment eventList")
+		_, err := framework.CreateDeployment(namespace, "test-deploy2")
+		Expect(err).NotTo(HaveOccurred())
+		time.Sleep(time.Millisecond * 500)
+		deploymentEventList, err := k8sCache.GetDeploymentEventList(namespace, "test-deploy2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(deploymentEventList.Events) != 0).To(BeTrue())
+
+		By("list statefulset eventList")
+		_, err = framework.CreateStatefulSet(namespace, "test-sts2", nil)
+		Expect(err).NotTo(HaveOccurred())
+		time.Sleep(time.Millisecond * 500)
+		statefulSetEventList, err := k8sCache.GetStatefulSetEventList(namespace, "test-sts2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(statefulSetEventList.Events) != 0).To(BeTrue())
+	})
+
+	It("test migs", func() {
+		By("get node migration")
+		_, err := framework.CreateMigration(namespace, "test-migration2", map[string]string{"migType": "node", "srcNode": "test-node2"})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = framework.CreateMigration(namespace, "test-migration3", map[string]string{"migType": "node", "srcNode": "test-node2"})
+		Expect(err).NotTo(HaveOccurred())
+		_, err = framework.CreateMigration(namespace, "test-migration4", map[string]string{"migType": "node", "srcNode": "test-node3"})
+		Expect(err).NotTo(HaveOccurred())
+
+		time.Sleep(time.Millisecond * 500)
+
+		By("list migrations")
+		migList, err := k8sCache.GetNodeMigration(namespace, "test-node2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(migList.Items) == 2).To(BeTrue())
+		mig2List, err := k8sCache.ListMigrations(namespace, "migType=node")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(mig2List) == 3).To(BeTrue())
+	})
 })
 
 func getTenantInfo(items []*tenant.TenantInfo, name string) *tenant.TenantInfo {
