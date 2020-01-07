@@ -9,7 +9,7 @@ import (
 type Cache interface {
 	GetResourceSet(releaseResourceMetas []release.ReleaseResourceMeta) (resourceSet *k8s.ResourceSet,err error)
 	GetResource(kind k8s.ResourceKind, namespace, name string) (k8s.Resource, error)
-	GetNodeMigration(node string) (*k8s.MigStatus, error)
+	GetNodeMigration(namespace, node string) (*k8s.MigStatus, error)
 	AddReleaseConfigHandler(OnAdd func(obj interface{}), OnUpdate func(oldObj, newObj interface{}), OnDelete func(obj interface{}))
 	AddServiceHandler(OnAdd func(obj interface{}), OnUpdate func(oldObj, newObj interface{}), OnDelete func(obj interface{}))
 	ListReleaseConfigs(namespace, labelSelectorStr string) ([]*k8s.ReleaseConfig, error)
@@ -34,5 +34,5 @@ type Cache interface {
 	ListStorageClasses(namespace string, labelSelectorStr string) ([]*k8s.StorageClass, error)
 	ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error)
 
-	ListMigrations(labelSelectorStr string) ([]*k8s.Mig, error)
+	ListMigrations(namespace, labelSelectorStr string) ([]*k8s.Mig, error)
 }

@@ -50,13 +50,13 @@ func (_m *Cache) GetDeploymentEventList(namespace string, name string) (*modelsk
 	return r0, r1
 }
 
-// GetNodeMigration provides a mock function with given fields: node
-func (_m *Cache) GetNodeMigration(node string) (*modelsk8s.MigStatus, error) {
-	ret := _m.Called(node)
+// GetNodeMigration provides a mock function with given fields: namespace, node
+func (_m *Cache) GetNodeMigration(namespace string, node string) (*modelsk8s.MigStatus, error) {
+	ret := _m.Called(namespace, node)
 
 	var r0 *modelsk8s.MigStatus
-	if rf, ok := ret.Get(0).(func(string) *modelsk8s.MigStatus); ok {
-		r0 = rf(node)
+	if rf, ok := ret.Get(0).(func(string, string) *modelsk8s.MigStatus); ok {
+		r0 = rf(namespace, node)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*modelsk8s.MigStatus)
@@ -64,8 +64,8 @@ func (_m *Cache) GetNodeMigration(node string) (*modelsk8s.MigStatus, error) {
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(node)
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, node)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -232,13 +232,13 @@ func (_m *Cache) GetTenant(tenantName string) (*tenant.TenantInfo, error) {
 	return r0, r1
 }
 
-// ListMigrations provides a mock function with given fields: labelSelectorStr
-func (_m *Cache) ListMigrations(labelSelectorStr string) ([]*modelsk8s.Mig, error) {
-	ret := _m.Called(labelSelectorStr)
+// ListMigrations provides a mock function with given fields: namespace, labelSelectorStr
+func (_m *Cache) ListMigrations(namespace string, labelSelectorStr string) ([]*modelsk8s.Mig, error) {
+	ret := _m.Called(namespace, labelSelectorStr)
 
 	var r0 []*modelsk8s.Mig
-	if rf, ok := ret.Get(0).(func(string) []*modelsk8s.Mig); ok {
-		r0 = rf(labelSelectorStr)
+	if rf, ok := ret.Get(0).(func(string, string) []*modelsk8s.Mig); ok {
+		r0 = rf(namespace, labelSelectorStr)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*modelsk8s.Mig)
@@ -246,8 +246,8 @@ func (_m *Cache) ListMigrations(labelSelectorStr string) ([]*modelsk8s.Mig, erro
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(labelSelectorStr)
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, labelSelectorStr)
 	} else {
 		r1 = ret.Error(1)
 	}
