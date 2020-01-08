@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"WarpCloud/walm/pkg/models/k8s"
+	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -439,6 +441,148 @@ func TestParseK8sResourcePod(t *testing.T) {
 
 	for _, test := range tests {
 		result := ParseK8sResourcePod(test.strValue)
+		assert.Equal(t, test.result, result)
+	}
+}
+
+func TestConvertOutputConfigToDependencyMeta(t *testing.T) {
+	tests := []struct{
+		outputConfig map[string]interface{}
+		result *k8s.DependencyMeta
+	}{
+		{
+			outputConfig: nil,
+			result: nil,
+		},
+		{
+			outputConfig: map[string]interface{}{"provides": 1},
+			result: nil,
+		},
+		{
+			outputConfig: map[string]interface{}{"provides": map[string]interface{}{"testKey": map[string]interface{}{"immediate_value": map[string]interface{}{"test": "test"}}}},
+			result: &k8s.DependencyMeta{
+				Provides: map[string]k8s.DependencyProvide{
+					"testKey": {
+						ImmediateValue: map[string]interface{}{
+							"test": "test",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		result := ConvertOutputConfigToDependencyMeta(test.outputConfig)
+		assert.Equal(t, test.result, result)
+	}
+}
+
+func TestConvertDependencyMetaToOutputConfig(t *testing.T) {
+	tests := []struct{
+		dependencyMeta *k8s.DependencyMeta
+		result map[string]interface{}
+	}{
+		{
+			dependencyMeta: nil,
+			result: map[string]interface{}{},
+		},
+		{
+			dependencyMeta: &k8s.DependencyMeta{
+				Provides: map[string]k8s.DependencyProvide{
+					"testKey": {
+						ImmediateValue: map[string]interface{}{
+							"test": "test",
+						},
+					},
+				},
+			},
+			result: map[string]interface{}{"provides": map[string]interface{}{"testKey": map[string]interface{}{"immediate_value": map[string]interface{}{"test": "test"}}}},
+		},
+	}
+
+	for _, test := range tests {
+		result := ConvertDependencyMetaToOutputConfig(test.dependencyMeta)
+		assert.Equal(t, test.result, result)
+	}
+}
+
+func TestIsDummyService(t *testing.T) {
+	tests := []struct{
+		service *corev1.Service
+		result bool
+	}{
+		{
+			service: nil,
+			result: false,
+		},
+		{
+			service: &corev1.Service{},
+			result: false,
+		},
+	}
+
+	for _, test := range tests {
+		result := IsDummyService(test.service)
+		assert.Equal(t, test.result, result)
+	}
+}
+
+func TestGetDependencyMetaFromDummyServiceMetaStr(t *testing.T) {
+	tests := []struct{
+		metaString string
+		meta *k8s.DependencyMeta
+		err  error
+	}{
+		{
+			metaString: `"provides": 1`,
+			meta:       nil,
+			err:        &json.SyntaxError{},
+		},
+		{
+			metaString: `{"provides": {"REDIS_CLIENT_CONFIG": {"immediate_value": {"redis_internal_address":
+			"redis-hl-6qvq4.kube-system.svc", "type": "redis"}}}}`,
+			meta: &k8s.DependencyMeta{
+				Provides: map[string]k8s.DependencyProvide{
+					"REDIS_CLIENT_CONFIG": {
+						ImmediateValue: map[string]interface{}{
+							"redis_internal_address": "redis-hl-6qvq4.kube-system.svc",
+							"type": "redis",
+						},
+					},
+				},
+			},
+			err: nil,
+		},
+	}
+
+	for _, test := range tests {
+		meta, err := GetDependencyMetaFromDummyServiceMetaStr(test.metaString)
+		assert.IsType(t, test.err, err)
+		assert.Equal(t, test.meta, meta)
+	}
+}
+
+func TestGetReleaseNameFromDummyService(t *testing.T) {
+	tests := []struct{
+		service *corev1.Service
+		result string
+	}{
+		{
+			service: &corev1.Service{},
+			result: "",
+		},
+		{
+			service: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"release": "test"},
+				},
+			},
+			result: "test",
+		},
+	}
+	for _, test := range tests {
+		result := GetReleaseNameFromDummyService(test.service)
 		assert.Equal(t, test.result, result)
 	}
 }
