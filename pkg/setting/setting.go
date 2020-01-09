@@ -29,6 +29,15 @@ type RedisConfig struct {
 	Addr     string `json:"addr"`
 	Password string `json:"password"`
 	DB       int    `json:"db"`
+	// Maximum number of retries before giving up.
+	// Default is 15.
+	MaxRetries int `json:"maxRetries"`
+	// Minimum backoff between each retry.
+	// Default is 8 milliseconds; -1 disables backoff.
+	MinRetryBackoff int64 `json:"minRetryBackoff"`
+	// Maximum backoff between each retry.
+	// Default is 512 milliseconds; -1 disables backoff.
+	MaxRetryBackoff int64 `json:"maxRetryBackoff"`
 }
 
 type KafkaConfig struct {
@@ -41,10 +50,11 @@ type KafkaConfig struct {
 }
 
 type TaskConfig struct {
-	Broker          string `json:"broker"`
-	DefaultQueue    string `json:"default_queue"`
-	ResultBackend   string `json:"result_backend"`
-	ResultsExpireIn int    `json:"results_expire_in"`
+	Broker          string       `json:"broker"`
+	DefaultQueue    string       `json:"default_queue"`
+	ResultBackend   string       `json:"result_backend"`
+	ResultsExpireIn int          `json:"results_expire_in"`
+	RedisConfig     *RedisConfig `json:"redisConfig"`
 }
 
 type WalmConfig struct {
@@ -72,7 +82,7 @@ type CrdConfig struct {
 type ElectorConfig struct {
 	LockNamespace string `json:"lockNamespace" description:"pod namespace"`
 	LockIdentity  string `json:"lockIdentity" description:"pod name"`
-	ElectionId    string  `json:"electionId" description:"election id"`
+	ElectionId    string `json:"electionId" description:"election id"`
 }
 
 type ChartImageConfig struct {
@@ -80,8 +90,8 @@ type ChartImageConfig struct {
 }
 
 type LogConfig struct {
-	Level string `json:"level"`
-	LogDir  string `json:"logDir"`
+	Level  string `json:"level"`
+	LogDir string `json:"logDir"`
 }
 
 type JsonnetConfig struct {

@@ -58,16 +58,17 @@ func NewGR(cnf *config.Config, addrs []string, db int) iface.Broker {
 }
 
 // New creates new Broker instance
-func NewGREx(cnf *config.Config, addrs []string, db int, otherOptions *common.OtherGoRedisOptions, retryFunc func(chan int)) iface.Broker {
+func NewGREx(cnf *config.Config, addrs []string, otherOptions *common.OtherGoRedisOptions, retryFunc func(chan int)) (iface.Broker, error) {
 	b := &BrokerGR{Broker: common.NewBroker(cnf)}
 	b.SetRetryFunc(retryFunc)
 
 	var password string
-	parts := strings.Split(addrs[0], "@")
-	if len(parts) == 2 {
-		// with passwrod
-		password = parts[0]
-		addrs[0] = parts[1]
+	var db int
+	var err error
+
+	addrs[0] , password, db, err = common.ParseRedisURL(addrs[0])
+	if err != nil {
+		return nil, err
 	}
 
 	ropt := &redis.UniversalOptions{
@@ -77,7 +78,7 @@ func NewGREx(cnf *config.Config, addrs []string, db int, otherOptions *common.Ot
 		DialTimeout:  10 * time.Second,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
-		MaxRetries:   10,
+		MaxRetries:   15,
 		PoolSize:     10,
 		PoolTimeout:  30 * time.Second,
 	}
@@ -93,7 +94,7 @@ func NewGREx(cnf *config.Config, addrs []string, db int, otherOptions *common.Ot
 	if cnf.Redis.DelayedTasksKey != "" {
 		redisDelayedTasksKey = cnf.Redis.DelayedTasksKey
 	}
-	return b
+	return b, nil
 }
 
 // StartConsuming enters a loop and waits for incoming messages

@@ -53,15 +53,17 @@ func NewGR(cnf *config.Config, addrs []string, db int) iface.Backend {
 }
 
 // New creates Backend instance
-func NewGREx(cnf *config.Config, addrs []string, db int, otherOptions *common.OtherGoRedisOptions) iface.Backend {
+func NewGREx(cnf *config.Config, addrs []string, otherOptions *common.OtherGoRedisOptions) (iface.Backend, error) {
 	b := &BackendGR{
 		Backend: common.NewBackend(cnf),
 	}
-	parts := strings.Split(addrs[0], "@")
-	if len(parts) == 2 {
-		// with passwrod
-		b.password = parts[0]
-		addrs[0] = parts[1]
+
+	var db int
+	var err error
+
+	addrs[0] , b.password, db, err = common.ParseRedisURL(addrs[0])
+	if err != nil {
+		return nil, err
 	}
 
 	ropt := &redis.UniversalOptions{
@@ -71,7 +73,7 @@ func NewGREx(cnf *config.Config, addrs []string, db int, otherOptions *common.Ot
 		DialTimeout:  10 * time.Second,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
-		MaxRetries:   10,
+		MaxRetries:   15,
 		PoolSize:     10,
 		PoolTimeout:  30 * time.Second,
 	}
@@ -84,7 +86,7 @@ func NewGREx(cnf *config.Config, addrs []string, db int, otherOptions *common.Ot
 	}
 
 	b.rclient = redis.NewUniversalClient(ropt)
-	return b
+	return b, nil
 }
 
 // InitGroup creates and saves a group meta data object
