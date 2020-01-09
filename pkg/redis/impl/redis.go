@@ -150,6 +150,10 @@ func (redis *Redis) GetKeys(regex string) ([]string, error) {
 }
 
 func NewRedisClient(redisConfig *setting.RedisConfig) *redis.Client {
+	maxRetryTime := 15
+	if redisConfig.MaxRetries > 0 {
+		maxRetryTime = redisConfig.MaxRetries
+	}
 	return redis.NewClient(&redis.Options{
 		Addr:         redisConfig.Addr,
 		Password:     redisConfig.Password,
@@ -159,6 +163,9 @@ func NewRedisClient(redisConfig *setting.RedisConfig) *redis.Client {
 		WriteTimeout: 30 * time.Second,
 		PoolSize:     10,
 		PoolTimeout:  30 * time.Second,
+		MaxRetries: maxRetryTime,
+		MinRetryBackoff: time.Millisecond * time.Duration(redisConfig.MinRetryBackoff),
+		MaxRetryBackoff: time.Millisecond * time.Duration(redisConfig.MaxRetryBackoff),
 	})
 }
 

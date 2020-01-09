@@ -1,7 +1,6 @@
 [1]: https://raw.githubusercontent.com/RichardKnop/assets/master/machinery/example_worker.png
 [2]: https://raw.githubusercontent.com/RichardKnop/assets/master/machinery/example_worker_receives_tasks.png
 [3]: http://patreon_public_assets.s3.amazonaws.com/sized/becomeAPatronBanner.png
-[4]: http://richardknop.com/images/btcaddress.png
 
 ## Machinery
 
@@ -20,6 +19,7 @@ Machinery is an asynchronous task queue/job queue based on distributed message p
 
 ---
 
+* [V2 Experiment](#v2-experiment)
 * [First Steps](#first-steps)
 * [Configuration](#configuration)
 * [Custom Logger](#custom-logger)
@@ -42,7 +42,29 @@ Machinery is an asynchronous task queue/job queue based on distributed message p
   * [Requirements](#requirements)
   * [Dependencies](#dependencies)
   * [Testing](#testing)
-* [Supporting the project](#supporting-the-project)
+
+### V2 Experiment
+
+Please be advised that V2 is work in progress and breaking changes can and will happen until it is ready.
+
+You can use the current V2 in order to avoid having to import all dependencies for brokers and backends you are not using.
+
+Instead of factory, you will need to inject broker and backend objects to the server constructor:
+
+```go
+import (
+  "github.com/RichardKnop/machinery/v2"
+  backendsiface "github.com/RichardKnop/machinery/v1/backends/iface"
+  brokersiface "github.com/RichardKnop/machinery/v1/brokers/iface"
+)
+
+var broker brokersiface.Broker
+var backend backendsiface.Backend
+server, err := machinery.NewServer(cnf, broker, backend)
+if err != nil {
+  // do something with the error
+}
+```
 
 ### First Steps
 
@@ -106,6 +128,8 @@ For example:
 
 1. `amqp://guest:guest@localhost:5672`
 
+AMQP also supports multiples brokers urls. You need to specify the URL separator in the `MultipleBrokerSeparator` field.
+
 ##### Redis
 
 Use Redis URL in one of these formats:
@@ -156,6 +180,33 @@ var cnf = &config.Config{
 }
 ```
 
+##### GCP Pub/Sub
+
+Use GCP Pub/Sub URL in the format:
+
+```
+gcppubsub://YOUR_GCP_PROJECT_ID/YOUR_PUBSUB_SUBSCRIPTION_NAME
+```
+
+To use a manually configured Pub/Sub Client:
+
+```go
+pubsubClient, err := pubsub.NewClient(
+    context.Background(),
+    "YOUR_GCP_PROJECT_ID",
+    option.WithServiceAccountFile("YOUR_GCP_SERVICE_ACCOUNT_FILE"),
+)
+
+cnf := &config.Config{
+  Broker:          "gcppubsub://YOUR_GCP_PROJECT_ID/YOUR_PUBSUB_SUBSCRIPTION_NAME"
+  DefaultQueue:    "YOUR_PUBSUB_TOPIC_NAME",
+  ResultBackend:   "YOUR_BACKEND_URL",
+  GCPPubSub: config.GCPPubSubConfig{
+    Client: pubsubClient,
+  },
+}
+```
+
 #### DefaultQueue
 
 Default queue name, e.g. `machinery_tasks`.
@@ -179,6 +230,8 @@ For example:
 
 1. `redis://localhost:6379`, or with password `redis://password@localhost:6379`
 2. `redis+socket://password@/path/to/file.sock:/0`
+3. cluster `redis://host1:port1,host2:port2,host3:port3`
+4. cluster with password `redis://pass@host1:port1,host2:port2,host3:port3`
 
 ##### Memcache
 
@@ -452,7 +505,7 @@ type Signature struct {
 
 `ETA` is  a timestamp used for delaying a task. if it's nil, the task will be published for workers to consume immediately. If it is set, the task will be delayed until the ETA timestamp.
 
-`GroupUUID`, GroupTaskCount are useful for creating groups of tasks.
+`GroupUUID`, `GroupTaskCount` are useful for creating groups of tasks.
 
 `Args` is a list of arguments that will be passed to the task when it is executed by a worker.
 
@@ -545,7 +598,7 @@ signature.ETA = &eta
 
 #### Retry Tasks
 
-You can set a number of retry attempts before declaring task as failed. Fibonacci sequence will be used to space out retry requests over time.
+You can set a number of retry attempts before declaring task as failed. Fibonacci sequence will be used to space out retry requests over time. (See `RetryTimeout` for details.)
 
 ```go
 // If the task fails, retry it up to 3 times
@@ -916,16 +969,11 @@ docker run -d -p 27017:27017 mongo
 docker run -d -p 6831:6831/udp -p 16686:16686 jaegertracing/all-in-one:latest
 ```
 
-
 #### Dependencies
 
-According to [Go 1.5 Vendor experiment](https://docs.google.com/document/d/1Bz5-UB7g2uPBdOx-rw5t9MxJwkfpx90cqG9AFL0JAYo), all dependencies are stored in the vendor directory. This approach is called `vendoring` and is the best practice for Go projects to lock versions of dependencies in order to achieve reproducible builds.
+Since Go 1.11, a new recommended dependency management system is via [modules](https://github.com/golang/go/wiki/Modules).
 
-This project uses [dep](https://github.com/golang/dep) for dependency management. To update dependencies during development:
-
-```sh
-dep ensure
-```
+This is one of slight weaknesses of Go as dependency management is not a solved problem. Previously Go was officially recommending to use the [dep tool](https://github.com/golang/dep) but that has been abandoned now in favor of modules.
 
 #### Testing
 
@@ -968,9 +1016,3 @@ make test
 ```
 
 If the environment variables are not exported, `make test` will only run unit tests.
-
-### Supporting the project
-
-Donate BTC to my wallet if you find this project useful: `12iFVjQ5n3Qdmiai4Mp9EG93NSvDipyRKV`
-
-![Donate BTC][4]

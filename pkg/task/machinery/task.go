@@ -12,6 +12,11 @@ import (
 	"k8s.io/klog"
 	"os"
 	"time"
+	"strings"
+	"fmt"
+	brokerredis "github.com/RichardKnop/machinery/v1/brokers/redis"
+	backendredis "github.com/RichardKnop/machinery/v1/backends/redis"
+	"github.com/RichardKnop/machinery/v1/common"
 )
 
 type Task struct {
@@ -52,7 +57,7 @@ func convertTaskSig(sig *taskModel.TaskSig) *tasks.Signature {
 	}
 }
 
-func (task *Task) RegisterTask(taskName string, taskRunner func(taskArgs string) error) error{
+func (task *Task) RegisterTask(taskName string, taskRunner func(taskArgs string) error) error {
 	err := task.server.RegisterTask(taskName, taskRunner)
 	if err != nil {
 		klog.Errorf("failed to register task %s : %s", taskName, err.Error())
@@ -61,7 +66,7 @@ func (task *Task) RegisterTask(taskName string, taskRunner func(taskArgs string)
 	return nil
 }
 
-func (task *Task) SendTask(taskName, taskArgs string, timeoutSec int64) (*taskModel.TaskSig, error){
+func (task *Task) SendTask(taskName, taskArgs string, timeoutSec int64) (*taskModel.TaskSig, error) {
 	taskSig := &tasks.Signature{
 		Name: taskName,
 		Args: []tasks.Arg{
@@ -86,13 +91,13 @@ func (task *Task) SendTask(taskName, taskArgs string, timeoutSec int64) (*taskMo
 	return sig, nil
 }
 
-func (task *Task) TouchTask(sig *taskModel.TaskSig, pollingIntervalSec int64) (error){
+func (task *Task) TouchTask(sig *taskModel.TaskSig, pollingIntervalSec int64) (error) {
 	taskSig := convertTaskSig(sig)
 	if taskSig == nil {
 		return errorModel.NotFoundError{}
 	}
 	asyncResult := result.NewAsyncResult(taskSig, task.server.GetBackend())
-	_, err := asyncResult.GetWithTimeout(time.Duration(sig.TimeoutSec)*time.Second, time.Duration(pollingIntervalSec) * time.Second)
+	_, err := asyncResult.GetWithTimeout(time.Duration(sig.TimeoutSec)*time.Second, time.Duration(pollingIntervalSec)*time.Second)
 	if err != nil {
 		klog.Errorf("touch task %s-%s failed: %s", sig.Name, sig.UUID, err.Error())
 		return err
@@ -100,8 +105,8 @@ func (task *Task) TouchTask(sig *taskModel.TaskSig, pollingIntervalSec int64) (e
 	return nil
 }
 
-func (task *Task) PurgeTaskState(sig *taskModel.TaskSig) (error){
-	if sig == nil || sig.UUID == ""{
+func (task *Task) PurgeTaskState(sig *taskModel.TaskSig) (error) {
+	if sig == nil || sig.UUID == "" {
 		return nil
 	}
 	err := task.server.GetBackend().PurgeState(sig.UUID)
@@ -154,13 +159,50 @@ func NewTask(c *setting.TaskConfig) (*Task, error) {
 			DelayedTasksPollPeriod: 20,
 		},
 	}
-	server, err := machinery.NewServer(taskConfig)
+
+	redisOptions := common.OtherGoRedisOptions{
+		MaxRetries: 15,
+	}
+
+	if c.RedisConfig != nil {
+		if c.RedisConfig.MaxRetries > 0 {
+			redisOptions.MaxRetries = c.RedisConfig.MaxRetries
+		}
+		redisOptions.MinRetryBackoff = time.Millisecond * time.Duration(c.RedisConfig.MinRetryBackoff)
+		redisOptions.MaxRetryBackoff = time.Millisecond * time.Duration(c.RedisConfig.MaxRetryBackoff)
+	}
+
+	brokerRedisAddrs, err := buildRedisAddrs(taskConfig.Broker)
 	if err != nil {
-		klog.Errorf("Failed to create task server: %s", err.Error())
 		return nil, err
 	}
-	//log.Set(logrus.StandardLogger())
+	// TODO set retryFunc
+	brokerServer, err := brokerredis.NewGREx(taskConfig, brokerRedisAddrs, &redisOptions, nil)
+	if err != nil {
+		klog.Errorf("failed to new redis broker server : %s", err.Error())
+		return nil, err
+	}
+
+	backendRedisAddrs, err := buildRedisAddrs(taskConfig.ResultBackend)
+	if err != nil {
+		return nil, err
+	}
+	backendServer, err := backendredis.NewGREx(taskConfig, backendRedisAddrs, &redisOptions)
+	if err != nil {
+		klog.Errorf("failed to new backend redis server : %s", err.Error())
+		return nil, err
+	}
+
+	server := machinery.NewServerWithBrokerBackend(taskConfig, brokerServer, backendServer)
 	return &Task{
 		server: server,
 	}, nil
+}
+
+func buildRedisAddrs(connStr string) ([]string, error) {
+	if strings.HasPrefix(connStr, "redis://") {
+		return strings.Split(connStr, ","), nil
+	} else {
+		return nil, fmt.Errorf("redis connection string should be prefixed with redis://, instead got %s", connStr)
+	}
 }

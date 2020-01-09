@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"net"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -35,8 +36,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/internal"
 	"google.golang.org/grpc/internal/channelz"
-	"google.golang.org/grpc/internal/leakcheck"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/resolver"
 	"google.golang.org/grpc/resolver/manual"
@@ -45,13 +46,9 @@ import (
 	"google.golang.org/grpc/testdata"
 )
 
-func (te *test) startServers(ts testpb.TestServiceServer, num int) {
-	for i := 0; i < num; i++ {
-		te.startServer(ts)
-		te.srvs = append(te.srvs, te.srv.(*grpc.Server))
-		te.srvAddrs = append(te.srvAddrs, te.srvAddr)
-		te.srv = nil
-		te.srvAddr = ""
+func czCleanupWrapper(cleanup func() error, t *testing.T) {
+	if err := cleanup(); err != nil {
+		t.Error(err)
 	}
 }
 
@@ -67,54 +64,96 @@ func verifyResultWithDelay(f func() (bool, error)) error {
 	return err
 }
 
-func TestCZServerRegistrationAndDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
+func (s) TestCZServerRegistrationAndDeletion(t *testing.T) {
 	testcases := []struct {
 		total  int
 		start  int64
-		length int
+		max    int64
+		length int64
 		end    bool
 	}{
-		{total: channelz.EntryPerPage, start: 0, length: channelz.EntryPerPage, end: true},
-		{total: channelz.EntryPerPage - 1, start: 0, length: channelz.EntryPerPage - 1, end: true},
-		{total: channelz.EntryPerPage + 1, start: 0, length: channelz.EntryPerPage, end: false},
-		{total: channelz.EntryPerPage + 1, start: int64(2*(channelz.EntryPerPage+1) + 1), length: 0, end: true},
+		{total: int(channelz.EntryPerPage), start: 0, max: 0, length: channelz.EntryPerPage, end: true},
+		{total: int(channelz.EntryPerPage) - 1, start: 0, max: 0, length: channelz.EntryPerPage - 1, end: true},
+		{total: int(channelz.EntryPerPage) + 1, start: 0, max: 0, length: channelz.EntryPerPage, end: false},
+		{total: int(channelz.EntryPerPage) + 1, start: int64(2*(channelz.EntryPerPage+1) + 1), max: 0, length: 0, end: true},
+		{total: int(channelz.EntryPerPage), start: 0, max: 1, length: 1, end: false},
+		{total: int(channelz.EntryPerPage), start: 0, max: channelz.EntryPerPage - 1, length: channelz.EntryPerPage - 1, end: false},
 	}
 
 	for _, c := range testcases {
-		channelz.NewChannelzStorage()
+		czCleanup := channelz.NewChannelzStorage()
+		defer czCleanupWrapper(czCleanup, t)
 		e := tcpClearRREnv
 		te := newTest(t, e)
 		te.startServers(&testServer{security: e.security}, c.total)
 
-		ss, end := channelz.GetServers(c.start)
-		if len(ss) != c.length || end != c.end {
+		ss, end := channelz.GetServers(c.start, c.max)
+		if int64(len(ss)) != c.length || end != c.end {
 			t.Fatalf("GetServers(%d) = %+v (len of which: %d), end: %+v, want len(GetServers(%d)) = %d, end: %+v", c.start, ss, len(ss), end, c.start, c.length, c.end)
 		}
 		te.tearDown()
-		ss, end = channelz.GetServers(c.start)
+		ss, end = channelz.GetServers(c.start, c.max)
 		if len(ss) != 0 || !end {
 			t.Fatalf("GetServers(0) = %+v (len of which: %d), end: %+v, want len(GetServers(0)) = 0, end: true", ss, len(ss), end)
 		}
 	}
 }
 
-func TestCZTopChannelRegistrationAndDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
+func (s) TestCZGetServer(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
+	e := tcpClearRREnv
+	te := newTest(t, e)
+	te.startServer(&testServer{security: e.security})
+	defer te.tearDown()
+
+	ss, _ := channelz.GetServers(0, 0)
+	if len(ss) != 1 {
+		t.Fatalf("there should only be one server, not %d", len(ss))
+	}
+
+	serverID := ss[0].ID
+	srv := channelz.GetServer(serverID)
+	if srv == nil {
+		t.Fatalf("server %d does not exist", serverID)
+	}
+	if srv.ID != serverID {
+		t.Fatalf("server want id %d, but got %d", serverID, srv.ID)
+	}
+
+	te.tearDown()
+
+	if err := verifyResultWithDelay(func() (bool, error) {
+		srv := channelz.GetServer(serverID)
+		if srv != nil {
+			return false, fmt.Errorf("server %d should not exist", serverID)
+		}
+
+		return true, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (s) TestCZTopChannelRegistrationAndDeletion(t *testing.T) {
 	testcases := []struct {
 		total  int
 		start  int64
-		length int
+		max    int64
+		length int64
 		end    bool
 	}{
-		{total: channelz.EntryPerPage, start: 0, length: channelz.EntryPerPage, end: true},
-		{total: channelz.EntryPerPage - 1, start: 0, length: channelz.EntryPerPage - 1, end: true},
-		{total: channelz.EntryPerPage + 1, start: 0, length: channelz.EntryPerPage, end: false},
-		{total: channelz.EntryPerPage + 1, start: int64(2*(channelz.EntryPerPage+1) + 1), length: 0, end: true},
+		{total: int(channelz.EntryPerPage), start: 0, max: 0, length: channelz.EntryPerPage, end: true},
+		{total: int(channelz.EntryPerPage) - 1, start: 0, max: 0, length: channelz.EntryPerPage - 1, end: true},
+		{total: int(channelz.EntryPerPage) + 1, start: 0, max: 0, length: channelz.EntryPerPage, end: false},
+		{total: int(channelz.EntryPerPage) + 1, start: int64(2*(channelz.EntryPerPage+1) + 1), max: 0, length: 0, end: true},
+		{total: int(channelz.EntryPerPage), start: 0, max: 1, length: 1, end: false},
+		{total: int(channelz.EntryPerPage), start: 0, max: channelz.EntryPerPage - 1, length: channelz.EntryPerPage - 1, end: false},
 	}
 
 	for _, c := range testcases {
-		channelz.NewChannelzStorage()
+		czCleanup := channelz.NewChannelzStorage()
+		defer czCleanupWrapper(czCleanup, t)
 		e := tcpClearRREnv
 		te := newTest(t, e)
 		var ccs []*grpc.ClientConn
@@ -126,7 +165,7 @@ func TestCZTopChannelRegistrationAndDeletion(t *testing.T) {
 			ccs = append(ccs, cc)
 		}
 		if err := verifyResultWithDelay(func() (bool, error) {
-			if tcs, end := channelz.GetTopChannels(c.start); len(tcs) != c.length || end != c.end {
+			if tcs, end := channelz.GetTopChannels(c.start, c.max); int64(len(tcs)) != c.length || end != c.end {
 				return false, fmt.Errorf("getTopChannels(%d) = %+v (len of which: %d), end: %+v, want len(GetTopChannels(%d)) = %d, end: %+v", c.start, tcs, len(tcs), end, c.start, c.length, c.end)
 			}
 			return true, nil
@@ -139,7 +178,7 @@ func TestCZTopChannelRegistrationAndDeletion(t *testing.T) {
 		}
 
 		if err := verifyResultWithDelay(func() (bool, error) {
-			if tcs, end := channelz.GetTopChannels(c.start); len(tcs) != 0 || !end {
+			if tcs, end := channelz.GetTopChannels(c.start, c.max); len(tcs) != 0 || !end {
 				return false, fmt.Errorf("getTopChannels(0) = %+v (len of which: %d), end: %+v, want len(GetTopChannels(0)) = 0, end: true", tcs, len(tcs), end)
 			}
 			return true, nil
@@ -150,9 +189,22 @@ func TestCZTopChannelRegistrationAndDeletion(t *testing.T) {
 	}
 }
 
-func TestCZNestedChannelRegistrationAndDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZTopChannelRegistrationAndDeletionWhenDialFail(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
+	// Make dial fails (due to no transport security specified)
+	_, err := grpc.Dial("fake.addr")
+	if err == nil {
+		t.Fatal("expecting dial to fail")
+	}
+	if tcs, end := channelz.GetTopChannels(0, 0); tcs != nil || !end {
+		t.Fatalf("GetTopChannels(0, 0) = %v, %v, want <nil>, true", tcs, end)
+	}
+}
+
+func (s) TestCZNestedChannelRegistrationAndDeletion(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	// avoid calling API to set balancer type, which will void service config's change of balancer.
 	e.balancer = ""
@@ -160,13 +212,13 @@ func TestCZNestedChannelRegistrationAndDeletion(t *testing.T) {
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
 	resolvedAddrs := []resolver.Address{{Addr: "127.0.0.1:0", Type: resolver.GRPCLB, ServerName: "grpclb.server"}}
-	r.InitialAddrs(resolvedAddrs)
+	r.InitialState(resolver.State{Addresses: resolvedAddrs})
 	te.resolverScheme = r.Scheme()
 	te.clientConn()
 	defer te.tearDown()
 
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -178,12 +230,11 @@ func TestCZNestedChannelRegistrationAndDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r.NewServiceConfig(`{"loadBalancingPolicy": "round_robin"}`)
-	r.NewAddress([]resolver.Address{{Addr: "127.0.0.1:0"}})
+	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "127.0.0.1:0"}}, ServiceConfig: parseCfg(`{"loadBalancingPolicy": "round_robin"}`)})
 
 	// wait for the shutdown of grpclb balancer
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -196,9 +247,9 @@ func TestCZNestedChannelRegistrationAndDeletion(t *testing.T) {
 	}
 }
 
-func TestCZClientSubChannelSocketRegistrationAndDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZClientSubChannelSocketRegistrationAndDeletion(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	num := 3 // number of backends
 	te := newTest(t, e)
@@ -209,14 +260,14 @@ func TestCZClientSubChannelSocketRegistrationAndDeletion(t *testing.T) {
 	for _, a := range te.srvAddrs {
 		svrAddrs = append(svrAddrs, resolver.Address{Addr: a})
 	}
-	r.InitialAddrs(svrAddrs)
+	r.InitialState(resolver.State{Addresses: svrAddrs})
 	te.resolverScheme = r.Scheme()
 	te.clientConn()
 	defer te.tearDown()
 	// Here, we just wait for all sockets to be up. In the future, if we implement
 	// IDLE, we may need to make several rpc calls to create the sockets.
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -240,10 +291,10 @@ func TestCZClientSubChannelSocketRegistrationAndDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r.NewAddress(svrAddrs[:len(svrAddrs)-1])
+	r.UpdateState(resolver.State{Addresses: svrAddrs[:len(svrAddrs)-1]})
 
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -268,60 +319,86 @@ func TestCZClientSubChannelSocketRegistrationAndDeletion(t *testing.T) {
 	}
 }
 
-func TestCZServerSocketRegistrationAndDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
-	e := tcpClearRREnv
-	num := 3 // number of clients
-	te := newTest(t, e)
-	te.startServer(&testServer{security: e.security})
-	defer te.tearDown()
-	var ccs []*grpc.ClientConn
-	for i := 0; i < num; i++ {
-		cc := te.clientConn()
-		te.cc = nil
-		ccs = append(ccs, cc)
-	}
-	defer func() {
-		for _, c := range ccs[:len(ccs)-1] {
-			c.Close()
-		}
-	}()
-	var svrID int64
-	if err := verifyResultWithDelay(func() (bool, error) {
-		ss, _ := channelz.GetServers(0)
-		if len(ss) != 1 {
-			return false, fmt.Errorf("there should only be one server, not %d", len(ss))
-		}
-		if len(ss[0].ListenSockets) != 1 {
-			return false, fmt.Errorf("there should only be one server listen socket, not %d", len(ss[0].ListenSockets))
-		}
-		ns, _ := channelz.GetServerSockets(ss[0].ID, 0)
-		if len(ns) != num {
-			return false, fmt.Errorf("there should be %d normal sockets not %d", num, len(ns))
-		}
-		svrID = ss[0].ID
-		return true, nil
-	}); err != nil {
-		t.Fatal(err)
+func (s) TestCZServerSocketRegistrationAndDeletion(t *testing.T) {
+	testcases := []struct {
+		total  int
+		start  int64
+		max    int64
+		length int64
+		end    bool
+	}{
+		{total: int(channelz.EntryPerPage), start: 0, max: 0, length: channelz.EntryPerPage, end: true},
+		{total: int(channelz.EntryPerPage) - 1, start: 0, max: 0, length: channelz.EntryPerPage - 1, end: true},
+		{total: int(channelz.EntryPerPage) + 1, start: 0, max: 0, length: channelz.EntryPerPage, end: false},
+		{total: int(channelz.EntryPerPage), start: 1, max: 0, length: channelz.EntryPerPage - 1, end: true},
+		{total: int(channelz.EntryPerPage) + 1, start: channelz.EntryPerPage + 1, max: 0, length: 0, end: true},
+		{total: int(channelz.EntryPerPage), start: 0, max: 1, length: 1, end: false},
+		{total: int(channelz.EntryPerPage), start: 0, max: channelz.EntryPerPage - 1, length: channelz.EntryPerPage - 1, end: false},
 	}
 
-	ccs[len(ccs)-1].Close()
-
-	if err := verifyResultWithDelay(func() (bool, error) {
-		ns, _ := channelz.GetServerSockets(svrID, 0)
-		if len(ns) != num-1 {
-			return false, fmt.Errorf("there should be %d normal sockets not %d", num-1, len(ns))
+	for _, c := range testcases {
+		czCleanup := channelz.NewChannelzStorage()
+		defer czCleanupWrapper(czCleanup, t)
+		e := tcpClearRREnv
+		te := newTest(t, e)
+		te.startServer(&testServer{security: e.security})
+		var ccs []*grpc.ClientConn
+		for i := 0; i < c.total; i++ {
+			cc := te.clientConn()
+			te.cc = nil
+			ccs = append(ccs, cc)
 		}
-		return true, nil
-	}); err != nil {
-		t.Fatal(err)
+
+		var svrID int64
+		if err := verifyResultWithDelay(func() (bool, error) {
+			ss, _ := channelz.GetServers(0, 0)
+			if len(ss) != 1 {
+				return false, fmt.Errorf("there should only be one server, not %d", len(ss))
+			}
+			if len(ss[0].ListenSockets) != 1 {
+				return false, fmt.Errorf("there should only be one server listen socket, not %d", len(ss[0].ListenSockets))
+			}
+
+			startID := c.start
+			if startID != 0 {
+				ns, _ := channelz.GetServerSockets(ss[0].ID, 0, int64(c.total))
+				if int64(len(ns)) < c.start {
+					return false, fmt.Errorf("there should more than %d sockets, not %d", len(ns), c.start)
+				}
+				startID = ns[c.start-1].ID + 1
+			}
+
+			ns, end := channelz.GetServerSockets(ss[0].ID, startID, c.max)
+			if int64(len(ns)) != c.length || end != c.end {
+				return false, fmt.Errorf("GetServerSockets(%d) = %+v (len of which: %d), end: %+v, want len(GetServerSockets(%d)) = %d, end: %+v", c.start, ns, len(ns), end, c.start, c.length, c.end)
+			}
+
+			svrID = ss[0].ID
+			return true, nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+
+		for _, cc := range ccs {
+			cc.Close()
+		}
+
+		if err := verifyResultWithDelay(func() (bool, error) {
+			ns, _ := channelz.GetServerSockets(svrID, c.start, c.max)
+			if len(ns) != 0 {
+				return false, fmt.Errorf("there should be %d normal sockets not %d", 0, len(ns))
+			}
+			return true, nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		te.tearDown()
 	}
 }
 
-func TestCZServerListenSocketDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZServerListenSocketDeletion(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	s := grpc.NewServer()
 	lis, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -329,7 +406,7 @@ func TestCZServerListenSocketDeletion(t *testing.T) {
 	}
 	go s.Serve(lis)
 	if err := verifyResultWithDelay(func() (bool, error) {
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should only be one server, not %d", len(ss))
 		}
@@ -343,9 +420,12 @@ func TestCZServerListenSocketDeletion(t *testing.T) {
 
 	lis.Close()
 	if err := verifyResultWithDelay(func() (bool, error) {
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should be 1 server, not %d", len(ss))
+		}
+		if len(ss[0].ListenSockets) != 0 {
+			return false, fmt.Errorf("there should only be %d server listen socket, not %d", 0, len(ss[0].ListenSockets))
 		}
 		return true, nil
 	}); err != nil {
@@ -366,7 +446,7 @@ func (d *dummySocket) ChannelzMetric() *channelz.SocketInternalMetric {
 	return &channelz.SocketInternalMetric{}
 }
 
-func TestCZRecusivelyDeletionOfEntry(t *testing.T) {
+func (s) TestCZRecusivelyDeletionOfEntry(t *testing.T) {
 	//           +--+TopChan+---+
 	//           |              |
 	//           v              v
@@ -374,14 +454,15 @@ func TestCZRecusivelyDeletionOfEntry(t *testing.T) {
 	//    |             |
 	//    v             v
 	// Socket1       Socket2
-	channelz.NewChannelzStorage()
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	topChanID := channelz.RegisterChannel(&dummyChannel{}, 0, "")
 	subChanID1 := channelz.RegisterSubChannel(&dummyChannel{}, topChanID, "")
 	subChanID2 := channelz.RegisterSubChannel(&dummyChannel{}, topChanID, "")
 	sktID1 := channelz.RegisterNormalSocket(&dummySocket{}, subChanID1, "")
 	sktID2 := channelz.RegisterNormalSocket(&dummySocket{}, subChanID1, "")
 
-	tcs, _ := channelz.GetTopChannels(0)
+	tcs, _ := channelz.GetTopChannels(0, 0)
 	if tcs == nil || len(tcs) != 1 {
 		t.Fatalf("There should be one TopChannel entry")
 	}
@@ -394,14 +475,14 @@ func TestCZRecusivelyDeletionOfEntry(t *testing.T) {
 	}
 
 	channelz.RemoveEntry(topChanID)
-	tcs, _ = channelz.GetTopChannels(0)
+	tcs, _ = channelz.GetTopChannels(0, 0)
 	if tcs == nil || len(tcs) != 1 {
 		t.Fatalf("There should be one TopChannel entry")
 	}
 
 	channelz.RemoveEntry(subChanID1)
 	channelz.RemoveEntry(subChanID2)
-	tcs, _ = channelz.GetTopChannels(0)
+	tcs, _ = channelz.GetTopChannels(0, 0)
 	if tcs == nil || len(tcs) != 1 {
 		t.Fatalf("There should be one TopChannel entry")
 	}
@@ -411,15 +492,15 @@ func TestCZRecusivelyDeletionOfEntry(t *testing.T) {
 
 	channelz.RemoveEntry(sktID1)
 	channelz.RemoveEntry(sktID2)
-	tcs, _ = channelz.GetTopChannels(0)
+	tcs, _ = channelz.GetTopChannels(0, 0)
 	if tcs != nil {
 		t.Fatalf("There should be no TopChannel entry")
 	}
 }
 
-func TestCZChannelMetrics(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZChannelMetrics(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	num := 3 // number of backends
 	te := newTest(t, e)
@@ -431,7 +512,7 @@ func TestCZChannelMetrics(t *testing.T) {
 	for _, a := range te.srvAddrs {
 		svrAddrs = append(svrAddrs, resolver.Address{Addr: a})
 	}
-	r.InitialAddrs(svrAddrs)
+	r.InitialState(resolver.State{Addresses: svrAddrs})
 	te.resolverScheme = r.Scheme()
 	cc := te.clientConn()
 	defer te.tearDown()
@@ -465,7 +546,7 @@ func TestCZChannelMetrics(t *testing.T) {
 	// Here, we just wait for all sockets to be up. In the future, if we implement
 	// IDLE, we may need to make several rpc calls to create the sockets.
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -506,9 +587,9 @@ func TestCZChannelMetrics(t *testing.T) {
 	}
 }
 
-func TestCZServerMetrics(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZServerMetrics(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	te.maxServerReceiveMsgSize = newInt(8)
@@ -543,7 +624,7 @@ func TestCZServerMetrics(t *testing.T) {
 	defer stream.CloseSend()
 
 	if err := verifyResultWithDelay(func() (bool, error) {
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should only be one server, not %d", len(ss))
 		}
@@ -765,35 +846,20 @@ func doServerSideInitiatedFailedStreamWithGoAway(tc testpb.TestServiceClient, t 
 	}
 }
 
-// this func is to be used to test client side counting of failed streams.
-func doServerSideInitiatedFailedStreamWithClientBreakFlowControl(tc testpb.TestServiceClient, t *testing.T, dw *dialerWrapper) {
-	stream, err := tc.FullDuplexCall(context.Background())
-	if err != nil {
-		t.Fatalf("TestService/FullDuplexCall(_) = _, %v, want <nil>", err)
-	}
-	// sleep here to make sure header frame being sent before the data frame we write directly below.
-	time.Sleep(10 * time.Millisecond)
-	payload := make([]byte, 65537, 65537)
-	dw.getRawConnWrapper().writeRawFrame(http2.FrameData, 0, tc.(*testServiceClientWrapper).getCurrentStreamID(), payload)
-	if _, err := stream.Recv(); err == nil || status.Code(err) != codes.ResourceExhausted {
-		t.Fatalf("%v.Recv() = %v, want error code: %v", stream, err, codes.ResourceExhausted)
-	}
-}
-
 func doIdleCallToInvokeKeepAlive(tc testpb.TestServiceClient, t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	_, err := tc.FullDuplexCall(ctx)
 	if err != nil {
 		t.Fatalf("TestService/FullDuplexCall(_) = _, %v, want <nil>", err)
 	}
-	// 2500ms allow for 2 keepalives (1000ms per round trip)
-	time.Sleep(2500 * time.Millisecond)
+	// Allow for at least 2 keepalives (1s per ping interval)
+	time.Sleep(4 * time.Second)
 	cancel()
 }
 
-func TestCZClientSocketMetricsStreamsAndMessagesCount(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZClientSocketMetricsStreamsAndMessagesCount(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	te.maxServerReceiveMsgSize = newInt(20)
@@ -806,7 +872,7 @@ func TestCZClientSocketMetricsStreamsAndMessagesCount(t *testing.T) {
 	doSuccessfulUnaryCall(tc, t)
 	var scID, skID int64
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tchan, _ := channelz.GetTopChannels(0)
+		tchan, _ := channelz.GetTopChannels(0, 0)
 		if len(tchan) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tchan))
 		}
@@ -891,23 +957,46 @@ func TestCZClientSocketMetricsStreamsAndMessagesCount(t *testing.T) {
 // server sending RST_STREAM to client due to client side flow control violation.
 // It is separated from other cases due to setup incompatibly, i.e. max receive
 // size violation will mask flow control violation.
-func TestCZClientAndServerSocketMetricsStreamsCountFlowControlRSTStream(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZClientAndServerSocketMetricsStreamsCountFlowControlRSTStream(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	te.serverInitialWindowSize = 65536
 	// Avoid overflowing connection level flow control window, which will lead to
 	// transport being closed.
 	te.serverInitialConnWindowSize = 65536 * 2
-	te.startServer(&testServer{security: e.security})
+	ts := &funcServer{fullDuplexCall: func(stream testpb.TestService_FullDuplexCallServer) error {
+		stream.Send(&testpb.StreamingOutputCallResponse{})
+		<-stream.Context().Done()
+		return status.Errorf(codes.DeadlineExceeded, "deadline exceeded or cancelled")
+	}}
+	te.startServer(ts)
 	defer te.tearDown()
 	cc, dw := te.clientConnWithConnControl()
 	tc := &testServiceClientWrapper{TestServiceClient: testpb.NewTestServiceClient(cc)}
 
-	doServerSideInitiatedFailedStreamWithClientBreakFlowControl(tc, t, dw)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	stream, err := tc.FullDuplexCall(ctx)
+	if err != nil {
+		t.Fatalf("TestService/FullDuplexCall(_) = _, %v, want <nil>", err)
+	}
+	if _, err := stream.Recv(); err != nil {
+		t.Fatalf("stream.Recv() = %v, want nil", err)
+	}
+	go func() {
+		payload := make([]byte, 16384)
+		for i := 0; i < 6; i++ {
+			dw.getRawConnWrapper().writeRawFrame(http2.FrameData, 0, tc.getCurrentStreamID(), payload)
+		}
+	}()
+	if _, err := stream.Recv(); status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("stream.Recv() = %v, want error code: %v", err, codes.ResourceExhausted)
+	}
+	cancel()
+
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tchan, _ := channelz.GetTopChannels(0)
+		tchan, _ := channelz.GetTopChannels(0, 0)
 		if len(tchan) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tchan))
 		}
@@ -933,12 +1022,12 @@ func TestCZClientAndServerSocketMetricsStreamsCountFlowControlRSTStream(t *testi
 		if sktData.StreamsStarted != 1 || sktData.StreamsSucceeded != 0 || sktData.StreamsFailed != 1 {
 			return false, fmt.Errorf("channelz.GetSocket(%d), want (StreamsStarted, StreamsSucceeded, StreamsFailed) = (1, 0, 1), got (%d, %d, %d)", skt.ID, sktData.StreamsStarted, sktData.StreamsSucceeded, sktData.StreamsFailed)
 		}
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should only be one server, not %d", len(ss))
 		}
 
-		ns, _ := channelz.GetServerSockets(ss[0].ID, 0)
+		ns, _ := channelz.GetServerSockets(ss[0].ID, 0, 0)
 		if len(ns) != 1 {
 			return false, fmt.Errorf("there should be one server normal socket, not %d", len(ns))
 		}
@@ -952,9 +1041,9 @@ func TestCZClientAndServerSocketMetricsStreamsCountFlowControlRSTStream(t *testi
 	}
 }
 
-func TestCZClientAndServerSocketMetricsFlowControl(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZClientAndServerSocketMetricsFlowControl(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	// disable BDP
@@ -973,7 +1062,7 @@ func TestCZClientAndServerSocketMetricsFlowControl(t *testing.T) {
 
 	var cliSktID, svrSktID int64
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tchan, _ := channelz.GetTopChannels(0)
+		tchan, _ := channelz.GetTopChannels(0, 0)
 		if len(tchan) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tchan))
 		}
@@ -1000,11 +1089,11 @@ func TestCZClientAndServerSocketMetricsFlowControl(t *testing.T) {
 		if sktData.LocalFlowControlWindow != 65486 || sktData.RemoteFlowControlWindow != 65486 {
 			return false, fmt.Errorf("client: (LocalFlowControlWindow, RemoteFlowControlWindow) size should be (65536, 65486), not (%d, %d)", sktData.LocalFlowControlWindow, sktData.RemoteFlowControlWindow)
 		}
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should only be one server, not %d", len(ss))
 		}
-		ns, _ := channelz.GetServerSockets(ss[0].ID, 0)
+		ns, _ := channelz.GetServerSockets(ss[0].ID, 0, 0)
 		sktData = ns[0].SocketData
 		if sktData.LocalFlowControlWindow != 65486 || sktData.RemoteFlowControlWindow != 65486 {
 			return false, fmt.Errorf("server: (LocalFlowControlWindow, RemoteFlowControlWindow) size should be (65536, 65486), not (%d, %d)", sktData.LocalFlowControlWindow, sktData.RemoteFlowControlWindow)
@@ -1025,11 +1114,11 @@ func TestCZClientAndServerSocketMetricsFlowControl(t *testing.T) {
 		if sktData.LocalFlowControlWindow != 65486 || sktData.RemoteFlowControlWindow != 55475 {
 			return false, fmt.Errorf("client: (LocalFlowControlWindow, RemoteFlowControlWindow) size should be (65486, 55475), not (%d, %d)", sktData.LocalFlowControlWindow, sktData.RemoteFlowControlWindow)
 		}
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should only be one server, not %d", len(ss))
 		}
-		ns, _ := channelz.GetServerSockets(svrSktID, 0)
+		ns, _ := channelz.GetServerSockets(svrSktID, 0, 0)
 		sktData = ns[0].SocketData
 		if sktData.LocalFlowControlWindow != 55475 || sktData.RemoteFlowControlWindow != 65486 {
 			return false, fmt.Errorf("server: (LocalFlowControlWindow, RemoteFlowControlWindow) size should be (55475, 65486), not (%d, %d)", sktData.LocalFlowControlWindow, sktData.RemoteFlowControlWindow)
@@ -1050,11 +1139,11 @@ func TestCZClientAndServerSocketMetricsFlowControl(t *testing.T) {
 		if sktData.LocalFlowControlWindow != 65486 || sktData.RemoteFlowControlWindow != 65536 {
 			return false, fmt.Errorf("client: (LocalFlowControlWindow, RemoteFlowControlWindow) size should be (65486, 65536), not (%d, %d)", sktData.LocalFlowControlWindow, sktData.RemoteFlowControlWindow)
 		}
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should only be one server, not %d", len(ss))
 		}
-		ns, _ := channelz.GetServerSockets(svrSktID, 0)
+		ns, _ := channelz.GetServerSockets(svrSktID, 0, 0)
 		sktData = ns[0].SocketData
 		if sktData.LocalFlowControlWindow != 65536 || sktData.RemoteFlowControlWindow != 65486 {
 			return false, fmt.Errorf("server: (LocalFlowControlWindow, RemoteFlowControlWindow) size should be (65536, 65486), not (%d, %d)", sktData.LocalFlowControlWindow, sktData.RemoteFlowControlWindow)
@@ -1065,20 +1154,29 @@ func TestCZClientAndServerSocketMetricsFlowControl(t *testing.T) {
 	}
 }
 
-func TestCZClientSocketMetricsKeepAlive(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZClientSocketMetricsKeepAlive(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
+	defer func(t time.Duration) { internal.KeepaliveMinPingTime = t }(internal.KeepaliveMinPingTime)
+	internal.KeepaliveMinPingTime = time.Second
 	e := tcpClearRREnv
 	te := newTest(t, e)
-	te.cliKeepAlive = &keepalive.ClientParameters{Time: 500 * time.Millisecond, Timeout: 500 * time.Millisecond}
+	te.customDialOptions = append(te.customDialOptions, grpc.WithKeepaliveParams(
+		keepalive.ClientParameters{
+			Time:                time.Second,
+			Timeout:             500 * time.Millisecond,
+			PermitWithoutStream: true,
+		}))
+	te.customServerOptions = append(te.customServerOptions, grpc.KeepaliveEnforcementPolicy(
+		keepalive.EnforcementPolicy{
+			MinTime:             500 * time.Millisecond,
+			PermitWithoutStream: true,
+		}))
 	te.startServer(&testServer{security: e.security})
+	te.clientConn() // Dial the server
 	defer te.tearDown()
-	cc := te.clientConn()
-	tc := testpb.NewTestServiceClient(cc)
-	doIdleCallToInvokeKeepAlive(tc, t)
-
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tchan, _ := channelz.GetTopChannels(0)
+		tchan, _ := channelz.GetTopChannels(0, 0)
 		if len(tchan) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tchan))
 		}
@@ -1100,7 +1198,7 @@ func TestCZClientSocketMetricsKeepAlive(t *testing.T) {
 			break
 		}
 		skt := channelz.GetSocket(id)
-		if skt.SocketData.KeepAlivesSent != 2 { // doIdleCallToInvokeKeepAlive func is set up to send 2 KeepAlives.
+		if skt.SocketData.KeepAlivesSent != 2 {
 			return false, fmt.Errorf("there should be 2 KeepAlives sent, not %d", skt.SocketData.KeepAlivesSent)
 		}
 		return true, nil
@@ -1109,9 +1207,9 @@ func TestCZClientSocketMetricsKeepAlive(t *testing.T) {
 	}
 }
 
-func TestCZServerSocketMetricsStreamsAndMessagesCount(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZServerSocketMetricsStreamsAndMessagesCount(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	te.maxServerReceiveMsgSize = newInt(20)
@@ -1123,7 +1221,7 @@ func TestCZServerSocketMetricsStreamsAndMessagesCount(t *testing.T) {
 
 	var svrID int64
 	if err := verifyResultWithDelay(func() (bool, error) {
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should only be one server, not %d", len(ss))
 		}
@@ -1135,7 +1233,7 @@ func TestCZServerSocketMetricsStreamsAndMessagesCount(t *testing.T) {
 
 	doSuccessfulUnaryCall(tc, t)
 	if err := verifyResultWithDelay(func() (bool, error) {
-		ns, _ := channelz.GetServerSockets(svrID, 0)
+		ns, _ := channelz.GetServerSockets(svrID, 0, 0)
 		sktData := ns[0].SocketData
 		if sktData.StreamsStarted != 1 || sktData.StreamsSucceeded != 1 || sktData.StreamsFailed != 0 || sktData.MessagesSent != 1 || sktData.MessagesReceived != 1 {
 			return false, fmt.Errorf("server socket metric with ID %d, want (StreamsStarted, StreamsSucceeded, MessagesSent, MessagesReceived) = (1, 1, 1, 1), got (%d, %d, %d, %d, %d)", ns[0].ID, sktData.StreamsStarted, sktData.StreamsSucceeded, sktData.StreamsFailed, sktData.MessagesSent, sktData.MessagesReceived)
@@ -1147,7 +1245,7 @@ func TestCZServerSocketMetricsStreamsAndMessagesCount(t *testing.T) {
 
 	doServerSideFailedUnaryCall(tc, t)
 	if err := verifyResultWithDelay(func() (bool, error) {
-		ns, _ := channelz.GetServerSockets(svrID, 0)
+		ns, _ := channelz.GetServerSockets(svrID, 0, 0)
 		sktData := ns[0].SocketData
 		if sktData.StreamsStarted != 2 || sktData.StreamsSucceeded != 2 || sktData.StreamsFailed != 0 || sktData.MessagesSent != 1 || sktData.MessagesReceived != 1 {
 			return false, fmt.Errorf("server socket metric with ID %d, want (StreamsStarted, StreamsSucceeded, StreamsFailed, MessagesSent, MessagesReceived) = (2, 2, 0, 1, 1), got (%d, %d, %d, %d, %d)", ns[0].ID, sktData.StreamsStarted, sktData.StreamsSucceeded, sktData.StreamsFailed, sktData.MessagesSent, sktData.MessagesReceived)
@@ -1159,7 +1257,7 @@ func TestCZServerSocketMetricsStreamsAndMessagesCount(t *testing.T) {
 
 	doClientSideInitiatedFailedStream(tc, t)
 	if err := verifyResultWithDelay(func() (bool, error) {
-		ns, _ := channelz.GetServerSockets(svrID, 0)
+		ns, _ := channelz.GetServerSockets(svrID, 0, 0)
 		sktData := ns[0].SocketData
 		if sktData.StreamsStarted != 3 || sktData.StreamsSucceeded != 2 || sktData.StreamsFailed != 1 || sktData.MessagesSent != 2 || sktData.MessagesReceived != 2 {
 			return false, fmt.Errorf("server socket metric with ID %d, want (StreamsStarted, StreamsSucceeded, StreamsFailed, MessagesSent, MessagesReceived) = (3, 2, 1, 2, 2), got (%d, %d, %d, %d, %d)", ns[0].ID, sktData.StreamsStarted, sktData.StreamsSucceeded, sktData.StreamsFailed, sktData.MessagesSent, sktData.MessagesReceived)
@@ -1170,12 +1268,12 @@ func TestCZServerSocketMetricsStreamsAndMessagesCount(t *testing.T) {
 	}
 }
 
-func TestCZServerSocketMetricsKeepAlive(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZServerSocketMetricsKeepAlive(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
-	te.svrKeepAlive = &keepalive.ServerParameters{Time: 500 * time.Millisecond, Timeout: 500 * time.Millisecond}
+	te.customServerOptions = append(te.customServerOptions, grpc.KeepaliveParams(keepalive.ServerParameters{Time: time.Second, Timeout: 500 * time.Millisecond}))
 	te.startServer(&testServer{security: e.security})
 	defer te.tearDown()
 	cc := te.clientConn()
@@ -1183,11 +1281,11 @@ func TestCZServerSocketMetricsKeepAlive(t *testing.T) {
 	doIdleCallToInvokeKeepAlive(tc, t)
 
 	if err := verifyResultWithDelay(func() (bool, error) {
-		ss, _ := channelz.GetServers(0)
+		ss, _ := channelz.GetServers(0, 0)
 		if len(ss) != 1 {
 			return false, fmt.Errorf("there should be one server, not %d", len(ss))
 		}
-		ns, _ := channelz.GetServerSockets(ss[0].ID, 0)
+		ns, _ := channelz.GetServerSockets(ss[0].ID, 0, 0)
 		if len(ns) != 1 {
 			return false, fmt.Errorf("there should be one server normal socket, not %d", len(ns))
 		}
@@ -1224,18 +1322,21 @@ var cipherSuites = []string{
 	"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256",
 	"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305",
 	"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305",
+	"TLS_AES_128_GCM_SHA256",
+	"TLS_AES_256_GCM_SHA384",
+	"TLS_CHACHA20_POLY1305_SHA256",
 }
 
-func TestCZSocketGetSecurityValueTLS(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZSocketGetSecurityValueTLS(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpTLSRREnv
 	te := newTest(t, e)
 	te.startServer(&testServer{security: e.security})
 	defer te.tearDown()
 	te.clientConn()
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tchan, _ := channelz.GetTopChannels(0)
+		tchan, _ := channelz.GetTopChannels(0, 0)
 		if len(tchan) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tchan))
 		}
@@ -1270,15 +1371,15 @@ func TestCZSocketGetSecurityValueTLS(t *testing.T) {
 				return true, nil
 			}
 		}
-		return false, fmt.Errorf("SocketData.Security.StandardName got: %v, want it to be one of %v ", securityVal.StandardName, cipherSuites)
+		return false, fmt.Errorf("SocketData.Security.StandardName got: %v, want it to be one of %v", securityVal.StandardName, cipherSuites)
 	}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestCZChannelTraceCreationDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZChannelTraceCreationDeletion(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	// avoid calling API to set balancer type, which will void service config's change of balancer.
 	e.balancer = ""
@@ -1286,13 +1387,13 @@ func TestCZChannelTraceCreationDeletion(t *testing.T) {
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
 	resolvedAddrs := []resolver.Address{{Addr: "127.0.0.1:0", Type: resolver.GRPCLB, ServerName: "grpclb.server"}}
-	r.InitialAddrs(resolvedAddrs)
+	r.InitialState(resolver.State{Addresses: resolvedAddrs})
 	te.resolverScheme = r.Scheme()
 	te.clientConn()
 	defer te.tearDown()
 	var nestedConn int64
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1322,12 +1423,11 @@ func TestCZChannelTraceCreationDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r.NewServiceConfig(`{"loadBalancingPolicy": "round_robin"}`)
-	r.NewAddress([]resolver.Address{{Addr: "127.0.0.1:0"}})
+	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "127.0.0.1:0"}}, ServiceConfig: parseCfg(`{"loadBalancingPolicy": "round_robin"}`)})
 
 	// wait for the shutdown of grpclb balancer
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1353,15 +1453,15 @@ func TestCZChannelTraceCreationDeletion(t *testing.T) {
 	}
 }
 
-func TestCZSubChannelTraceCreationDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZSubChannelTraceCreationDeletion(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	te.startServer(&testServer{security: e.security})
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
-	r.InitialAddrs([]resolver.Address{{Addr: te.srvAddr}})
+	r.InitialState(resolver.State{Addresses: []resolver.Address{{Addr: te.srvAddr}}})
 	te.resolverScheme = r.Scheme()
 	te.clientConn()
 	defer te.tearDown()
@@ -1369,7 +1469,7 @@ func TestCZSubChannelTraceCreationDeletion(t *testing.T) {
 	// Here, we just wait for all sockets to be up. In the future, if we implement
 	// IDLE, we may need to make several rpc calls to create the sockets.
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1402,10 +1502,10 @@ func TestCZSubChannelTraceCreationDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r.NewAddress([]resolver.Address{})
+	r.UpdateState(resolver.State{Addresses: []resolver.Address{}})
 
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1432,16 +1532,17 @@ func TestCZSubChannelTraceCreationDeletion(t *testing.T) {
 	}
 }
 
-func TestCZChannelAddressResolutionChange(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZChannelAddressResolutionChange(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	e.balancer = ""
 	te := newTest(t, e)
 	te.startServer(&testServer{security: e.security})
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
-	r.InitialAddrs([]resolver.Address{{Addr: te.srvAddr}})
+	addrs := []resolver.Address{{Addr: te.srvAddr}}
+	r.InitialState(resolver.State{Addresses: addrs})
 	te.resolverScheme = r.Scheme()
 	te.clientConn()
 	defer te.tearDown()
@@ -1449,25 +1550,24 @@ func TestCZChannelAddressResolutionChange(t *testing.T) {
 	// Here, we just wait for all sockets to be up. In the future, if we implement
 	// IDLE, we may need to make several rpc calls to create the sockets.
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
 		cid = tcs[0].ID
 		for i := len(tcs[0].Trace.Events) - 1; i >= 0; i-- {
-			if tcs[0].Trace.Events[i].Desc == fmt.Sprintf("Resolver returns a non-empty address list (previous one was empty) %q", te.srvAddr) {
+			if strings.Contains(tcs[0].Trace.Events[i].Desc, "resolver returned new addresses") {
 				break
 			}
 			if i == 0 {
-				return false, fmt.Errorf("events do not contain expected address resolution from empty address state")
+				return false, fmt.Errorf("events do not contain expected address resolution from empty address state.  Got: %+v", tcs[0].Trace.Events)
 			}
 		}
 		return true, nil
 	}); err != nil {
 		t.Fatal(err)
 	}
-
-	r.NewServiceConfig(`{"loadBalancingPolicy": "round_robin"}`)
+	r.UpdateState(resolver.State{Addresses: addrs, ServiceConfig: parseCfg(`{"loadBalancingPolicy": "round_robin"}`)})
 
 	if err := verifyResultWithDelay(func() (bool, error) {
 		cm := channelz.GetChannel(cid)
@@ -1484,32 +1584,33 @@ func TestCZChannelAddressResolutionChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	newSc := `{
+	newSC := parseCfg(`{
     "methodConfig": [
         {
             "name": [
                 {
                     "service": "grpc.testing.TestService",
                     "method": "EmptyCall"
-                },
+                }
             ],
             "waitForReady": false,
             "timeout": ".001s"
         }
     ]
-}`
-
-	r.NewServiceConfig(newSc)
+}`)
+	r.UpdateState(resolver.State{Addresses: addrs, ServiceConfig: newSC})
 
 	if err := verifyResultWithDelay(func() (bool, error) {
 		cm := channelz.GetChannel(cid)
 
+		var es []string
 		for i := len(cm.Trace.Events) - 1; i >= 0; i-- {
-			if cm.Trace.Events[i].Desc == fmt.Sprintf("Channel has a new service config \"%s\"", newSc) {
+			if strings.Contains(cm.Trace.Events[i].Desc, "service config updated") {
 				break
 			}
+			es = append(es, cm.Trace.Events[i].Desc)
 			if i == 0 {
-				return false, fmt.Errorf("events do not contain expected address resolution of new service config")
+				return false, fmt.Errorf("events do not contain expected address resolution of new service config\n Events:\n%v", strings.Join(es, "\n"))
 			}
 		}
 		return true, nil
@@ -1517,12 +1618,12 @@ func TestCZChannelAddressResolutionChange(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r.NewAddress([]resolver.Address{})
+	r.UpdateState(resolver.State{Addresses: []resolver.Address{}, ServiceConfig: newSC})
 
 	if err := verifyResultWithDelay(func() (bool, error) {
 		cm := channelz.GetChannel(cid)
 		for i := len(cm.Trace.Events) - 1; i >= 0; i-- {
-			if cm.Trace.Events[i].Desc == "Resolver returns an empty address list" {
+			if strings.Contains(cm.Trace.Events[i].Desc, "resolver returned an empty address list") {
 				break
 			}
 			if i == 0 {
@@ -1535,9 +1636,9 @@ func TestCZChannelAddressResolutionChange(t *testing.T) {
 	}
 }
 
-func TestCZSubChannelPickedNewAddress(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZSubChannelPickedNewAddress(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	e.balancer = ""
 	te := newTest(t, e)
@@ -1548,7 +1649,7 @@ func TestCZSubChannelPickedNewAddress(t *testing.T) {
 	for _, a := range te.srvAddrs {
 		svrAddrs = append(svrAddrs, resolver.Address{Addr: a})
 	}
-	r.InitialAddrs(svrAddrs)
+	r.InitialState(resolver.State{Addresses: svrAddrs})
 	te.resolverScheme = r.Scheme()
 	cc := te.clientConn()
 	defer te.tearDown()
@@ -1564,7 +1665,7 @@ func TestCZSubChannelPickedNewAddress(t *testing.T) {
 	// Here, we just wait for all sockets to be up. In the future, if we implement
 	// IDLE, we may need to make several rpc calls to create the sockets.
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1596,17 +1697,16 @@ func TestCZSubChannelPickedNewAddress(t *testing.T) {
 	}
 }
 
-func TestCZSubChannelConnectivityState(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZSubChannelConnectivityState(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	te.startServer(&testServer{security: e.security})
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
-	r.InitialAddrs([]resolver.Address{{Addr: te.srvAddr}})
+	r.InitialState(resolver.State{Addresses: []resolver.Address{{Addr: te.srvAddr}}})
 	te.resolverScheme = r.Scheme()
-	te.customDialOptions = []grpc.DialOption{grpc.WithWaitForHandshake()}
 	cc := te.clientConn()
 	defer te.tearDown()
 	tc := testpb.NewTestServiceClient(cc)
@@ -1621,9 +1721,9 @@ func TestCZSubChannelConnectivityState(t *testing.T) {
 
 	if err := verifyResultWithDelay(func() (bool, error) {
 		// we need to obtain the SubChannel id before it gets deleted from Channel's children list (due
-		// to effect of r.NewAddress([]resolver.Address{}))
+		// to effect of r.UpdateState(resolver.State{Addresses:[]resolver.Address{}}))
 		if subConn == 0 {
-			tcs, _ := channelz.GetTopChannels(0)
+			tcs, _ := channelz.GetTopChannels(0, 0)
 			if len(tcs) != 1 {
 				return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 			}
@@ -1652,12 +1752,12 @@ func TestCZSubChannelConnectivityState(t *testing.T) {
 			}
 		}
 		// Make sure the SubChannel has already seen transient failure before shutting it down through
-		// r.NewAddress([]resolver.Address{}).
+		// r.UpdateState(resolver.State{Addresses:[]resolver.Address{}}).
 		if transient == 0 {
 			return false, fmt.Errorf("transient failure has not happened on SubChannel yet")
 		}
 		transient = 0
-		r.NewAddress([]resolver.Address{})
+		r.UpdateState(resolver.State{Addresses: []resolver.Address{}})
 		for _, e := range scm.Trace.Events {
 			if e.Desc == fmt.Sprintf("Subchannel Connectivity change to %v", connectivity.Ready) {
 				ready++
@@ -1692,17 +1792,16 @@ func TestCZSubChannelConnectivityState(t *testing.T) {
 	}
 }
 
-func TestCZChannelConnectivityState(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZChannelConnectivityState(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	te.startServer(&testServer{security: e.security})
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
-	r.InitialAddrs([]resolver.Address{{Addr: te.srvAddr}})
+	r.InitialState(resolver.State{Addresses: []resolver.Address{{Addr: te.srvAddr}}})
 	te.resolverScheme = r.Scheme()
-	te.customDialOptions = []grpc.DialOption{grpc.WithWaitForHandshake()}
 	cc := te.clientConn()
 	defer te.tearDown()
 	tc := testpb.NewTestServiceClient(cc)
@@ -1714,7 +1813,7 @@ func TestCZChannelConnectivityState(t *testing.T) {
 	}
 	te.srv.Stop()
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1750,9 +1849,9 @@ func TestCZChannelConnectivityState(t *testing.T) {
 	}
 }
 
-func TestCZTraceOverwriteChannelDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZTraceOverwriteChannelDeletion(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	// avoid calling API to set balancer type, which will void service config's change of balancer.
 	e.balancer = ""
@@ -1762,13 +1861,13 @@ func TestCZTraceOverwriteChannelDeletion(t *testing.T) {
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
 	resolvedAddrs := []resolver.Address{{Addr: "127.0.0.1:0", Type: resolver.GRPCLB, ServerName: "grpclb.server"}}
-	r.InitialAddrs(resolvedAddrs)
+	r.InitialState(resolver.State{Addresses: resolvedAddrs})
 	te.resolverScheme = r.Scheme()
 	te.clientConn()
 	defer te.tearDown()
 	var nestedConn int64
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1783,12 +1882,11 @@ func TestCZTraceOverwriteChannelDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r.NewServiceConfig(`{"loadBalancingPolicy": "round_robin"}`)
-	r.NewAddress([]resolver.Address{{Addr: "127.0.0.1:0"}})
+	r.UpdateState(resolver.State{Addresses: []resolver.Address{{Addr: "127.0.0.1:0"}}, ServiceConfig: parseCfg(`{"loadBalancingPolicy": "round_robin"}`)})
 
 	// wait for the shutdown of grpclb balancer
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1812,9 +1910,9 @@ func TestCZTraceOverwriteChannelDeletion(t *testing.T) {
 	}
 }
 
-func TestCZTraceOverwriteSubChannelDeletion(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZTraceOverwriteSubChannelDeletion(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	channelz.SetMaxTraceEntry(1)
@@ -1822,7 +1920,7 @@ func TestCZTraceOverwriteSubChannelDeletion(t *testing.T) {
 	te.startServer(&testServer{security: e.security})
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
-	r.InitialAddrs([]resolver.Address{{Addr: te.srvAddr}})
+	r.InitialState(resolver.State{Addresses: []resolver.Address{{Addr: te.srvAddr}}})
 	te.resolverScheme = r.Scheme()
 	te.clientConn()
 	defer te.tearDown()
@@ -1830,7 +1928,7 @@ func TestCZTraceOverwriteSubChannelDeletion(t *testing.T) {
 	// Here, we just wait for all sockets to be up. In the future, if we implement
 	// IDLE, we may need to make several rpc calls to create the sockets.
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1845,10 +1943,10 @@ func TestCZTraceOverwriteSubChannelDeletion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r.NewAddress([]resolver.Address{})
+	r.UpdateState(resolver.State{Addresses: []resolver.Address{}})
 
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}
@@ -1872,22 +1970,22 @@ func TestCZTraceOverwriteSubChannelDeletion(t *testing.T) {
 	}
 }
 
-func TestCZTraceTopChannelDeletionTraceClear(t *testing.T) {
-	defer leakcheck.Check(t)
-	channelz.NewChannelzStorage()
+func (s) TestCZTraceTopChannelDeletionTraceClear(t *testing.T) {
+	czCleanup := channelz.NewChannelzStorage()
+	defer czCleanupWrapper(czCleanup, t)
 	e := tcpClearRREnv
 	te := newTest(t, e)
 	te.startServer(&testServer{security: e.security})
 	r, cleanup := manual.GenerateAndRegisterManualResolver()
 	defer cleanup()
-	r.InitialAddrs([]resolver.Address{{Addr: te.srvAddr}})
+	r.InitialState(resolver.State{Addresses: []resolver.Address{{Addr: te.srvAddr}}})
 	te.resolverScheme = r.Scheme()
 	te.clientConn()
 	var subConn int64
 	// Here, we just wait for all sockets to be up. In the future, if we implement
 	// IDLE, we may need to make several rpc calls to create the sockets.
 	if err := verifyResultWithDelay(func() (bool, error) {
-		tcs, _ := channelz.GetTopChannels(0)
+		tcs, _ := channelz.GetTopChannels(0, 0)
 		if len(tcs) != 1 {
 			return false, fmt.Errorf("there should only be one top channel, not %d", len(tcs))
 		}

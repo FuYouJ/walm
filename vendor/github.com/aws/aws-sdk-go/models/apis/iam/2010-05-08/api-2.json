@@ -7,7 +7,6 @@
     "protocol":"query",
     "serviceAbbreviation":"IAM",
     "serviceFullName":"AWS Identity and Access Management",
-    "serviceId":"IAM",
     "signatureVersion":"v4",
     "uid":"iam-2010-05-08",
     "xmlNamespace":"https://iam.amazonaws.com/doc/2010-05-08/"
@@ -1724,23 +1723,6 @@
         {"shape":"ServiceFailureException"}
       ]
     },
-    "UpdateRole":{
-      "name":"UpdateRole",
-      "http":{
-        "method":"POST",
-        "requestUri":"/"
-      },
-      "input":{"shape":"UpdateRoleRequest"},
-      "output":{
-        "shape":"UpdateRoleResponse",
-        "resultWrapper":"UpdateRoleResult"
-      },
-      "errors":[
-        {"shape":"UnmodifiableEntityException"},
-        {"shape":"NoSuchEntityException"},
-        {"shape":"ServiceFailureException"}
-      ]
-    },
     "UpdateRoleDescription":{
       "name":"UpdateRoleDescription",
       "http":{
@@ -2218,8 +2200,7 @@
         "Path":{"shape":"pathType"},
         "RoleName":{"shape":"roleNameType"},
         "AssumeRolePolicyDocument":{"shape":"policyDocumentType"},
-        "Description":{"shape":"roleDescriptionType"},
-        "MaxSessionDuration":{"shape":"roleMaxSessionDurationType"}
+        "Description":{"shape":"roleDescriptionType"}
       }
     },
     "CreateRoleResponse":{
@@ -4003,8 +3984,7 @@
         "Arn":{"shape":"arnType"},
         "CreateDate":{"shape":"dateType"},
         "AssumeRolePolicyDocument":{"shape":"policyDocumentType"},
-        "Description":{"shape":"roleDescriptionType"},
-        "MaxSessionDuration":{"shape":"roleMaxSessionDurationType"}
+        "Description":{"shape":"roleDescriptionType"}
       }
     },
     "RoleDetail":{
@@ -4384,20 +4364,6 @@
       "type":"structure",
       "members":{
         "Role":{"shape":"Role"}
-      }
-    },
-    "UpdateRoleRequest":{
-      "type":"structure",
-      "required":["RoleName"],
-      "members":{
-        "RoleName":{"shape":"roleNameType"},
-        "Description":{"shape":"roleDescriptionType"},
-        "MaxSessionDuration":{"shape":"roleMaxSessionDurationType"}
-      }
-    },
-    "UpdateRoleResponse":{
-      "type":"structure",
-      "members":{
       }
     },
     "UpdateSAMLProviderRequest":{
@@ -4866,11 +4832,6 @@
     "roleListType":{
       "type":"list",
       "member":{"shape":"Role"}
-    },
-    "roleMaxSessionDurationType":{
-      "type":"integer",
-      "max":43200,
-      "min":3600
     },
     "roleNameType":{
       "type":"string",

@@ -13,6 +13,11 @@ type test struct {
 	s string
 }
 
+type passtest struct {
+	v    interface{}
+	f, s string
+}
+
 type LongStructTypeName struct {
 	longFieldName      interface{}
 	otherLongFieldName interface{}
@@ -33,7 +38,29 @@ func (f F) Format(s fmt.State, c rune) {
 	fmt.Fprintf(s, "F(%d)", int(f))
 }
 
+type Stringer struct { i int }
+
+func (s *Stringer) String() string { return "foo" }
+
 var long = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+
+var passthrough = []passtest{
+	{1, "%d", "1"},
+	{"a", "%s", "a"},
+	{&Stringer{}, "%s", "foo"},
+}
+
+func TestPassthrough(t *testing.T) {
+	for _, tt := range passthrough {
+		s := fmt.Sprintf(tt.f, Formatter(tt.v))
+		if tt.s != s {
+			t.Errorf("expected %q", tt.s)
+			t.Errorf("got      %q", s)
+			t.Errorf("expraw\n%s", tt.s)
+			t.Errorf("gotraw\n%s", s)
+		}
+	}
+}
 
 var gosyntax = []test{
 	{nil, `nil`},
@@ -45,7 +72,7 @@ var gosyntax = []test{
 	{[0]int{}, "[0]int{}"},
 	{complex(1, 0), "(1+0i)"},
 	//{make(chan int), "(chan int)(0x1234)"},
-	{unsafe.Pointer(uintptr(1)), "unsafe.Pointer(0x1)"},
+	{unsafe.Pointer(uintptr(unsafe.Pointer(&long))), fmt.Sprintf("unsafe.Pointer(0x%02x)", uintptr(unsafe.Pointer(&long)))},
 	{func(int) {}, "func(int) {...}"},
 	{map[int]int{1: 1}, "map[int]int{1:1}"},
 	{int32(1), "int32(1)"},
@@ -64,13 +91,13 @@ var gosyntax = []test{
 }`,
 	},
 	{
-		map[int][]byte{1: []byte{}},
+		map[int][]byte{1: {}},
 		`map[int][]uint8{
     1:  {},
 }`,
 	},
 	{
-		map[int]T{1: T{}},
+		map[int]T{1: {}},
 		`map[int]pretty.T{
     1:  {},
 }`,

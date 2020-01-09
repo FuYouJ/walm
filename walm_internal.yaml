@@ -5,11 +5,11 @@ repoList:
   - name: "test"
     url: "http://172.16.1.40:8880/"
   - name: "stable"
-    url: "http://172.16.1.41:8882/stable/"
+    url: "http://172.16.1.99:9999/charts_stable/"
   - name: "qa"
     url: "http://172.16.1.40:8882/qa/"
   - name: "staging"
-    url: "http://172.16.1.41:8882/staging"
+    url: "http://172.16.1.99:9999/charts_staging/"
 kubeConfig:
   config: "test/k8sconfig_internal/kubeconfig"
   context: ""
