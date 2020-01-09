@@ -5,7 +5,6 @@
     "endpointPrefix":"lambda",
     "protocol":"rest-json",
     "serviceFullName":"AWS Lambda",
-    "serviceId":"Lambda",
     "signatureVersion":"v4",
     "uid":"lambda-2015-03-31"
   },
@@ -25,8 +24,7 @@
         {"shape":"ResourceConflictException"},
         {"shape":"InvalidParameterValueException"},
         {"shape":"PolicyLengthExceededException"},
-        {"shape":"TooManyRequestsException"},
-        {"shape":"PreconditionFailedException"}
+        {"shape":"TooManyRequestsException"}
       ]
     },
     "CreateAlias":{
@@ -125,21 +123,6 @@
         {"shape":"TooManyRequestsException"},
         {"shape":"InvalidParameterValueException"},
         {"shape":"ResourceConflictException"}
-      ]
-    },
-    "DeleteFunctionConcurrency":{
-      "name":"DeleteFunctionConcurrency",
-      "http":{
-        "method":"DELETE",
-        "requestUri":"/2017-10-31/functions/{FunctionName}/concurrency",
-        "responseCode":204
-      },
-      "input":{"shape":"DeleteFunctionConcurrencyRequest"},
-      "errors":[
-        {"shape":"ServiceException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"TooManyRequestsException"},
-        {"shape":"InvalidParameterValueException"}
       ]
     },
     "GetAccountSettings":{
@@ -376,24 +359,7 @@
         {"shape":"ResourceNotFoundException"},
         {"shape":"InvalidParameterValueException"},
         {"shape":"TooManyRequestsException"},
-        {"shape":"CodeStorageExceededException"},
-        {"shape":"PreconditionFailedException"}
-      ]
-    },
-    "PutFunctionConcurrency":{
-      "name":"PutFunctionConcurrency",
-      "http":{
-        "method":"PUT",
-        "requestUri":"/2017-10-31/functions/{FunctionName}/concurrency",
-        "responseCode":200
-      },
-      "input":{"shape":"PutFunctionConcurrencyRequest"},
-      "output":{"shape":"Concurrency"},
-      "errors":[
-        {"shape":"ServiceException"},
-        {"shape":"InvalidParameterValueException"},
-        {"shape":"ResourceNotFoundException"},
-        {"shape":"TooManyRequestsException"}
+        {"shape":"CodeStorageExceededException"}
       ]
     },
     "RemovePermission":{
@@ -408,8 +374,7 @@
         {"shape":"ServiceException"},
         {"shape":"ResourceNotFoundException"},
         {"shape":"InvalidParameterValueException"},
-        {"shape":"TooManyRequestsException"},
-        {"shape":"PreconditionFailedException"}
+        {"shape":"TooManyRequestsException"}
       ]
     },
     "TagResource":{
@@ -455,8 +420,7 @@
         {"shape":"ServiceException"},
         {"shape":"ResourceNotFoundException"},
         {"shape":"InvalidParameterValueException"},
-        {"shape":"TooManyRequestsException"},
-        {"shape":"PreconditionFailedException"}
+        {"shape":"TooManyRequestsException"}
       ]
     },
     "UpdateEventSourceMapping":{
@@ -490,8 +454,7 @@
         {"shape":"ResourceNotFoundException"},
         {"shape":"InvalidParameterValueException"},
         {"shape":"TooManyRequestsException"},
-        {"shape":"CodeStorageExceededException"},
-        {"shape":"PreconditionFailedException"}
+        {"shape":"CodeStorageExceededException"}
       ]
     },
     "UpdateFunctionConfiguration":{
@@ -508,8 +471,7 @@
         {"shape":"ResourceNotFoundException"},
         {"shape":"InvalidParameterValueException"},
         {"shape":"TooManyRequestsException"},
-        {"shape":"ResourceConflictException"},
-        {"shape":"PreconditionFailedException"}
+        {"shape":"ResourceConflictException"}
       ]
     }
   },
@@ -520,8 +482,7 @@
         "TotalCodeSize":{"shape":"Long"},
         "CodeSizeUnzipped":{"shape":"Long"},
         "CodeSizeZipped":{"shape":"Long"},
-        "ConcurrentExecutions":{"shape":"Integer"},
-        "UnreservedConcurrentExecutions":{"shape":"UnreservedConcurrentExecutions"}
+        "ConcurrentExecutions":{"shape":"Integer"}
       }
     },
     "AccountUsage":{
@@ -559,8 +520,7 @@
           "shape":"Qualifier",
           "location":"querystring",
           "locationName":"Qualifier"
-        },
-        "RevisionId":{"shape":"String"}
+        }
       }
     },
     "AddPermissionResponse":{
@@ -568,17 +528,6 @@
       "members":{
         "Statement":{"shape":"String"}
       }
-    },
-    "AdditionalVersion":{
-      "type":"string",
-      "max":1024,
-      "min":1,
-      "pattern":"[0-9]+"
-    },
-    "AdditionalVersionWeights":{
-      "type":"map",
-      "key":{"shape":"AdditionalVersion"},
-      "value":{"shape":"Weight"}
     },
     "Alias":{
       "type":"string",
@@ -592,20 +541,12 @@
         "AliasArn":{"shape":"FunctionArn"},
         "Name":{"shape":"Alias"},
         "FunctionVersion":{"shape":"Version"},
-        "Description":{"shape":"Description"},
-        "RoutingConfig":{"shape":"AliasRoutingConfiguration"},
-        "RevisionId":{"shape":"String"}
+        "Description":{"shape":"Description"}
       }
     },
     "AliasList":{
       "type":"list",
       "member":{"shape":"AliasConfiguration"}
-    },
-    "AliasRoutingConfiguration":{
-      "type":"structure",
-      "members":{
-        "AdditionalVersionWeights":{"shape":"AdditionalVersionWeights"}
-      }
     },
     "Arn":{
       "type":"string",
@@ -634,12 +575,6 @@
       "error":{"httpStatusCode":400},
       "exception":true
     },
-    "Concurrency":{
-      "type":"structure",
-      "members":{
-        "ReservedConcurrentExecutions":{"shape":"ReservedConcurrentExecutions"}
-      }
-    },
     "CreateAliasRequest":{
       "type":"structure",
       "required":[
@@ -655,8 +590,7 @@
         },
         "Name":{"shape":"Alias"},
         "FunctionVersion":{"shape":"Version"},
-        "Description":{"shape":"Description"},
-        "RoutingConfig":{"shape":"AliasRoutingConfiguration"}
+        "Description":{"shape":"Description"}
       }
     },
     "CreateEventSourceMappingRequest":{
@@ -736,17 +670,6 @@
           "shape":"String",
           "location":"uri",
           "locationName":"UUID"
-        }
-      }
-    },
-    "DeleteFunctionConcurrencyRequest":{
-      "type":"structure",
-      "required":["FunctionName"],
-      "members":{
-        "FunctionName":{
-          "shape":"FunctionName",
-          "location":"uri",
-          "locationName":"FunctionName"
         }
       }
     },
@@ -915,8 +838,7 @@
         "Environment":{"shape":"EnvironmentResponse"},
         "KMSKeyArn":{"shape":"KMSKeyArn"},
         "TracingConfig":{"shape":"TracingConfigResponse"},
-        "MasterArn":{"shape":"FunctionArn"},
-        "RevisionId":{"shape":"String"}
+        "MasterArn":{"shape":"FunctionArn"}
       }
     },
     "FunctionList":{
@@ -1012,8 +934,7 @@
       "members":{
         "Configuration":{"shape":"FunctionConfiguration"},
         "Code":{"shape":"FunctionCodeLocation"},
-        "Tags":{"shape":"Tags"},
-        "Concurrency":{"shape":"Concurrency"}
+        "Tags":{"shape":"Tags"}
       }
     },
     "GetPolicyRequest":{
@@ -1035,8 +956,7 @@
     "GetPolicyResponse":{
       "type":"structure",
       "members":{
-        "Policy":{"shape":"String"},
-        "RevisionId":{"shape":"String"}
+        "Policy":{"shape":"String"}
       }
     },
     "Handler":{
@@ -1150,12 +1070,7 @@
           "location":"header",
           "locationName":"X-Amz-Log-Result"
         },
-        "Payload":{"shape":"Blob"},
-        "ExecutedVersion":{
-          "shape":"Version",
-          "location":"header",
-          "locationName":"X-Amz-Executed-Version"
-        }
+        "Payload":{"shape":"Blob"}
       },
       "payload":"Payload"
     },
@@ -1395,7 +1310,7 @@
     },
     "MemorySize":{
       "type":"integer",
-      "max":3008,
+      "max":1536,
       "min":128
     },
     "NameSpacedFunctionArn":{
@@ -1423,15 +1338,6 @@
       "error":{"httpStatusCode":400},
       "exception":true
     },
-    "PreconditionFailedException":{
-      "type":"structure",
-      "members":{
-        "Type":{"shape":"String"},
-        "message":{"shape":"String"}
-      },
-      "error":{"httpStatusCode":412},
-      "exception":true
-    },
     "Principal":{
       "type":"string",
       "pattern":".*"
@@ -1446,23 +1352,7 @@
           "locationName":"FunctionName"
         },
         "CodeSha256":{"shape":"String"},
-        "Description":{"shape":"Description"},
-        "RevisionId":{"shape":"String"}
-      }
-    },
-    "PutFunctionConcurrencyRequest":{
-      "type":"structure",
-      "required":[
-        "FunctionName",
-        "ReservedConcurrentExecutions"
-      ],
-      "members":{
-        "FunctionName":{
-          "shape":"FunctionName",
-          "location":"uri",
-          "locationName":"FunctionName"
-        },
-        "ReservedConcurrentExecutions":{"shape":"ReservedConcurrentExecutions"}
+        "Description":{"shape":"Description"}
       }
     },
     "Qualifier":{
@@ -1492,11 +1382,6 @@
           "shape":"Qualifier",
           "location":"querystring",
           "locationName":"Qualifier"
-        },
-        "RevisionId":{
-          "shape":"String",
-          "location":"querystring",
-          "locationName":"RevisionId"
         }
       }
     },
@@ -1508,10 +1393,6 @@
       },
       "error":{"httpStatusCode":413},
       "exception":true
-    },
-    "ReservedConcurrentExecutions":{
-      "type":"integer",
-      "min":0
     },
     "ResourceArn":{
       "type":"string",
@@ -1545,14 +1426,11 @@
         "nodejs",
         "nodejs4.3",
         "nodejs6.10",
-        "nodejs8.10",
         "java8",
         "python2.7",
         "python3.6",
         "dotnetcore1.0",
-        "dotnetcore2.0",
-        "nodejs4.3-edge",
-        "go1.x"
+        "nodejs4.3-edge"
       ]
     },
     "S3Bucket":{
@@ -1647,8 +1525,6 @@
       "enum":[
         "ConcurrentInvocationLimitExceeded",
         "FunctionInvocationRateLimitExceeded",
-        "ReservedFunctionConcurrentInvocationLimitExceeded",
-        "ReservedFunctionInvocationRateLimitExceeded",
         "CallerRateLimitExceeded"
       ]
     },
@@ -1690,10 +1566,6 @@
         "Active",
         "PassThrough"
       ]
-    },
-    "UnreservedConcurrentExecutions":{
-      "type":"integer",
-      "min":0
     },
     "UnsupportedMediaTypeException":{
       "type":"structure",
@@ -1741,9 +1613,7 @@
           "locationName":"Name"
         },
         "FunctionVersion":{"shape":"Version"},
-        "Description":{"shape":"Description"},
-        "RoutingConfig":{"shape":"AliasRoutingConfiguration"},
-        "RevisionId":{"shape":"String"}
+        "Description":{"shape":"Description"}
       }
     },
     "UpdateEventSourceMappingRequest":{
@@ -1774,8 +1644,7 @@
         "S3Key":{"shape":"S3Key"},
         "S3ObjectVersion":{"shape":"S3ObjectVersion"},
         "Publish":{"shape":"Boolean"},
-        "DryRun":{"shape":"Boolean"},
-        "RevisionId":{"shape":"String"}
+        "DryRun":{"shape":"Boolean"}
       }
     },
     "UpdateFunctionConfigurationRequest":{
@@ -1797,8 +1666,7 @@
         "Runtime":{"shape":"Runtime"},
         "DeadLetterConfig":{"shape":"DeadLetterConfig"},
         "KMSKeyArn":{"shape":"KMSKeyArn"},
-        "TracingConfig":{"shape":"TracingConfig"},
-        "RevisionId":{"shape":"String"}
+        "TracingConfig":{"shape":"TracingConfig"}
       }
     },
     "Version":{
@@ -1822,11 +1690,6 @@
         "VpcId":{"shape":"VpcId"}
       }
     },
-    "VpcId":{"type":"string"},
-    "Weight":{
-      "type":"double",
-      "max":1.0,
-      "min":0.0
-    }
+    "VpcId":{"type":"string"}
   }
 }

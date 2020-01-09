@@ -47,7 +47,7 @@ import:
 
 - package: github.com/docker/spdystream
 - package: github.com/go-redis/redis
-  version: 6.13.2
+  version: 6.15.6
 - package: github.com/emicklei/go-restful
   version: 2.8.0
 - package: github.com/thoas/stats
@@ -64,7 +64,8 @@ import:
 - package: github.com/pierrec/lz4
 - package: github.com/rcrowley/go-metrics
 - package: github.com/RichardKnop/machinery
-  version: v1.4.5
+  repo: ssh://git@172.16.1.41:10022/app/machinery.git
+  version: v1.7.3.1
 - package: github.com/google/go-jsonnet
   version: v0.14.0
 - package: github.com/go-resty/resty
@@ -94,10 +95,16 @@ import:
 - package: github.com/Azure/go-ansiterm
   version: master
 - package: google.golang.org/grpc
-  version: v1.17.0
+  version: v1.24.0
 - package: github.com/docker/docker
   version: 2cb26cfe9cbf8a64c5046c74d65f4528b22e67f4
 - package: github.com/Microsoft/hcsshim
   version: v0.8.6
+- package: google.golang.org/api
+  version: v0.11.0
+- package: github.com/golang/protobuf
+  version: v1.3.2
+- package: google.golang.org/genproto
+  version: master
 testImport:
 - package: gopkg.in/check.v1
