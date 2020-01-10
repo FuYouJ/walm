@@ -17,6 +17,7 @@ import (
 	brokerredis "github.com/RichardKnop/machinery/v1/brokers/redis"
 	backendredis "github.com/RichardKnop/machinery/v1/backends/redis"
 	"github.com/RichardKnop/machinery/v1/common"
+	"github.com/RichardKnop/machinery/v1/log"
 )
 
 type Task struct {
@@ -176,8 +177,41 @@ func NewTask(c *setting.TaskConfig) (*Task, error) {
 	if err != nil {
 		return nil, err
 	}
-	// TODO set retryFunc
-	brokerServer, err := brokerredis.NewGREx(taskConfig, brokerRedisAddrs, &redisOptions, nil)
+
+	fibonacci := func() func() int {
+		a, b := 0, 1
+		return func() int {
+			a, b = b, a+b
+			return a
+		}
+	}
+
+	retryFunc := func() func(chan int) {
+		retryIn := 0
+		fibonacci := fibonacci()
+		return func(stopChan chan int) {
+			if retryIn > 0 {
+				durationString := fmt.Sprintf("%vs", retryIn)
+				duration, _ := time.ParseDuration(durationString)
+
+				log.WARNING.Printf("Retrying in %v seconds", retryIn)
+
+				select {
+				case <-stopChan:
+					break
+				case <-time.After(duration):
+					break
+				}
+			}
+			if retryIn < 30 {
+				retryIn = fibonacci()
+			}
+			if retryIn > 30 {
+				retryIn = 30
+			}
+		}
+	}
+	brokerServer, err := brokerredis.NewGREx(taskConfig, brokerRedisAddrs, &redisOptions, retryFunc())
 	if err != nil {
 		klog.Errorf("failed to new redis broker server : %s", err.Error())
 		return nil, err
