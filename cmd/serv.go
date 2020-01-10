@@ -224,10 +224,28 @@ func (sc *ServCmd) run() error {
 	if err != nil {
 		return err
 	}
-	err = redis.SetKeyWithTTL(redisclient.WalmConfigKey, string(configByte), 0)
-	if err != nil {
-		return err
-	}
+
+	go func() {
+		klog.Info("recording walm config...")
+		maxRetryTime := 10
+		for {
+			err = redis.SetKeyWithTTL(redisclient.WalmConfigKey, string(configByte), 0)
+			if err != nil {
+				if maxRetryTime > 0 {
+					klog.Errorf("retry to record walm config after 30s due to %s", err.Error())
+					maxRetryTime --
+					time.Sleep(time.Second * 30)
+					continue
+				} else {
+					klog.Errorf("failed to record walm config : %s", err.Error())
+				}
+			} else {
+				klog.Info("succeed to record walm config")
+			}
+			break
+		}
+	}()
+
 	releaseCache := releasecache.NewCache(redis)
 	releaseUseCase, err := releaseusecase.NewHelm(releaseCache, helm, k8sCache, k8sOperator, task, redisEx)
 	if err != nil {

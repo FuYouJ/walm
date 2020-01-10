@@ -38,8 +38,16 @@ type Sync struct {
 
 func (sync *Sync) Start(stopCh <-chan struct{}) {
 	klog.Infof("start to resync release cache every %v", resyncInterval)
-	// first time should be sync
-	sync.Resync()
+	// first time should be sync successfully
+	for {
+		err := sync.Resync()
+		if err != nil {
+			time.Sleep(time.Second * 30)
+			continue
+		}
+		break
+	}
+
 	firstTime := true
 
 	go wait.Until(func() {
@@ -51,7 +59,7 @@ func (sync *Sync) Start(stopCh <-chan struct{}) {
 	}, resyncInterval, stopCh)
 }
 
-func (sync *Sync) Resync() {
+func (sync *Sync) Resync() error{
 	for {
 		err := sync.redisClient.Watch(func(tx *redis.Tx) error {
 
@@ -149,7 +157,7 @@ func (sync *Sync) Resync() {
 			} else {
 				klog.Info("succeed to resync release caches")
 			}
-			return
+			return err
 		}
 	}
 
