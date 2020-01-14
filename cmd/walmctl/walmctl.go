@@ -5,6 +5,7 @@ import (
 	"os"
 
 	walmctlEnv "WarpCloud/walm/cmd/walmctl/util/environment"
+	walmSetting "WarpCloud/walm/pkg/setting"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/klog"
@@ -64,6 +65,7 @@ func newRootCmd(args []string) *cobra.Command {
 	flags.Parse(args)
 
 	settings.Init(flags)
+	walmSetting.InitDummyConfig()
 
 	return cmd
 }

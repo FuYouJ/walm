@@ -1,9 +1,11 @@
 package impl
 
 import (
+	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/util/transwarpjsonnet"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/ghodss/yaml"
@@ -18,7 +20,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
-	"WarpCloud/walm/pkg/models/common"
 )
 
 func (helmImpl *Helm) GetChartAutoDependencies(repoName, chartName, chartVersion string) (subChartNames []string, err error) {
@@ -207,8 +208,8 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 		if f.Name == transwarpjsonnet.TranswarpMetadataDir+transwarpjsonnet.TranswarpAdvantageFileName {
 			chartDetailInfo.Advantage = string(f.Data[:])
 		}
-		if f.Name == transwarpjsonnet.TranswarpMetadataDir+transwarpjsonnet.TranswarpIconFileName {
-			chartDetailInfo.Icon = string(f.Data[:])
+		if strings.HasPrefix(f.Name, transwarpjsonnet.TranswarpMetadataDir+transwarpjsonnet.TranswarpIconFileName) {
+			chartDetailInfo.Icon = base64.StdEncoding.EncodeToString(f.Data[:])
 		}
 	}
 

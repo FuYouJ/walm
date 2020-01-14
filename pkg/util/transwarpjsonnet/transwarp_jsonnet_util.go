@@ -5,18 +5,19 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
-	"github.com/google/go-jsonnet"
-	jsonnetAst "github.com/google/go-jsonnet/ast"
-	"gopkg.in/yaml.v2"
 	"io"
 	"io/ioutil"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/klog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/google/go-jsonnet"
+	jsonnetAst "github.com/google/go-jsonnet/ast"
+	"gopkg.in/yaml.v2"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 type JsonnetConfig struct {
@@ -26,6 +27,7 @@ type JsonnetConfig struct {
 type volumeMount struct {
 	Name      string `json:"name"`
 	MountPath string `json:"mountPath"`
+	SubPath   string `json:"subPath"`
 }
 
 type volume struct {
@@ -39,6 +41,7 @@ type configFilesResult struct {
 	ConfigMapDataMap map[string]string `json:"configMapsData"`
 	VolumeList       []volume          `json:"volumes"`
 	VolumeMount      volumeMount       `json:"volumeMount"`
+	VolumeMountList  []volumeMount     `json:"volumeMounts"`
 	Md5Checksum      string            `json:"md5Checksum"`
 }
 
@@ -64,9 +67,11 @@ func loadConfigFiles(name string, mountPath string, volConfigsVal interface{}, m
 	resObj := configFilesResult{
 		Name:        name,
 		Md5Checksum: "",
-		VolumeMount: volumeMount{
-			Name:      name,
-			MountPath: mountPath,
+		VolumeMountList: []volumeMount{
+			{
+				Name:      name,
+				MountPath: mountPath,
+			},
 		},
 		VolumeList:       make([]volume, 0),
 		ConfigMapDataMap: make(map[string]string, 0),
@@ -177,6 +182,14 @@ func RegisterNativeFuncs(vm *jsonnet.VM) {
 		Params: []jsonnetAst.Identifier{"tmplContent", "context", "returnType"},
 		Func: func(args []interface{}) (res interface{}, err error) {
 			return gotmplRender(args[0].(string), args[1].(interface{}), args[2].(string))
+		},
+	})
+
+	vm.NativeFunction(&jsonnet.NativeFunction{
+		Name:   "renderConfdFiles",
+		Params: []jsonnetAst.Identifier{"name", "confdKV", "confdFilesConfig", "mainPath"},
+		Func: func(args []interface{}) (res interface{}, err error) {
+			return renderConfdFiles(args[0].(string), args[1].(interface{}), args[2].(interface{}), args[3].(string))
 		},
 	})
 }
