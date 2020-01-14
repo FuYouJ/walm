@@ -112,8 +112,9 @@ func (compose *composeCmd) run() error {
 		return err
 	}
 	var fileTpl bytes.Buffer
-	err = t.Execute(&fileTpl, env)
 	configValues := composeConfig{}
+
+	err = t.Execute(&fileTpl, env)
 	err = yaml.Unmarshal(fileTpl.Bytes(), &configValues)
 	if err != nil {
 		klog.Errorf("yaml Unmarshal file %s error %v", compose.file, err)
@@ -126,6 +127,10 @@ func (compose *composeCmd) run() error {
 		return err
 	}
 	_, err = client.CreateProject(namespace, "", compose.projectName, false, 300, projectConfigs)
+	if err != nil {
+		klog.Errorf("create project %s error %v", compose.projectName, err)
+		return err
+	}
 	isSuccess := compose.generateGuardianKeytabSecrets(configValues.GuardianConfigs)
 	if !isSuccess {
 		return errors.New("generate key error")

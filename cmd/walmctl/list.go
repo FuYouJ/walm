@@ -116,7 +116,6 @@ func (lc *listCmd) run() error {
 		if err != nil {
 			return err
 		}
-
 	} else {
 		if lc.projectName == "" {
 			resp, err = client.ListRelease(namespace, lc.labelSelector)

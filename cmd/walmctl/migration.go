@@ -182,6 +182,9 @@ func getSupportedPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string
 								isInBlackList = true
 							}
 						}
+						if pod.Namespace == "kube-system" {
+							isInBlackList = true
+						}
 						if isInBlackList {
 							klog.Warningf("ignore %s because applicaion type is in blacklist", appType)
 							continue
