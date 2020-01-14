@@ -146,8 +146,7 @@ func (lint *lintOptions) run() error {
 	/* check params in values */
 	err = chartMetaInfo.CheckParamsInValues(string(valuesByte), configMaps)
 	if err != nil {
-		klog.Errorf("check params in values err: %v", err)
-		return err
+		klog.Warningf("[Warning] check params in values err: %v", err)
 	}
 
 	klog.Info("values.yaml is valid...")
@@ -228,6 +227,7 @@ func (lint *lintOptions) run() error {
 
 	return nil
 }
+
 func checkGenReleaseConfig(expectChart string, outputChart string) error {
 	dmp := diffmatchpatch.New()
 	diffs := dmp.DiffMain(expectChart, outputChart, true)
