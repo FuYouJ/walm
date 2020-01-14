@@ -119,6 +119,10 @@ func (lc *listCmd) run() error {
 	} else {
 		if lc.projectName == "" {
 			resp, err = client.ListRelease(namespace, lc.labelSelector)
+			if err != nil {
+				klog.Errorf("fail to list release: %s", err.Error())
+				return err
+			}
 			respJson, _ := simplejson.NewJson(resp.Body())
 			respByte, _ := respJson.Get("items").MarshalJSON()
 			err = json.Unmarshal(respByte, &releases)
