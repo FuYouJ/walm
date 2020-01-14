@@ -77,8 +77,12 @@ func (migrate *migrateOptions) run() error {
 		return errServerRequired
 	}
 
-	client := walmctlclient.CreateNewClient(walmserver)
-	if err = client.ValidateHostConnect(); err != nil {
+	client, err := walmctlclient.CreateNewClient(walmserver, enableTLS, rootCA)
+	if err != nil {
+		klog.Errorf("failed to create walmctl client: %s", err.Error())
+		return err
+	}
+	if err = client.ValidateHostConnect(walmserver); err != nil {
 		return err
 	}
 	migrate.client = client

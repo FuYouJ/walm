@@ -31,6 +31,8 @@ type EditOptions struct {
 	WindowsLineEndings bool
 	Namespace          string
 	WalmServer         string
+	EnableTLS          bool
+	RootCA             string
 	SourceType         string
 	SourceName         string
 	ChangeCause        string
@@ -106,8 +108,12 @@ func (o *EditOptions) Run() error {
 	var resp *resty.Response
 	var releaseInfo release.ReleaseInfoV2
 	var err error
-	client := walmctlclient.CreateNewClient(o.WalmServer)
-	if err = client.ValidateHostConnect(); err != nil {
+	client, err := walmctlclient.CreateNewClient(o.WalmServer, o.EnableTLS, o.RootCA)
+	if err != nil {
+		klog.Errorf("failed to create walmctl client: %s", err.Error())
+		return err
+	}
+	if err = client.ValidateHostConnect(o.WalmServer); err != nil {
 		return err
 	}
 	if o.SourceType == "release" {

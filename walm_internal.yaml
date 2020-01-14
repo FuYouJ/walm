@@ -1,6 +1,9 @@
 debug: true
 serverConfig:
   port: 9001
+#  tls: true
+#  tlsKey: "/Users/corndai/sshkey/CA/172.16.202.195.key"
+#  tlsCert: "/Users/corndai/sshkey/CA/172.16.202.195.crt"
 repoList:
   - name: "test"
     url: "http://172.16.1.40:8880/"

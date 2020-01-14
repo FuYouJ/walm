@@ -367,7 +367,11 @@ func (sc *ServCmd) run() error {
 
 	server := &http.Server{Addr: fmt.Sprintf(":%d", setting.Config.HttpConfig.HTTPPort), Handler: restful.DefaultContainer}
 	go func() {
-		err := server.ListenAndServe()
+		if setting.Config.HttpConfig.TLS {
+			err = server.ListenAndServeTLS(setting.Config.HttpConfig.TlsCert, setting.Config.HttpConfig.TlsKey)
+		} else {
+			err = server.ListenAndServe()
+		}
 		if err != nil {
 			klog.Error(err.Error())
 			sig <- syscall.SIGINT
@@ -602,4 +606,14 @@ func enrichSwaggerObject(swo *spec.Swagger) {
 			Version:     "0.0.1",
 		},
 	}
+
+	// setup security definitions
+	//swo.SecurityDefinitions = map[string]*spec.SecurityScheme{}
+
+	// map routes tp security definitions
+	//enrichSwaggerObjectSecurity(swo)
+}
+
+func enrichSwaggerObjectSecurity(swo *spec.Swagger) {
+
 }

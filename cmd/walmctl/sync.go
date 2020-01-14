@@ -71,8 +71,12 @@ func newSyncCmd(out io.Writer) *cobra.Command {
 }
 
 func (sync *syncCmd) run() error {
-	client := walmctlclient.CreateNewClient(walmserver)
-	if err := client.ValidateHostConnect(); err != nil {
+	client, err := walmctlclient.CreateNewClient(walmserver, enableTLS, rootCA)
+	if err != nil {
+		klog.Errorf("failed to create walmctl client: %s", err.Error())
+		return err
+	}
+	if err := client.ValidateHostConnect(walmserver); err != nil {
 		return err
 	}
 	sync.client = client
@@ -142,8 +146,12 @@ func (sync *syncCmd) saveRelease(tmpDir string) (string, string, error) {
 }
 
 func (sync *syncCmd) deployRelease(tmpReleaseRequestPath string, tmpChartPath string) error {
-	targetClient := walmctlclient.CreateNewClient(sync.targetServer)
-	if err := targetClient.ValidateHostConnect(); err != nil {
+	targetClient, err := walmctlclient.CreateNewClient(sync.targetServer, enableTLS, rootCA)
+	if err != nil {
+		klog.Errorf("failed to create walmctl client: %s", err.Error())
+		return err
+	}
+	if err := targetClient.ValidateHostConnect(walmserver); err != nil {
 		return err
 	}
 	releaseRequestByte, err := ioutil.ReadFile(tmpReleaseRequestPath)

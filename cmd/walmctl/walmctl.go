@@ -14,15 +14,19 @@ import (
 var globalUsage = `walmctl controls the walm application lifecycle manager.
 To begin working with walmctl,Find detail docs at:
 https://github.com/WarpCloud/walm/tree/master/docs/walmcli.md
+
 Environment:
   $WALMSERVER		Set WALMSERVER env to substitute --server/-s in commands. The format is host:port (export $WALMSERVER=...)
-
+  $ROOTCA	        Set ROOTCA env to substitute --rootCA in commands. which stores CA root certificate(export $WALMSERVER=...)
+[WARNING] If the walm server use https, --tls=false required !!!
 `
 
 var (
 	settings   walmctlEnv.EnvSettings
 	walmserver string
 	namespace  string
+	rootCA	   string
+	enableTLS  bool
 )
 
 func newRootCmd(args []string) *cobra.Command {
@@ -41,6 +45,8 @@ func newRootCmd(args []string) *cobra.Command {
 
 	flags.StringVarP(&walmserver, "server", "s", os.Getenv("WALMSERVER"), "walm apiserver address")
 	flags.StringVarP(&namespace, "namespace", "n", "default", "kubernetes namespace")
+	flags.BoolVar(&enableTLS, "tls", true, "enable send request use https")
+	flags.StringVar(&rootCA, "rootCA", os.Getenv("ROOTCA"), "CA root certificate (public key)")
 
 	settings.AddFlags(flags)
 

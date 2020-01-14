@@ -75,6 +75,8 @@ func newEditCmd(out io.Writer) *cobra.Command {
 			}
 			o.Namespace = namespace
 			o.WalmServer = walmserver
+			o.EnableTLS = enableTLS
+			o.RootCA = rootCA
 			o.SourceType = args[0]
 			o.SourceName = args[1]
 			return o.Run()

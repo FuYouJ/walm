@@ -4,54 +4,89 @@ import (
 	errModels "WarpCloud/walm/pkg/models/error"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/util"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"github.com/go-resty/resty"
 	"github.com/pkg/errors"
+	"io/ioutil"
 	"k8s.io/klog"
 	"net"
+	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 )
 
 type WalmctlClient struct {
-	protocol   string
-	hostURL    string
-	apiVersion string
-	baseURL    string
+	client  *resty.Client
+	baseURL string
 }
 
 var walmctlClient *WalmctlClient
 var NotFoundError errModels.NotFoundError
 
-func CreateNewClient(hostURL string) *WalmctlClient {
-	walmctlClient = &WalmctlClient{
-		protocol:   "http://",
-		hostURL:    hostURL,
-		apiVersion: "/api/v1",
+func CreateNewClient(hostURL string, enableTLS bool, rootCA string) (*WalmctlClient, error) {
+	var client *resty.Client
+	protocol := "https://"
+	apiVersion := "/api/v1"
+	if !enableTLS {
+		protocol = "http://"
+		client = resty.New()
+	} else {
+		// rootCA.crt required
+		if rootCA == "" {
+			return nil, errors.Errorf("rootCA(CA root certificate, public key) can not be empty")
+		}
+		rootCA, err := filepath.Abs(rootCA)
+		if err != nil {
+			return nil, err
+		}
+		cert, err := ioutil.ReadFile(rootCA)
+		if err != nil {
+			return nil, err
+		}
+		certPool, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+		certPool.AppendCertsFromPEM(cert)
+
+		tlsConf := &tls.Config{
+			RootCAs:            certPool,
+			InsecureSkipVerify: true,
+		}
+		client = resty.NewWithClient(&http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConf,
+			},
+		})
 	}
-	walmctlClient.baseURL = walmctlClient.protocol + walmctlClient.hostURL + walmctlClient.apiVersion
-	return walmctlClient
+	return &WalmctlClient{
+		client:  client,
+		baseURL: protocol + hostURL + apiVersion,
+	}, nil
 }
 
-func (c *WalmctlClient) ValidateHostConnect() error {
+func (c *WalmctlClient) ValidateHostConnect(hostURL string) error {
 	timeout := time.Duration(5 * time.Second)
-	_, err := net.DialTimeout("tcp", walmctlClient.hostURL, timeout)
+	_, err := net.DialTimeout("tcp", hostURL, timeout)
 	if err != nil {
-		return errors.Errorf("WalmServer %s unreachable, error: %s", walmctlClient.hostURL, err.Error())
+		return errors.Errorf("WalmServer %s unreachable, error: %s", hostURL, err.Error())
 	}
 	return nil
 }
 
 func (c *WalmctlClient) CreateTenantIfNotExist(namespace string) error {
-	fullUrl := walmctlClient.baseURL + "/tenant/" + namespace
+	fullUrl := c.baseURL + "/tenant/" + namespace
 
-	_, _ = resty.R().
+	_, _ = c.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody("{}").
 		Post(fullUrl)
 
-	resp, err := resty.R().
+	resp, err := c.client.R().
 		SetHeader("Content-Type", "application/json").
 		Get(fullUrl)
 
@@ -63,14 +98,14 @@ func (c *WalmctlClient) CreateTenantIfNotExist(namespace string) error {
 
 func (c *WalmctlClient) CreateSecret(namespace, secretName string, secretData map[string]string) error {
 	_ = c.CreateTenantIfNotExist(namespace)
-	secretFullUrl := walmctlClient.baseURL + "/secret/" + namespace
+	secretFullUrl := c.baseURL + "/secret/" + namespace
 
 	secretReq := k8sModel.CreateSecretRequestBody{
 		Data: secretData,
 		Type: "Opaque",
 		Name: secretName,
 	}
-	resp, err := resty.R().SetHeader("Content-Type", "application/json").
+	resp, err := c.client.R().SetHeader("Content-Type", "application/json").
 		SetBody(secretReq).
 		Post(secretFullUrl)
 	if err != nil {
@@ -85,9 +120,9 @@ func (c *WalmctlClient) CreateSecret(namespace, secretName string, secretData ma
 
 func (c *WalmctlClient) DeleteSecret(namespace, secretName string) error {
 	_ = c.CreateTenantIfNotExist(namespace)
-	secretFullUrl := walmctlClient.baseURL + "/secret/" + namespace + "/name/" + secretName
+	secretFullUrl := c.baseURL + "/secret/" + namespace + "/name/" + secretName
 
-	resp, err := resty.R().SetHeader("Content-Type", "application/json").
+	resp, err := c.client.R().SetHeader("Content-Type", "application/json").
 		Delete(secretFullUrl)
 	if err != nil {
 		return err
@@ -103,7 +138,7 @@ func (c *WalmctlClient) DryRunCreateRelease(
 	namespace, chart string, releaseName string,
 	configValues map[string]interface{},
 ) (*resty.Response, error) {
-	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "/dryrun"
+	fullUrl := c.baseURL + "/release/" + namespace + "/dryrun"
 
 	if releaseName != "" {
 		releaseNameConfigs := make(map[string]interface{}, 0)
@@ -117,8 +152,8 @@ func (c *WalmctlClient) DryRunCreateRelease(
 
 	resp := &resty.Response{}
 	if chart != "" {
-		chartFullUrl := walmctlClient.baseURL + "/release/" + namespace + "/dryrun/withchart"
-		resp, err = resty.R().
+		chartFullUrl := c.baseURL + "/release/" + namespace + "/dryrun/withchart"
+		resp, err = c.client.R().
 			SetHeader("Content-Type", "multipart/form-data").
 			SetFile("chart", chart).
 			SetFormData(map[string]string{
@@ -128,7 +163,7 @@ func (c *WalmctlClient) DryRunCreateRelease(
 			}).
 			Post(chartFullUrl)
 	} else {
-		resp, err = resty.R().
+		resp, err = c.client.R().
 			SetHeader("Content-Type", "application/json").
 			SetBody(filestr).
 			Post(fullUrl)
@@ -146,7 +181,7 @@ func (c *WalmctlClient) CreateRelease(
 	configValues map[string]interface{},
 ) (*resty.Response, error) {
 	_ = c.CreateTenantIfNotExist(namespace)
-	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "?async=" + strconv.FormatBool(async) +
+	fullUrl := c.baseURL + "/release/" + namespace + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
 
 	if releaseName != "" {
@@ -161,8 +196,8 @@ func (c *WalmctlClient) CreateRelease(
 
 	resp := &resty.Response{}
 	if chart != "" {
-		chartFullUrl := walmctlClient.baseURL + "/release/" + namespace + "/withchart"
-		resp, err = resty.R().
+		chartFullUrl := c.baseURL + "/release/" + namespace + "/withchart"
+		resp, err = c.client.R().
 			SetHeader("Content-Type", "multipart/form-data").
 			SetFile("chart", chart).
 			SetFormData(map[string]string{
@@ -171,7 +206,7 @@ func (c *WalmctlClient) CreateRelease(
 			}).
 			Post(chartFullUrl)
 	} else {
-		resp, err = resty.R().
+		resp, err = c.client.R().
 			SetHeader("Content-Type", "application/json").
 			SetBody(filestr).
 			Post(fullUrl)
@@ -183,9 +218,9 @@ func (c *WalmctlClient) CreateRelease(
 }
 
 func (c *WalmctlClient) GetRelease(namespace string, releaseName string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "/name/" + releaseName
+	fullUrl := c.baseURL + "/release/" + namespace + "/name/" + releaseName
 
-	resp, err = resty.R().Get(fullUrl)
+	resp, err = c.client.R().Get(fullUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -197,10 +232,10 @@ func (c *WalmctlClient) GetRelease(namespace string, releaseName string) (resp *
 }
 
 func (c *WalmctlClient) UpdateRelease(namespace string, newConfigStr string, async bool, timeoutSec int64) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "?async=" + strconv.FormatBool(async) +
+	fullUrl := c.baseURL + "/release/" + namespace + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
 
-	resp, err = resty.R().SetHeader("Content-Type", "application/json").
+	resp, err = c.client.R().SetHeader("Content-Type", "application/json").
 		SetBody(newConfigStr).
 		Put(fullUrl)
 	if err != nil {
@@ -213,9 +248,9 @@ func (c *WalmctlClient) UpdateRelease(namespace string, newConfigStr string, asy
 }
 
 func (c *WalmctlClient) UpdateReleaseWithChart(namespace string, releaseName string, file string, newConfigStr string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "/withchart"
+	fullUrl := c.baseURL + "/release/" + namespace + "/withchart"
 
-	resp, err = resty.R().SetHeader("Content-Type", "multipart/form-data", ).
+	resp, err = c.client.R().SetHeader("Content-Type", "multipart/form-data", ).
 		SetFile("chart", file).
 		SetFormData(map[string]string{"release": releaseName, "body": newConfigStr}).
 		Put(fullUrl)
@@ -229,10 +264,10 @@ func (c *WalmctlClient) UpdateReleaseWithChart(namespace string, releaseName str
 }
 
 func (c *WalmctlClient) DeleteRelease(namespace string, releaseName string, async bool, timeoutSec int64, deletePvcs bool) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/release/" + namespace + "/name/" + releaseName + "?async=" + strconv.FormatBool(async) +
+	fullUrl := c.baseURL + "/release/" + namespace + "/name/" + releaseName + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10) + "&deletePvcs=" + strconv.FormatBool(deletePvcs)
 
-	resp, err = resty.R().
+	resp, err = c.client.R().
 		Delete(fullUrl)
 	if err != nil {
 		return nil, err
@@ -245,12 +280,12 @@ func (c *WalmctlClient) DeleteRelease(namespace string, releaseName string, asyn
 }
 
 func (c *WalmctlClient) ListRelease(namespace string, labelSelector string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/release/" + namespace
+	fullUrl := c.baseURL + "/release/" + namespace
 	if namespace == "" {
-		fullUrl = walmctlClient.baseURL + "/release"
+		fullUrl = c.baseURL + "/release"
 	}
 
-	resp, err = resty.R().
+	resp, err = c.client.R().
 		SetHeader("Accept", "application/json").
 		Get(fullUrl)
 	if err != nil {
@@ -269,7 +304,7 @@ func (c *WalmctlClient) CreateProject(
 	configValues map[string]interface{},
 ) (resp *resty.Response, err error) {
 	_ = c.CreateTenantIfNotExist(namespace)
-	fullUrl := walmctlClient.baseURL + "/project/" + namespace + "/name/" + projectName + "?async=" + strconv.FormatBool(async) +
+	fullUrl := c.baseURL + "/project/" + namespace + "/name/" + projectName + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
 
 	filestr, err := json.Marshal(configValues)
@@ -277,7 +312,7 @@ func (c *WalmctlClient) CreateProject(
 		klog.Errorf("marshal to json error %v", err)
 	}
 
-	resp, err = resty.R().SetHeader("Content-Type", "application/json").
+	resp, err = c.client.R().SetHeader("Content-Type", "application/json").
 		SetBody(filestr).
 		Post(fullUrl)
 	if err != nil {
@@ -291,8 +326,8 @@ func (c *WalmctlClient) CreateProject(
 }
 
 func (c *WalmctlClient) GetProject(namespace string, projectName string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/project/" + namespace + "/name/" + projectName
-	resp, err = resty.R().Get(fullUrl)
+	fullUrl := c.baseURL + "/project/" + namespace + "/name/" + projectName
+	resp, err = c.client.R().Get(fullUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -303,10 +338,10 @@ func (c *WalmctlClient) GetProject(namespace string, projectName string) (resp *
 }
 
 func (c *WalmctlClient) DeleteProject(namespace string, projectName string, async bool, timeoutSec int64, deletePvcs bool) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/project/" + namespace + "/name/" + projectName + "?async=" + strconv.FormatBool(async) +
+	fullUrl := c.baseURL + "/project/" + namespace + "/name/" + projectName + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10) + "&deletePvcs=" + strconv.FormatBool(deletePvcs)
 
-	resp, err = resty.R().
+	resp, err = c.client.R().
 		Delete(fullUrl)
 	if err != nil {
 		return nil, err
@@ -319,12 +354,12 @@ func (c *WalmctlClient) DeleteProject(namespace string, projectName string, asyn
 }
 
 func (c *WalmctlClient) ListProject(namespace string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/project/" + namespace
+	fullUrl := c.baseURL + "/project/" + namespace
 	if namespace == "" {
-		fullUrl = walmctlClient.baseURL + "/project"
+		fullUrl = c.baseURL + "/project"
 	}
 
-	resp, err = resty.R().
+	resp, err = c.client.R().
 		SetHeader("Accept", "application/json").
 		Get(fullUrl)
 	if err != nil {
@@ -348,8 +383,8 @@ func (c *WalmctlClient) AddReleaseInProject(namespace string, releaseName string
 		klog.Errorf("marshal to json error %v", err)
 	}
 
-	fullUrl := walmctlClient.baseURL + "/project/" + namespace + "/name/" + projectName + "/instance?async=" + strconv.FormatBool(async) + "&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
-	resp, err = resty.R().SetHeader("Content-Type", "application/json").
+	fullUrl := c.baseURL + "/project/" + namespace + "/name/" + projectName + "/instance?async=" + strconv.FormatBool(async) + "&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
+	resp, err = c.client.R().SetHeader("Content-Type", "application/json").
 		SetBody(fileStr).
 		Post(fullUrl)
 
@@ -357,10 +392,10 @@ func (c *WalmctlClient) AddReleaseInProject(namespace string, releaseName string
 }
 
 func (c *WalmctlClient) DeleteReleaseInProject(namespace string, projectName string, releaseName string, async bool, timeoutSec int64, deletePvcs bool) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/project/" + namespace + "/name/" + projectName + "/instance/" + releaseName + "?async=" + strconv.FormatBool(async) +
+	fullUrl := c.baseURL + "/project/" + namespace + "/name/" + projectName + "/instance/" + releaseName + "?async=" + strconv.FormatBool(async) +
 		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10) + "&deletePvcs=" + strconv.FormatBool(deletePvcs)
 
-	resp, err = resty.R().
+	resp, err = c.client.R().
 		Delete(fullUrl)
 	if err != nil {
 		return nil, err
@@ -379,9 +414,9 @@ func (c *WalmctlClient) MigratePod(namespace string, podMig *k8sModel.PodMigRequ
 		return nil, err
 	}
 
-	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + namespace
+	fullUrl := c.baseURL + "/crd/migration/pod/" + namespace
 
-	resp, err = resty.R().
+	resp, err = c.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(string(podMigByte)).
 		Post(fullUrl)
@@ -402,9 +437,9 @@ func (c *WalmctlClient) MigrateNode(nodeMig *k8sModel.NodeMigRequest) (resp *res
 		return nil, err
 	}
 
-	fullUrl := walmctlClient.baseURL + "/crd/migration/node"
+	fullUrl := c.baseURL + "/crd/migration/node"
 
-	resp, err = resty.R().
+	resp, err = c.client.R().
 		SetHeader("Content-Type", "application/json").
 		SetBody(string(nodeMigByte)).
 		Post(fullUrl)
@@ -419,8 +454,8 @@ func (c *WalmctlClient) MigrateNode(nodeMig *k8sModel.NodeMigRequest) (resp *res
 }
 
 func (c *WalmctlClient) GetPodMigration(namespace string, name string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + namespace + "/name/" + name
-	resp, err = resty.R().
+	fullUrl := c.baseURL + "/crd/migration/pod/" + namespace + "/name/" + name
+	resp, err = c.client.R().
 		Get(fullUrl)
 
 	if err != nil {
@@ -433,8 +468,8 @@ func (c *WalmctlClient) GetPodMigration(namespace string, name string) (resp *re
 }
 
 func (c *WalmctlClient) DeletePodMigration(namespace string, name string) (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/crd/migration/pod/" + namespace + "/name/" + name
-	resp, err = resty.R().
+	fullUrl := c.baseURL + "/crd/migration/pod/" + namespace + "/name/" + name
+	resp, err = c.client.R().
 		Delete(fullUrl)
 
 	if err != nil {
@@ -446,9 +481,9 @@ func (c *WalmctlClient) DeletePodMigration(namespace string, name string) (resp 
 	return resp, err
 }
 
-func (c *WalmctlClient) GetNodeMigration(name string)  (resp *resty.Response, err error) {
-	fullUrl := walmctlClient.baseURL + "/crd/migration/node/" + name
-	resp, err = resty.R().
+func (c *WalmctlClient) GetNodeMigration(name string) (resp *resty.Response, err error) {
+	fullUrl := c.baseURL + "/crd/migration/node/" + name
+	resp, err = c.client.R().
 		Get(fullUrl)
 
 	if err != nil {
@@ -463,8 +498,8 @@ func (c *WalmctlClient) GetNodeMigration(name string)  (resp *resty.Response, er
 
 func (c *WalmctlClient) GetRepoList() (resp *resty.Response, err error) {
 	//api/v1/chart/repolist
-	fullUrl := walmctlClient.baseURL + "/chart/repolist"
-	resp, err = resty.R().
+	fullUrl := c.baseURL + "/chart/repolist"
+	resp, err = c.client.R().
 		Get(fullUrl)
 	if err != nil {
 		return nil, err

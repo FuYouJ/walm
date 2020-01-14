@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"io"
+	"k8s.io/klog"
 )
 
 const deleteDesc = `Delete walm resources by source name.
@@ -77,8 +78,12 @@ func newDeleteCmd(out io.Writer) *cobra.Command {
 func (dc *deleteCmd) run() error {
 
 	var err error
-	client := walmctlclient.CreateNewClient(walmserver)
-	if err = client.ValidateHostConnect(); err != nil {
+	client, err := walmctlclient.CreateNewClient(walmserver, enableTLS, rootCA)
+	if err != nil {
+		klog.Errorf("failed to create walmctl client: %s", err.Error())
+		return err
+	}
+	if err = client.ValidateHostConnect(walmserver); err != nil {
 		return err
 	}
 	if dc.sourceType == "project" {
