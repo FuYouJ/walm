@@ -31,14 +31,13 @@ const (
 	TranswarpMetadataDir          = "transwarp-meta/"
 	TranswarpCiDir                = "ci/"
 	TranswarpMetaInfoFileName     = "metainfo.yaml"
-	TranswarpIconFileName         = "icon.svg"
+	TranswarpIconFileName         = "icon"
 	TranswarpAdvantageFileName    = "advantage.html"
 	TranswarpArchitectureFileName = "architecture.html"
 	TranswarpAppYamlPattern       = TranswarpJsonnetTemplateDir + "%s/%s/app.yaml"
 
 	TranswarpInstallIDKey        = "Transwarp_Install_ID"
 	TranswarpInstallNamespaceKey = "Transwarp_Install_Namespace"
-	TosVersionKey                = "TosVersion"
 )
 
 var commonTemplateFilesPath string
@@ -106,11 +105,12 @@ func buildConfigValuesToRender(
 	userConfigs, dependencyConfigs map[string]interface{}, dependencies map[string]string,
 	isomateConfigValue map[string]interface{}) (configValues map[string]interface{}, err error) {
 	configValues = map[string]interface{}{}
+	util.MergeValues(configValues, setting.Config.AdditionAppConfig.ExtraConfig, false)
 	util.MergeValues(configValues, rawChart.Values, false)
 	util.MergeValues(configValues, dependencyConfigs, false)
 
 	//config TosVersion can be override by user configs
-	configValues["TosVersion"] = "1.9"
+	configValues["TosVersion"] = setting.Config.AdditionAppConfig.TosVersion
 
 	util.MergeValues(configValues, userConfigs, false)
 	util.MergeValues(configValues, isomateConfigValue, false)
@@ -120,7 +120,7 @@ func buildConfigValuesToRender(
 	configValues["chartVersion"] = rawChart.Metadata.Version
 	configValues["chartName"] = rawChart.Metadata.Name
 	configValues["chartAppVersion"] = rawChart.Metadata.AppVersion
-	configValues["Transwarp_Install_Namespace"] = namespace
+	configValues[TranswarpInstallNamespaceKey] = namespace
 
 	//Compatible
 	configValues["Customized_Namespace"] = namespace

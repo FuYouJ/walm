@@ -618,7 +618,6 @@ func NewInformer(
 	}
 
 	if migrationClient != nil {
-
 		informer.migrationFactory = migrationexternalversions.NewSharedInformerFactory(migrationClient, resyncPeriod)
 		informer.migrationLister = informer.migrationFactory.Apiextensions().V1beta1().Migs().Lister()
 	}

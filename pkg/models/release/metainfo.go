@@ -113,16 +113,8 @@ func (chartMetaInfo *ChartMetaInfo) CheckParamsInValues(valuesStr string, config
 				if err != nil {
 					return errors.Errorf("%s Type error in values.yaml, %s expected", configSet.MapKey, configSet.Type)
 				}
-			case "float":
+			case "float", "number", "text":
 				if result.Type.String() != "Number" {
-					return errors.Errorf("%s Type error in values.yaml, %s expected", configSet.MapKey, configSet.Type)
-				}
-			case "number":
-				if result.Type.String() != "Number" {
-					return errors.Errorf("%s Type error in values.yaml, %s expected", configSet.MapKey, configSet.Type)
-				}
-			case "text":
-				if result.Type.String() != "String" {
 					return errors.Errorf("%s Type error in values.yaml, %s expected", configSet.MapKey, configSet.Type)
 				}
 			case "kvPair":

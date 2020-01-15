@@ -57,19 +57,25 @@ type TaskConfig struct {
 	RedisConfig     *RedisConfig `json:"redisConfig"`
 }
 
+type AdditionAppConfig struct {
+	TosVersion  string                 `json:"tosVersion"`
+	ExtraConfig map[string]interface{} `json:"extraConfig"`
+}
+
 type WalmConfig struct {
-	Debug            bool              `json:"debug"`
-	LogConfig        *LogConfig        `json:"logConfig"`
-	HttpConfig       *HttpConfig       `json:"serverConfig"`
-	RepoList         []*ChartRepo      `json:"repoList"`
-	KubeConfig       *KubeConfig       `json:"kubeConfig"`
-	RedisConfig      *RedisConfig      `json:"redisConfig"`
-	KafkaConfig      *KafkaConfig      `json:"kafkaConfig"`
-	TaskConfig       *TaskConfig       `json:"taskConfig"`
-	JsonnetConfig    *JsonnetConfig    `json:"jsonnetConfig"`
-	ChartImageConfig *ChartImageConfig `json:"chartImageConfig"`
-	CrdConfig        *CrdConfig        `json:"crdConfig"`
-	ElectorConfig    *ElectorConfig    `json:"electorConfig"`
+	Debug             bool               `json:"debug"`
+	LogConfig         *LogConfig         `json:"logConfig"`
+	HttpConfig        *HttpConfig        `json:"serverConfig"`
+	RepoList          []*ChartRepo       `json:"repoList"`
+	KubeConfig        *KubeConfig        `json:"kubeConfig"`
+	RedisConfig       *RedisConfig       `json:"redisConfig"`
+	KafkaConfig       *KafkaConfig       `json:"kafkaConfig"`
+	TaskConfig        *TaskConfig        `json:"taskConfig"`
+	JsonnetConfig     *JsonnetConfig     `json:"jsonnetConfig"`
+	ChartImageConfig  *ChartImageConfig  `json:"chartImageConfig"`
+	CrdConfig         *CrdConfig         `json:"crdConfig"`
+	ElectorConfig     *ElectorConfig     `json:"electorConfig"`
+	AdditionAppConfig *AdditionAppConfig `json:"additionAppConfig"`
 	//only for test
 	ChartImageRegistry string `json:"chartImageRegistry"`
 }
@@ -107,5 +113,24 @@ func InitConfig(configPath string) {
 	err = yaml.Unmarshal(yamlFile, &Config)
 	if err != nil {
 		klog.Fatalf("Unmarshal config file faild! %s\n", err.Error())
+	}
+	if Config.AdditionAppConfig == nil {
+		Config.AdditionAppConfig = &AdditionAppConfig{
+			TosVersion: "1.9",
+		}
+	}
+	if Config.AdditionAppConfig.TosVersion == "" {
+		Config.AdditionAppConfig.TosVersion = "1.9"
+	}
+}
+
+func InitDummyConfig() {
+	if Config.AdditionAppConfig == nil {
+		Config.AdditionAppConfig = &AdditionAppConfig{
+			TosVersion: "1.9",
+		}
+	}
+	if Config.AdditionAppConfig.TosVersion == "" {
+		Config.AdditionAppConfig.TosVersion = "1.9"
 	}
 }
