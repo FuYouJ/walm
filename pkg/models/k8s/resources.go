@@ -400,6 +400,7 @@ type ReleaseConfig struct {
 	ChartName                string                 `json:"chartName" description:"chart name"`
 	ChartVersion             string                 `json:"chartVersion" description:"chart version"`
 	ChartAppVersion          string                 `json:"chartAppVersion" description:"jsonnet app version"`
+	CreationTimestamp        string                 `json:"creationTimestamp" description:"creation time stamp"`
 	OutputConfig             map[string]interface{} `json:"outputConfig"`
 	Repo                     string                 `json:"repo" description:"chart repo"`
 	ChartImage               string                 `json:"chartImage" description:"chart image"`
@@ -462,10 +463,11 @@ type TaintNodeRequestBody struct {
 
 type ApplicationInstance struct {
 	Meta
-	Dependencies   map[string]string `json:"dependencies"`
-	InstanceId     string            `json:"instanceId"`
-	Modules        *ResourceSet      `json:"resourceSet"`
-	DependencyMeta *DependencyMeta   `json:"dependencyMeta"`
+	CreationTimestamp string            `json:"creationTimestamp" description:"creation time stamp"`
+	Dependencies      map[string]string `json:"dependencies"`
+	InstanceId        string            `json:"instanceId"`
+	Modules           *ResourceSet      `json:"resourceSet"`
+	DependencyMeta    *DependencyMeta   `json:"dependencyMeta"`
 }
 
 type ReplicaSet struct {
@@ -493,9 +495,9 @@ type OwnerReference struct {
 }
 
 type MigStatus struct {
-	Succeed  int    `json:"succeed"`
-	Total    int	`json:"total"`
-	Items    []*Mig `json:"items"`
+	Succeed int    `json:"succeed"`
+	Total   int    `json:"total"`
+	Items   []*Mig `json:"items"`
 }
 
 type PodMigRequest struct {

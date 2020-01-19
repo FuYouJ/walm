@@ -12,11 +12,12 @@ func ConvertInstanceFromK8s(oriInst *v1beta1.ApplicationInstance, instModules *k
 	}
 	inst := oriInst.DeepCopy()
 	return &k8s.ApplicationInstance{
-		Meta:         k8s.NewMeta(k8s.InstanceKind, inst.Namespace, inst.Name, k8s.NewState("Ready", "", "")),
-		InstanceId:   inst.Spec.InstanceId,
-		Dependencies: convertInstDependencies(inst.Namespace, inst.Spec.Dependencies),
-		DependencyMeta: dependencyMeta,
-		Modules:      instModules,
+		Meta:              k8s.NewMeta(k8s.InstanceKind, inst.Namespace, inst.Name, k8s.NewState("Ready", "", "")),
+		CreationTimestamp: inst.CreationTimestamp.String(),
+		InstanceId:        inst.Spec.InstanceId,
+		Dependencies:      convertInstDependencies(inst.Namespace, inst.Spec.Dependencies),
+		DependencyMeta:    dependencyMeta,
+		Modules:           instModules,
 	}, nil
 }
 
@@ -29,5 +30,5 @@ func convertInstDependencies(namespace string, dependencies []v1beta1.Dependency
 			res[dep.Name] = dep.DependencyRef.Namespace + utils.ReleaseSep + dep.DependencyRef.Name
 		}
 	}
-	return  res
+	return res
 }

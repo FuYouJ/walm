@@ -148,6 +148,7 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 		} else {
 			releaseConfig := releaseConfigResource.(*k8sModel.ReleaseConfig)
 			releaseV2.ConfigValues = releaseConfig.ConfigValues
+			releaseV2.CreationTimestamp = releaseConfig.CreationTimestamp
 			releaseV2.Dependencies = releaseConfig.Dependencies
 			releaseV2.DependenciesConfigValues = releaseConfig.DependenciesConfigValues
 			releaseV2.OutputConfigValues = releaseConfig.OutputConfig
@@ -177,6 +178,7 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 			}
 		} else {
 			instance := instResource.(*k8sModel.ApplicationInstance)
+			releaseV2.CreationTimestamp = instance.CreationTimestamp
 			releaseV2.Dependencies = instance.Dependencies
 			releaseV2.OutputConfigValues = k8sutils.ConvertDependencyMetaToOutputConfig(instance.DependencyMeta)
 			releaseV2.ConfigValues[transwarpjsonnet.TranswarpInstallIDKey] = instance.InstanceId

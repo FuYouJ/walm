@@ -51,6 +51,7 @@ func ConvertReleaseConfigDataFromRelease(r *release.ReleaseInfoV2) *release.Rele
 			ChartImage:               r.ChartImage,
 			ChartName:                r.ChartName,
 			ConfigValues:             r.ConfigValues,
+			CreationTimestamp:        r.CreationTimestamp,
 			Dependencies:             r.Dependencies,
 			ChartVersion:             r.ChartVersion,
 			ChartAppVersion:          r.ChartAppVersion,
