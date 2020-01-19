@@ -161,7 +161,7 @@ func TestReleaseConfigController_enqueueKafka(t *testing.T) {
 				refreshMocks()
 				mockK8sCache.On("GetResource", k8s.ReleaseConfigKind, "testns", "testnm").Return(nil, errorModel.NotFoundError{})
 				mockK8sCache.On("GetResource", k8s.InstanceKind, "testns", "testnm").Return(nil, errorModel.NotFoundError{})
-				mockKafka.On("SyncSendMessage", kafka.ReleaseConfigTopic, "{\"type\":\"Delete\",\"data\":{\"name\":\"testnm\",\"namespace\":\"testns\",\"kind\":\"\",\"state\":{\"status\":\"\",\"reason\":\"\",\"message\":\"\"},\"labels\":null,\"configValues\":null,\"dependenciesConfigValues\":null,\"dependencies\":null,\"chartName\":\"\",\"chartVersion\":\"\",\"chartAppVersion\":\"\",\"outputConfig\":null,\"repo\":\"\",\"chartImage\":\"\",\"isomateConfig\":null,\"chartWalmVersion\":\"\",\"releaseWalmVersion\":\"\"}}").Return(nil)
+				mockKafka.On("SyncSendMessage", kafka.ReleaseConfigTopic, "{\"type\":\"Delete\",\"data\":{\"name\":\"testnm\",\"namespace\":\"testns\",\"kind\":\"\",\"state\":{\"status\":\"\",\"reason\":\"\",\"message\":\"\"},\"labels\":null,\"configValues\":null,\"dependenciesConfigValues\":null,\"dependencies\":null,\"chartName\":\"\",\"chartVersion\":\"\",\"chartAppVersion\":\"\",\"creationTimestamp\":\"\",\"outputConfig\":null,\"repo\":\"\",\"chartImage\":\"\",\"isomateConfig\":null,\"chartWalmVersion\":\"\",\"releaseWalmVersion\":\"\"}}").Return(nil)
 			},
 		},
 		{
@@ -186,7 +186,7 @@ func TestReleaseConfigController_enqueueKafka(t *testing.T) {
 					},
 				}, nil)
 				mockReleaseUseCase.On("GetRelease", "testns", "testnm").Return(nil, nil)
-				mockKafka.On("SyncSendMessage", kafka.ReleaseConfigTopic, "{\"type\":\"CreateOrUpdate\",\"data\":{\"name\":\"testnm\",\"namespace\":\"testns\",\"kind\":\"\",\"state\":{\"status\":\"\",\"reason\":\"\",\"message\":\"\"},\"labels\":null,\"configValues\":null,\"dependenciesConfigValues\":null,\"dependencies\":null,\"chartName\":\"\",\"chartVersion\":\"\",\"chartAppVersion\":\"\",\"outputConfig\":null,\"repo\":\"\",\"chartImage\":\"\",\"isomateConfig\":null,\"chartWalmVersion\":\"\",\"releaseWalmVersion\":\"v2\"}}").Return(nil)
+				mockKafka.On("SyncSendMessage", kafka.ReleaseConfigTopic, "{\"type\":\"CreateOrUpdate\",\"data\":{\"name\":\"testnm\",\"namespace\":\"testns\",\"kind\":\"\",\"state\":{\"status\":\"\",\"reason\":\"\",\"message\":\"\"},\"labels\":null,\"configValues\":null,\"dependenciesConfigValues\":null,\"dependencies\":null,\"chartName\":\"\",\"chartVersion\":\"\",\"chartAppVersion\":\"\",\"creationTimestamp\":\"\",\"outputConfig\":null,\"repo\":\"\",\"chartImage\":\"\",\"isomateConfig\":null,\"chartWalmVersion\":\"\",\"releaseWalmVersion\":\"v2\"}}").Return(nil)
 			},
 		},
 	}

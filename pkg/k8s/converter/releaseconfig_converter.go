@@ -21,6 +21,7 @@ func ConvertReleaseConfigFromK8s(oriReleaseConfig *v1beta1.ReleaseConfig) (*k8s.
 		Dependencies:             releaseConfig.Spec.Dependencies,
 		ChartVersion:             releaseConfig.Spec.ChartVersion,
 		ChartAppVersion:          releaseConfig.Spec.ChartAppVersion,
+		CreationTimestamp:        releaseConfig.CreationTimestamp.String(),
 		Repo:                     releaseConfig.Spec.Repo,
 		DependenciesConfigValues: releaseConfig.Spec.DependenciesConfigValues,
 		IsomateConfig:            convertIsomateConfigFromK8s(releaseConfig.Spec.IsomateConfig),

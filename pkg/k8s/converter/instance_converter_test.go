@@ -33,6 +33,7 @@ func TestConvertInstanceFromK8s(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ka",
 					Namespace: "test-namespace",
+					CreationTimestamp: metav1.Time{},
 				},
 				Spec: v1beta1.ApplicationInstanceSpec{
 					ApplicationRef: v1beta1.ApplicationReference{
@@ -73,6 +74,7 @@ func TestConvertInstanceFromK8s(t *testing.T) {
 						Message: "",
 					},
 				},
+				CreationTimestamp: "0001-01-01 00:00:00 +0000 UTC",
 				Dependencies:   map[string]string{"zookeeper": "test-zk", "txsql": "test-namespace2/test-txsql"},
 				InstanceId:     "f6b4t",
 				Modules:        nil,
