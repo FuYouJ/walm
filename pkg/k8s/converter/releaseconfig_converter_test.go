@@ -23,6 +23,7 @@ func TestConvertReleaseConfigFromK8s(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-releaseConfig",
 					Namespace: "test-namespace",
+					CreationTimestamp: metav1.Time{},
 					Labels:    map[string]string{"test1": "test1"},
 				},
 				Spec: v1beta1.ReleaseConfigSpec{
@@ -64,6 +65,7 @@ func TestConvertReleaseConfigFromK8s(t *testing.T) {
 				ChartName:       "zookeeper",
 				ChartVersion:    "6.1.0",
 				ChartAppVersion: "6.1",
+				CreationTimestamp: "0001-01-01 00:00:00 +0000 UTC",
 				Repo:            "qa",
 				IsomateConfig: &k8s.IsomateConfig{
 					DefaultIsomateName: "x86",

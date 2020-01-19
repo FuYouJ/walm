@@ -19,15 +19,16 @@ type ReleaseInfo struct {
 }
 
 type ReleaseSpec struct {
-	Name            string                 `json:"name" description:"name of the release"`
-	RepoName        string                 `json:"repoName" description:"chart name"`
-	ConfigValues    map[string]interface{} `json:"configValues" description:"extra values added to the chart"`
-	Version         int32                  `json:"version" description:"version of the release"`
-	Namespace       string                 `json:"namespace" description:"namespace of release"`
-	Dependencies    map[string]string      `json:"dependencies" description:"map of dependency chart name and release"`
-	ChartName       string                 `json:"chartName" description:"chart name"`
-	ChartVersion    string                 `json:"chartVersion" description:"chart version"`
-	ChartAppVersion string                 `json:"chartAppVersion" description:"jsonnet app version"`
+	Name              string                 `json:"name" description:"name of the release"`
+	RepoName          string                 `json:"repoName" description:"chart name"`
+	ConfigValues      map[string]interface{} `json:"configValues" description:"extra values added to the chart"`
+	CreationTimestamp string                 `json:"creationTimestamp" description:"creation time stamp"`
+	Version           int32                  `json:"version" description:"version of the release"`
+	Namespace         string                 `json:"namespace" description:"namespace of release"`
+	Dependencies      map[string]string      `json:"dependencies" description:"map of dependency chart name and release"`
+	ChartName         string                 `json:"chartName" description:"chart name"`
+	ChartVersion      string                 `json:"chartVersion" description:"chart version"`
+	ChartAppVersion   string                 `json:"chartAppVersion" description:"jsonnet app version"`
 }
 
 type ReleaseCache struct {
