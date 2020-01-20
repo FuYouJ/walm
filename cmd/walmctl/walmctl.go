@@ -45,7 +45,7 @@ func newRootCmd(args []string) *cobra.Command {
 
 	flags.StringVarP(&walmserver, "server", "s", os.Getenv("WALMSERVER"), "walm apiserver address")
 	flags.StringVarP(&namespace, "namespace", "n", "default", "kubernetes namespace")
-	flags.BoolVar(&enableTLS, "tls", true, "enable send request use https")
+	flags.BoolVar(&enableTLS, "tls", false, "enable send request use https")
 	flags.StringVar(&rootCA, "rootCA", os.Getenv("ROOTCA"), "CA root certificate (public key)")
 
 	settings.AddFlags(flags)
