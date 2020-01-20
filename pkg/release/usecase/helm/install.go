@@ -17,14 +17,14 @@ const (
 )
 
 func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
-	retryTimes := 5
+	retryTimes := 40
 	for {
 		err := helm.installUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, async, timeoutSec, false)
 		if err != nil {
 			if strings.Contains(err.Error(), releasei.WaitReleaseTaskMsgPrefix) && retryTimes > 0 {
 				klog.Warningf("retry to install or upgrade release %s/%s after 15 second", namespace, releaseRequest.Name)
 				retryTimes--
-				time.Sleep(time.Second * 15)
+				time.Sleep(time.Second * 2)
 				continue
 			}
 		}
