@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"k8s.io/klog"
 	"net/url"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -210,6 +211,10 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 		}
 		if strings.HasPrefix(f.Name, transwarpjsonnet.TranswarpMetadataDir+transwarpjsonnet.TranswarpIconFileName) {
 			chartDetailInfo.Icon = base64.StdEncoding.EncodeToString(f.Data[:])
+			extension := path.Ext(f.Name)
+			if len(extension) > 1 {
+				chartDetailInfo.IconType = extension[1:]
+			}
 		}
 	}
 
