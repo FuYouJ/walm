@@ -164,7 +164,7 @@ func (migrate *migrateOptions) createNodeMigTask() error {
 }
 
 func getSupportedPodListFromNode(k8sClient *kubernetes.Clientset, srcHost string) ([]corev1.Pod, error) {
-	blackAppList := []string{"txsql", "shiva"}
+	blackAppList := []string{"txsql", "shivatabletserver", "shivamaster"}
 
 	podList := &corev1.PodList{
 		Items: []corev1.Pod{},
