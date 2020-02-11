@@ -44,12 +44,12 @@ func newDeleteCmd(out io.Writer) *cobra.Command {
 			if walmserver == "" {
 				return errServerRequired
 			}
-			if namespace == "" {
+			if args[0] != "namespace" && namespace == "" {
 				return errNamespaceRequired
 			}
 
 			if len(args) != 2 {
-				return errors.New("arguments error, delete release/project releaseName/projectName")
+				return errors.New("arguments error, two args required")
 			}
 
 			err := checkResourceType(args[0])
@@ -60,8 +60,10 @@ func newDeleteCmd(out io.Writer) *cobra.Command {
 
 			if dc.sourceType == "release" {
 				dc.releaseName = args[1]
-			} else {
+			} else if dc.sourceType == "project" {
 				dc.projectName = args[1]
+			} else {
+				namespace = args[1]
 			}
 			return dc.run()
 		},
@@ -86,7 +88,14 @@ func (dc *deleteCmd) run() error {
 	if err = client.ValidateHostConnect(walmserver); err != nil {
 		return err
 	}
-	if dc.sourceType == "project" {
+	if dc.sourceType == "namespace" {
+		_, err = client.DeleteTenant(namespace)
+		if err != nil {
+			klog.Errorf("failed to delete namespace %s : %s", namespace, err.Error())
+			return err
+		}
+		fmt.Printf("namespace %s deleted\n", namespace)
+	} else if dc.sourceType == "project" {
 		_, err = client.DeleteProject(namespace, dc.projectName, dc.async, dc.timeoutSec, dc.deletePvcs)
 		if err != nil {
 			return err
