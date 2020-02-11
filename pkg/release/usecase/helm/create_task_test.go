@@ -68,7 +68,7 @@ func TestHelm_createReleaseTask(t *testing.T) {
 			initMock: func() {
 				refreshMocks()
 				mockReleaseCache.On("GetReleaseCache", mock.Anything, mock.Anything).Return(nil, errorModel.NotFoundError{})
-				mockHelm.On("InstallOrCreateReleaseWithStrict", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, mock.Anything).Return(&release.ReleaseCache{}, nil)
+				mockHelm.On("InstallOrCreateReleaseWithStrict", mock.Anything, mock.Anything, mock.Anything, mock.Anything, false, mock.Anything, false, mock.Anything).Return(&release.ReleaseCache{}, nil)
 				mockReleaseCache.On("CreateOrUpdateReleaseCache", mock.Anything).Return(nil)
 			},
 			releaseTaskArgsStr: "{\"ReleaseRequest\":{}}",

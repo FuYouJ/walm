@@ -183,13 +183,13 @@ func (_m *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release
 	return r0, r1
 }
 
-// InstallOrCreateReleaseWithStrict provides a mock function with given fields: namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, strict
-func (_m *Helm) InstallOrCreateReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, strict bool) (*release.ReleaseCache, error) {
-	ret := _m.Called(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, strict)
+// InstallOrCreateReleaseWithStrict provides a mock function with given fields: namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, fullUpdate, strict
+func (_m *Helm) InstallOrCreateReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, fullUpdate bool, strict bool) (*release.ReleaseCache, error) {
+	ret := _m.Called(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, fullUpdate, strict)
 
 	var r0 *release.ReleaseCache
-	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, *release.ReleaseInfoV2, bool) *release.ReleaseCache); ok {
-		r0 = rf(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, strict)
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, *release.ReleaseInfoV2, bool, bool) *release.ReleaseCache); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, fullUpdate, strict)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*release.ReleaseCache)
@@ -197,8 +197,8 @@ func (_m *Helm) InstallOrCreateReleaseWithStrict(namespace string, releaseReques
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, *release.ReleaseInfoV2, bool) error); ok {
-		r1 = rf(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, strict)
+	if rf, ok := ret.Get(1).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, *release.ReleaseInfoV2, bool, bool) error); ok {
+		r1 = rf(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, fullUpdate, strict)
 	} else {
 		r1 = ret.Error(1)
 	}

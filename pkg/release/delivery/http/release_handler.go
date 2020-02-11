@@ -105,6 +105,7 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.QueryParameter("async", "异步与否").DataType("boolean").Required(false)).
 		Param(ws.QueryParameter("timeoutSec", "超时时间").DataType("integer").Required(false)).
+		Param(ws.QueryParameter("fullUpdate", "是否全量更新").DataType("boolean").Required(false)).
 		Reads(releaseModel.ReleaseRequestV2{}).
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
@@ -327,7 +328,7 @@ func (handler *ReleaseHandler) InstallRelease(request *restful.Request, response
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec)
+	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec, false)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to install release: %s", err.Error()))
 	}
@@ -358,7 +359,7 @@ func (handler *ReleaseHandler) InstallReleaseWithChart(request *restful.Request,
 	}
 	releaseRequest.Name = releaseName
 
-	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, false, 0)
+	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, false, 0, false)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to install release: %s", err.Error()))
 	}
@@ -476,13 +477,20 @@ func (handler *ReleaseHandler) UpgradeRelease(request *restful.Request, response
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("query param timeoutSec value is not valid : %s", err.Error()))
 		return
 	}
+
+	fullUpdate, err := httpUtils.GetFullUpdateParam(request)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("query param fullUpdate value is not valid : %s", err.Error()))
+		return
+	}
+
 	releaseRequest := &releaseModel.ReleaseRequestV2{}
 	err = request.ReadEntity(releaseRequest)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec)
+	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec, fullUpdate)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to upgrade release: %s", err.Error()))
 	}
@@ -516,7 +524,7 @@ func (handler *ReleaseHandler) UpgradeReleaseWithChart(request *restful.Request,
 
 	releaseRequest.Name = releaseName
 
-	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, false, 0)
+	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, chartFiles, false, 0, false)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to upgrade release: %s", err.Error()))
 	}
