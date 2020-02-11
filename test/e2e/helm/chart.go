@@ -84,7 +84,7 @@ var _ = Describe("HelmChart", func() {
 	It("test get chart", func() {
 		chartInfo, err := helm.GetChartDetailInfo(framework.TestChartRepoName, framework.TomcatChartName, framework.TomcatChartVersion)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(chartInfo.Icon).NotTo(Equal(""))
+		Expect(chartInfo.Icon).NotTo(Equal(nil))
 		Expect(chartInfo.Advantage).NotTo(Equal(""))
 		Expect(chartInfo.Architecture).NotTo(Equal(""))
 		Expect(chartInfo.ChartInfo).To(Equal(release.ChartInfo{
@@ -218,7 +218,7 @@ var _ = Describe("HelmChart", func() {
 	It("test get v1 chart", func() {
 		chartInfo, err := helm.GetChartDetailInfo(framework.TestChartRepoName, framework.V1ZookeeperChartName, framework.V1ZookeeperChartVersion)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(chartInfo.Icon).To(Equal(""))
+		Expect(chartInfo.Icon).NotTo(Equal(nil))
 		Expect(chartInfo.Advantage).To(Equal(""))
 		Expect(chartInfo.Architecture).To(Equal(""))
 		chartInfoString, err := json.Marshal(chartInfo.ChartInfo)
@@ -366,7 +366,7 @@ var _ = Describe("HelmChart", func() {
 	It("test get chart by image", func() {
 		chartInfo, err := helm.GetDetailChartInfoByImage(framework.GetTomcatChartImage())
 		Expect(err).NotTo(HaveOccurred())
-		Expect(chartInfo.Icon).NotTo(Equal(""))
+		Expect(chartInfo.Icon).NotTo(Equal(nil))
 		Expect(chartInfo.Advantage).NotTo(Equal(""))
 		Expect(chartInfo.Architecture).NotTo(Equal(""))
 		Expect(chartInfo.ChartInfo).To(Equal(release.ChartInfo{
