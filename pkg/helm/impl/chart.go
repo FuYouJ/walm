@@ -210,10 +210,10 @@ func buildChartInfo(rawChart *chart.Chart) (*release.ChartDetailInfo, error) {
 			chartDetailInfo.Advantage = string(f.Data[:])
 		}
 		if strings.HasPrefix(f.Name, transwarpjsonnet.TranswarpMetadataDir+transwarpjsonnet.TranswarpIconFileName) {
-			chartDetailInfo.Icon = base64.StdEncoding.EncodeToString(f.Data[:])
 			extension := path.Ext(f.Name)
-			if len(extension) > 1 {
-				chartDetailInfo.IconType = extension[1:]
+			chartDetailInfo.Icon = &release.Icon{
+				Type:   extension[1:],
+				Base64: base64.StdEncoding.EncodeToString(f.Data[:]),
 			}
 		}
 	}

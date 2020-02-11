@@ -65,8 +65,8 @@ func RegisterChartHandler(helm helm.Helm) *restful.WebService {
 		Param(ws.PathParameter("repo-name", "Repo名字").DataType("string")).
 		Param(ws.PathParameter("chart-name", "Chart名字").DataType("string")).
 		Param(ws.QueryParameter("chart-version", "chart版本").DataType("string").DefaultValue("")).
-		Writes("").
-		Returns(200, "OK", "").
+		Writes(release.Icon{}).
+		Returns(200, "OK", release.Icon{}).
 		Returns(404, "Not Found", http.ErrorMessageResponse{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 

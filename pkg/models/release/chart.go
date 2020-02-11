@@ -30,8 +30,12 @@ type ChartDetailInfo struct {
 	// additional info
 	Advantage    string `json:"advantage" description:"chart production advantage description(rich text)"`
 	Architecture string `json:"architecture" description:"chart production architecture description(rich text)"`
-	Icon         string `json:"icon" description:"chart icon"`
-	IconType     string `json:"iconType" description:"chart icon type"`
+	Icon         *Icon  `json:"icon" description:"chart icon"`
+}
+
+type Icon struct {
+	Type   string `json:"type" description:"chart icon type"`
+	Base64 string `json:"base64" description:"chart icon base64"`
 }
 
 type ChartInfoList struct {
