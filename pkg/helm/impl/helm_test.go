@@ -191,7 +191,7 @@ func Test_ReuseReleaseRequest(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		configValues, dependencies, releaseLabels, walmPlugins, err := reuseReleaseRequest(test.releaseInfo, test.releaseRequest, false)
+		configValues, dependencies, releaseLabels, walmPlugins, err := reuseReleaseRequest(test.releaseInfo, test.releaseRequest)
 		assert.IsType(t, test.err, err)
 		assert.Equal(t, test.configValues, configValues)
 		assert.Equal(t, test.dependencies, dependencies)
