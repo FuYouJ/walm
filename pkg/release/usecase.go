@@ -8,6 +8,7 @@ import (
 
 const (
 	WaitReleaseTaskMsgPrefix = "please wait for the last release task"
+	SocketException = "connection reset by peer"
 )
 
 type UseCase interface {
