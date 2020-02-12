@@ -159,13 +159,13 @@ func (_m *UseCase) GetReleaseEvents(namespace string, name string) (*k8s.EventLi
 	return r0, r1
 }
 
-// InstallUpgradeRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, timeoutSec
-func (_m *UseCase) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
-	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec)
+// InstallUpgradeRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate
+func (_m *UseCase) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool) error {
+	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64) error); ok {
-		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec)
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64, bool) error); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -407,6 +407,20 @@ func (c *WalmctlClient) DeleteReleaseInProject(namespace string, projectName str
 	return resp, err
 }
 
+func (c *WalmctlClient) DeleteTenant(namespace string) (resp *resty.Response, err error) {
+	fullUrl := c.baseURL + "/tenant/" + namespace
+
+	resp, err = c.client.R().
+		Delete(fullUrl)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() != 200 {
+		return nil, errors.New(resp.String())
+	}
+	return resp, err
+}
+
 func (c *WalmctlClient) MigratePod(namespace string, podMig *k8sModel.PodMigRequest) (resp *resty.Response, err error) {
 
 	podMigByte, err := json.Marshal(podMig)

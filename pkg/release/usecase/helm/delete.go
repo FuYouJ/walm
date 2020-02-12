@@ -14,7 +14,7 @@ func (helm *Helm) DeleteReleaseWithRetry(namespace, releaseName string, deletePv
 	for {
 		err := helm.DeleteRelease(namespace, releaseName, deletePvcs, async, timeoutSec)
 		if err != nil {
-			if strings.Contains(err.Error(), release.WaitReleaseTaskMsgPrefix) && retryTimes > 0 {
+			if (strings.Contains(err.Error(), release.WaitReleaseTaskMsgPrefix) || strings.Contains(err.Error(), release.SocketException)) && retryTimes > 0 {
 				klog.Warningf("retry to delete release %s/%s after 2 second", namespace, releaseName)
 				retryTimes--
 				time.Sleep(time.Second * 2)

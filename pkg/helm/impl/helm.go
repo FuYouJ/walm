@@ -198,11 +198,11 @@ func processMetaInfoParams(metaInfo *release.ChartMetaInfo, metaInfoParams *rele
 
 func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
 	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error) {
-	return helmImpl.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, true)
+	return helmImpl.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, false,true)
 }
 
 func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
-	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, strict bool) (*release.ReleaseCache, error) {
+	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, fullUpdate bool, strict bool) (*release.ReleaseCache, error) {
 	rawChart, err := helmImpl.loadChart(chartFiles, releaseRequest)
 	if err != nil {
 		klog.Errorf("failed to load chart : %s", err.Error())
@@ -232,7 +232,7 @@ func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, release
 	isomateConfig := releaseRequest.IsomateConfig
 	if update {
 		// reuse config values, dependencies, release labels, walm plugins
-		configValues, dependencies, releaseLabels, releasePlugins, err = reuseReleaseRequest(oldReleaseInfo, releaseRequest)
+		configValues, dependencies, releaseLabels, releasePlugins, err = reuseReleaseRequest(oldReleaseInfo, releaseRequest, fullUpdate)
 		if err != nil {
 			klog.Errorf("failed to reuse release request : %s", err.Error())
 			return nil, err
@@ -730,7 +730,7 @@ func buildResourceKey(resource *resource.Info) string {
 	return resource.Object.GetObjectKind().GroupVersionKind().Kind + "-" + resource.Namespace + "-" + resource.Name
 }
 
-func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *release.ReleaseRequestV2) (
+func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *release.ReleaseRequestV2, fullUpdate bool) (
 	configValues map[string]interface{}, dependencies map[string]string, releaseLabels map[string]string,
 	walmPlugins []*k8sModel.ReleasePlugin, err error,
 ) {
@@ -746,8 +746,12 @@ func reuseReleaseRequest(releaseInfo *release.ReleaseInfoV2, releaseRequest *rel
 		}
 	}
 
-	util.MergeValues(configValues, releaseInfo.ConfigValues, false)
-	util.MergeValues(configValues, releaseRequest.ConfigValues, false)
+	if fullUpdate {
+		util.MergeValues(configValues, releaseRequest.ConfigValues, true)
+	} else {
+		util.MergeValues(configValues, releaseInfo.ConfigValues, false)
+		util.MergeValues(configValues, releaseRequest.ConfigValues, false)
+	}
 
 	dependencies = map[string]string{}
 	for key, value := range releaseInfo.Dependencies {

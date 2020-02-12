@@ -57,3 +57,15 @@ func GetTimeoutSecQueryParam(request *restful.Request) (timeoutSec int64, err er
 	}
 	return
 }
+
+func GetFullUpdateParam(request *restful.Request) (fullUpdate bool, err error) {
+	fullUpdateStr := request.QueryParameter("fullUpdate")
+	if len(fullUpdateStr) > 0 {
+		fullUpdate, err = strconv.ParseBool(fullUpdateStr)
+		if err != nil {
+			klog.Errorf("failed to parse query parameter fullUpdate %s : %s",fullUpdateStr, err.Error())
+			return
+		}
+	}
+	return
+}

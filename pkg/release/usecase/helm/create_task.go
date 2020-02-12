@@ -16,6 +16,7 @@ type CreateReleaseTaskArgs struct {
 	ReleaseRequest *release.ReleaseRequestV2
 	ChartFiles     []*common.BufferedFile
 	Strict         bool
+	FullUpdate     bool
 }
 
 func (helm *Helm) registerCreateReleaseTask() error {
@@ -30,7 +31,7 @@ func (helm *Helm) createReleaseTask(releaseTaskArgsStr string) error {
 		return err
 	}
 	_, err = helm.doInstallUpgradeReleaseWithStrict(releaseTaskArgs.Namespace,
-		releaseTaskArgs.ReleaseRequest, releaseTaskArgs.ChartFiles, false, releaseTaskArgs.Strict)
+		releaseTaskArgs.ReleaseRequest, releaseTaskArgs.ChartFiles, false, releaseTaskArgs.FullUpdate, releaseTaskArgs.Strict)
 	if err != nil {
 		klog.Errorf("failed to install or update release %s/%s : %s", releaseTaskArgs.Namespace, releaseTaskArgs.ReleaseRequest.Name, err.Error())
 		return err
