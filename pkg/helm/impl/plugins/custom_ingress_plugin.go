@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/klog"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -112,13 +113,19 @@ func convertK8SIngress(releaseName, releaseNamespace, ingressName string, addObj
 	if !(strings.HasPrefix(addObj.Path, "/") && addObj.ServiceName != "" && addObj.ServicePort != "") {
 		return nil, errors.New(fmt.Sprintf("invaild ingress object %v", *addObj))
 	}
+	servicePort, err := strconv.Atoi(addObj.ServicePort)
+	if err != nil {
+		return nil, errors.Errorf("parse service port to int32 error: %s", err.Error())
+	}
 
 	ingressObj := &v1beta1.Ingress{
 		TypeMeta: metav1.TypeMeta{
+			APIVersion: "extensions/v1beta1",
 			Kind: "Ingress",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("walmplugin-%s-%s-ingress", ingressName, releaseName),
+			//Name:      fmt.Sprintf("walmplugin-%s-%s-ingress", ingressName, releaseName),
+			Name: ingressName,
 			Namespace: releaseNamespace,
 			Annotations: map[string]string{
 				"transwarp/walmplugin.custom.ingress": "true",
@@ -141,8 +148,8 @@ func convertK8SIngress(releaseName, releaseNamespace, ingressName string, addObj
 									Backend: v1beta1.IngressBackend{
 										ServiceName: addObj.ServiceName,
 										ServicePort: intstr.IntOrString{
-											Type:   intstr.String,
-											StrVal: addObj.ServicePort,
+											Type:   intstr.Int,
+											IntVal: int32(servicePort),
 										},
 									},
 								},

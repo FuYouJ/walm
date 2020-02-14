@@ -1,15 +1,14 @@
 package plugins
 
 import (
-	"github.com/stretchr/testify/assert"
-	"testing"
-	"k8s.io/apimachinery/pkg/runtime"
 	"encoding/json"
+	"github.com/stretchr/testify/assert"
+	"helm.sh/helm/pkg/release"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
-	"fmt"
-	"helm.sh/helm/pkg/release"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"testing"
 )
 
 func Test_CustomIngressTransform(t *testing.T) {
@@ -40,7 +39,7 @@ func Test_CustomIngressTransform(t *testing.T) {
 						Path: "/test-path",
 						Host: "test-host",
 						ServiceName: "test-svc",
-						ServicePort: "test-port",
+						ServicePort: "1128",
 					},
 				},
 			},
@@ -58,10 +57,11 @@ func Test_CustomIngressTransform(t *testing.T) {
 					}),
 					convertObjToUnstructured(&v1beta1.Ingress{
 						TypeMeta: v1.TypeMeta{
+							APIVersion: "extensions/v1beta1",
 							Kind: "Ingress",
 						},
 						ObjectMeta: v1.ObjectMeta{
-							Name:      fmt.Sprintf("walmplugin-%s-%s-ingress", "adding", "testnm"),
+							Name:      "adding",
 							Namespace: "testns",
 							Annotations: map[string]string{
 								"transwarp/walmplugin.custom.ingress": "true",
@@ -84,8 +84,8 @@ func Test_CustomIngressTransform(t *testing.T) {
 													Backend: v1beta1.IngressBackend{
 														ServiceName: "test-svc",
 														ServicePort: intstr.IntOrString{
-															Type:   intstr.String,
-															StrVal: "test-port",
+															Type:   intstr.Int,
+															IntVal: int32(1128),
 														},
 													},
 												},
