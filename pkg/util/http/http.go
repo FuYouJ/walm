@@ -13,6 +13,10 @@ func WriteErrorResponse(response *restful.Response, code int, errMsg string) err
 	return response.WriteHeaderAndEntity(http.StatusInternalServerError, httpModel.ErrorMessageResponse{code, errMsg})
 }
 
+func WriteWarnResponse(response *restful.Response, code int, warnMsg string) error {
+	return response.WriteHeaderAndEntity(http.StatusOK, httpModel.WarnMessageResponse{code, warnMsg})
+}
+
 func WriteNotFoundResponse(response *restful.Response, code int, errMsg string) error {
 	return response.WriteHeaderAndEntity(http.StatusNotFound, httpModel.ErrorMessageResponse{code, errMsg})
 }

@@ -175,6 +175,11 @@ func mountConfigMap(unstructuredObj *unstructured.Unstructured, releaseName, con
 			return nil
 		}
 	}
+	err := checkConfigMapMountPath(addConfigMapObj.Items)
+	if err != nil {
+		klog.Errorf("failed to check configmap mountPath: %s", err.Error())
+		return err
+	}
 	configMapVolume, configMapVolumeMounts, err := splitConfigmapVolumes(releaseName, configMapName, addConfigMapObj)
 	if err != nil {
 		klog.Errorf("failed to split config map volumes : %s", err.Error())
@@ -211,6 +216,23 @@ func mountConfigMap(unstructuredObj *unstructured.Unstructured, releaseName, con
 			klog.Errorf("failed to set nested slice : %s", err.Error())
 			return err
 		}
+	}
+	return nil
+}
+
+func checkConfigMapMountPath(items []*AddConfigItem) error {
+	visited := map[string]bool{}
+	existPaths := []string{"/bin", "/home", "/mnt", "/tmp", "/dev", "/lib", "/opt", "/root", "/srv",
+		"/usr","/etc","/media", "/plugins", "/run", "/sys", "/var", "/var/cache", "/var/empty", "/var/lib",
+		"/var/local", "/var/lock", "/var/log", "var/opt", "/var/run", "/var/spool", "/var/tmp"}
+	for _, existPath := range existPaths {
+		visited[existPath] = true
+	}
+	for _, item := range items {
+		if visited[item.ConfigMapVolumeMountsMountPath] {
+			return errors.Errorf("exist configmap volume mount path are not allowed")
+		}
+		visited[item.ConfigMapVolumeMountsMountPath] = true
 	}
 	return nil
 }

@@ -9,3 +9,8 @@ type ErrorMessageResponse struct {
 	ErrCode    int    `json:"errCode"`
 	ErrMessage string `json:"errMessage"`
 }
+
+type WarnMessageResponse struct {
+	WarnCode    int    `json:"WarnCode"`
+	WarnMessage string `json:"WarnMessage"`
+}
