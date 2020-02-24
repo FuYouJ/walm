@@ -107,7 +107,7 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Param(ws.QueryParameter("timeoutSec", "超时时间").DataType("integer").Required(false)).
 		Param(ws.QueryParameter("fullUpdate", "是否全量更新").DataType("boolean").Required(false)).
 		Reads(releaseModel.ReleaseRequestV2{}).
-		Returns(200, "OK", nil).
+		Returns(200, "OK", http.WarnMessageResponse{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.PUT("/{namespace}/withchart").To(releaseHandler.UpgradeReleaseWithChart).
@@ -493,6 +493,11 @@ func (handler *ReleaseHandler) UpgradeRelease(request *restful.Request, response
 	err = handler.usecase.InstallUpgradeRelease(namespace, releaseRequest, nil, async, timeoutSec, fullUpdate)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to upgrade release: %s", err.Error()))
+	}
+	for _, plugin := range releaseRequest.Plugins {
+		if  plugin.Name == "CustomConfigmap" && plugin.Args != "" {
+			httpUtils.WriteWarnResponse(response, 0, fmt.Sprintf("please ensure new added configmap volume mount path not exist in pod container"))
+		}
 	}
 }
 
