@@ -1,1 +1,0 @@
-{local tmp = std.parseHex("ff"), [name]: tmp for name in ["a"]}
