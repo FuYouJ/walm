@@ -21,7 +21,7 @@ var stopChan = make(chan struct{})
 var configPath string
 
 func init() {
-	flag.StringVar(&configPath, "configPath", "e2e_walm.yaml", "configPath is used to init config")
+	flag.StringVar(&configPath, "configPath", "/Users/corndai/go/src/WarpCloud/walm/test/e2e_walm_internal.yaml", "configPath is used to init config")
 }
 
 func TestE2e(t *testing.T) {
