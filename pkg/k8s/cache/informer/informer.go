@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	appsv1 "k8s.io/client-go/listers/apps/v1"
+	"sort"
 
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -26,7 +27,6 @@ import (
 	storagev1 "k8s.io/client-go/listers/storage/v1"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
-	"sort"
 	"sync"
 	"time"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
@@ -35,10 +35,13 @@ import (
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	releaseconfigexternalversions "transwarp/release-config/pkg/client/informers/externalversions"
 	releaseconfigv1beta1 "transwarp/release-config/pkg/client/listers/transwarp/v1beta1"
-
 	k8sutils "WarpCloud/walm/pkg/k8s/utils"
 	"fmt"
 	beta1 "transwarp/application-instance/pkg/apis/transwarp/v1beta1"
+
+	isomatesetclientset "transwarp/isomateset-client/pkg/client/clientset/versioned"
+	isomatesetexternalversions "transwarp/isomateset-client/pkg/client/informers/externalversions"
+	isomatesetv1beta1 "transwarp/isomateset-client/pkg/client/listers/apiextensions.transwarp.io/v1alpha1"
 )
 
 type Informer struct {
@@ -61,14 +64,17 @@ type Informer struct {
 	endpointsLister             v1.EndpointsLister
 	limitRangeLister            v1.LimitRangeLister
 	replicaSetLister            appsv1.ReplicaSetLister
-	releaseConifgFactory releaseconfigexternalversions.SharedInformerFactory
-	releaseConfigLister  releaseconfigv1beta1.ReleaseConfigLister
+	releaseConifgFactory        releaseconfigexternalversions.SharedInformerFactory
+	releaseConfigLister         releaseconfigv1beta1.ReleaseConfigLister
 
 	instanceFactory instanceexternalversions.SharedInformerFactory
 	instanceLister  instancev1beta1.ApplicationInstanceLister
 
 	migrationFactory migrationexternalversions.SharedInformerFactory
 	migrationLister  migrationv1beta1.MigLister
+
+	isomateSetFactory isomatesetexternalversions.SharedInformerFactory
+	isomateSetLister  isomatesetv1beta1.IsomateSetLister
 }
 
 func (informer *Informer) ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error) {
@@ -162,22 +168,13 @@ func (informer *Informer) GetPodEventList(namespace string, name string) (*k8s.E
 		klog.Errorf("failed to get Events : %s", err.Error())
 		return nil, err
 	}
-	sort.Sort(utils.SortableEvents(podEvents.Items))
 
-	walmEvents := []k8s.Event{}
-	for _, event := range podEvents.Items {
-		walmEvent := k8s.Event{
-			Type:           event.Type,
-			Reason:         event.Reason,
-			Message:        event.Message,
-			Count:          event.Count,
-			FirstTimestamp: event.FirstTimestamp.String(),
-			LastTimestamp:  event.LastTimestamp.String(),
-			From:           utils.FormatEventSource(event.Source),
-		}
-		walmEvents = append(walmEvents, walmEvent)
+	events, err := converter.ConvertEventListFromK8s(podEvents.Items)
+	if err != nil {
+		klog.Errorf("failed to convert walm events : %s", err.Error())
+		return nil, err
 	}
-	return &k8s.EventList{Events: walmEvents}, nil
+	return &k8s.EventList{Events: events}, nil
 }
 
 func (informer *Informer) GetDeploymentEventList(namespace string, name string) (*k8s.EventList, error) {
@@ -254,6 +251,70 @@ func (informer *Informer) GetStatefulSetEventList(namespace string, name string)
 		walmEvents = append(walmEvents, walmEvent)
 	}
 	return &k8s.EventList{Events: walmEvents}, nil
+}
+
+func (informer *Informer) GetReleaseEventList(resourceSet *k8s.ResourceSet) ([]k8s.Event, error) {
+	if resourceSet == nil {
+		return nil, nil
+	}
+
+	events := []corev1.Event{}
+	for _, deployment := range resourceSet.Deployments {
+		resource, err := informer.deploymentLister.Deployments(deployment.Namespace).Get(deployment.Name)
+		if err != nil {
+			klog.Errorf("failed to get deployment : %s", err.Error())
+			return nil, err
+		}
+		eventList, err := informer.getResourceEvents(resource.ObjectMeta, resource.TypeMeta)
+		if err != nil {
+			klog.Errorf("failed to get resource events : %s", err.Error())
+			return nil, err
+		}
+		events = append(events, eventList.Items...)
+	}
+	for _, statefulSet := range resourceSet.StatefulSets {
+		resource, err := informer.statefulSetLister.StatefulSets(statefulSet.Namespace).Get(statefulSet.Name)
+		if err != nil {
+			klog.Errorf("failed to get stateful set : %s", err.Error())
+			return nil, err
+		}
+		eventList, err := informer.getResourceEvents(resource.ObjectMeta, resource.TypeMeta)
+		if err != nil {
+			klog.Errorf("failed to get resource events : %s", err.Error())
+			return nil, err
+		}
+		events = append(events, eventList.Items...)
+	}
+
+	if informer.isomateSetLister != nil {
+		for _, isomateSet := range resourceSet.IsomateSets {
+			resource, err := informer.isomateSetLister.IsomateSets(isomateSet.Namespace).Get(isomateSet.Name)
+			if err != nil {
+				klog.Errorf("failed to get isomate set : %s", err.Error())
+				return nil, err
+			}
+			eventList, err := informer.getResourceEvents(resource.ObjectMeta, resource.TypeMeta)
+			if err != nil {
+				klog.Errorf("failed to get resource events : %s", err.Error())
+				return nil, err
+			}
+			events = append(events, eventList.Items...)
+		}
+	}
+
+	return converter.ConvertEventListFromK8s(events)
+}
+
+func (informer *Informer)getResourceEvents(meta metav1.ObjectMeta, typeMeta metav1.TypeMeta) (*corev1.EventList, error) {
+	ref := &corev1.ObjectReference{
+		Kind:            typeMeta.Kind,
+		Namespace:       meta.Namespace,
+		Name:            meta.Name,
+		UID:             meta.UID,
+		APIVersion:      typeMeta.APIVersion,
+		ResourceVersion: meta.ResourceVersion,
+	}
+	return informer.searchEvents(meta.Namespace, ref)
 }
 
 func (informer *Informer) ListSecrets(namespace string, labelSelectorStr string) (*k8s.SecretList, error) {
@@ -458,8 +519,8 @@ func (informer *Informer) GetNodeMigration(namespace, node string) (*k8s.MigStat
 	}
 	return &k8s.MigStatus{
 		Succeed: count,
-		Total: len(k8sMigs),
-		Items: migs,
+		Total:   len(k8sMigs),
+		Items:   migs,
 	}, nil
 }
 
@@ -531,6 +592,8 @@ func (informer *Informer) GetResource(kind k8s.ResourceKind, namespace, name str
 		return informer.getReplicaSet(namespace, name)
 	case k8s.MigKind:
 		return informer.getMigration(namespace, name)
+	case k8s.IsomateSetKind:
+		return informer.getIsomateSet(namespace, name)
 	default:
 		return &k8s.DefaultResource{Meta: k8s.NewMeta(kind, namespace, name, k8s.NewState("Unknown", "NotSupportedKind", "Can not get this resource"))}, nil
 	}
@@ -545,6 +608,9 @@ func (informer *Informer) start(stopCh <-chan struct{}) {
 	if informer.migrationFactory != nil {
 		informer.migrationFactory.Start(stopCh)
 	}
+	if informer.isomateSetFactory != nil {
+		informer.isomateSetFactory.Start(stopCh)
+	}
 }
 
 func (informer *Informer) waitForCacheSync(stopCh <-chan struct{}) {
@@ -555,6 +621,9 @@ func (informer *Informer) waitForCacheSync(stopCh <-chan struct{}) {
 	}
 	if informer.migrationFactory != nil {
 		informer.migrationFactory.WaitForCacheSync(stopCh)
+	}
+	if informer.isomateSetFactory != nil {
+		informer.isomateSetFactory.WaitForCacheSync(stopCh)
 	}
 }
 
@@ -587,6 +656,7 @@ func NewInformer(
 	releaseConfigClient *releaseconfigclientset.Clientset,
 	instanceClient *instanceclientset.Clientset,
 	migrationClient *migrationclientset.Clientset,
+	isomateSetClient *isomatesetclientset.Clientset,
 	resyncPeriod time.Duration, stopCh <-chan struct{},
 ) (*Informer) {
 	informer := &Informer{}
@@ -620,6 +690,11 @@ func NewInformer(
 	if migrationClient != nil {
 		informer.migrationFactory = migrationexternalversions.NewSharedInformerFactory(migrationClient, resyncPeriod)
 		informer.migrationLister = informer.migrationFactory.Apiextensions().V1beta1().Migs().Lister()
+	}
+
+	if isomateSetClient != nil {
+		informer.isomateSetFactory = isomatesetexternalversions.NewSharedInformerFactory(isomateSetClient, resyncPeriod)
+		informer.isomateSetLister = informer.isomateSetFactory.Apiextensions().V1alpha1().IsomateSets().Lister()
 	}
 
 	informer.start(stopCh)

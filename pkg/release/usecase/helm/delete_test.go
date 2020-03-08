@@ -295,6 +295,7 @@ func TestHelm_doDeleteRelease(t *testing.T) {
 				mockReleaseCache.On("DeleteReleaseCache", mock.Anything, mock.Anything).Return(nil)
 				mockReleaseCache.On("CreateReleaseBackUp", mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				mockK8sOperator.On("DeleteStatefulSetPvcs", mock.Anything).Return(nil)
+				mockK8sOperator.On("DeleteIsomateSetPvcs", mock.Anything).Return(nil)
 			},
 			deletePvcs: true,
 			err: nil,

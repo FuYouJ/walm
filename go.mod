@@ -111,6 +111,7 @@ require (
 	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f // indirect
 	transwarp/application-instance v0.0.0-00010101000000-000000000000
 	transwarp/cachex v0.0.0-20191030094821-9db63c60be1c
+	transwarp/isomateset-client v0.0.0-00010101000000-000000000000
 	transwarp/release-config v0.0.0-00010101000000-000000000000
 )
 
@@ -146,5 +147,6 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20200131234123-3090b0ae21bf
 	transwarp/application-instance => gitlab.com/walm/application-instance v0.0.0-20190926165524-979f57cd9485
 	transwarp/cachex => gitlab.com/walm/cachex v0.0.0-20191030094821-9db63c60be1c
+	transwarp/isomateset-client => gitlab.com/walm/isomateset-client v0.0.0-20200119030008-0bf5ceea6a2e
 	transwarp/release-config => github.com/WarpCloud/release-config v0.0.0-20191104093324-ee806404fe6e
 )

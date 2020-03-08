@@ -30,6 +30,7 @@ type Operator interface {
 	TaintNoExecuteNode(name string, taintsToAdd map[string]string, taintsToRemove []string) (error)
 
 	DeleteStatefulSetPvcs(statefulSets []*k8s.StatefulSet) error
+	DeleteIsomateSetPvcs(isomateSets []*k8s.IsomateSet) error
 	DeletePvc(namespace string, name string) error
 	DeletePvcs(namespace string, labelSeletorStr string) error
 

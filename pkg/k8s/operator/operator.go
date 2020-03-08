@@ -59,6 +59,23 @@ func (op *Operator) DeleteStatefulSetPvcs(statefulSets []*k8sModel.StatefulSet) 
 	return nil
 }
 
+func (op *Operator) DeleteIsomateSetPvcs(isomateSets []*k8sModel.IsomateSet) error {
+	for _, isomateSet := range isomateSets {
+		pvcs, err := op.k8sCache.ListPersistentVolumeClaims(isomateSet.Namespace, isomateSet.Selector)
+		if err != nil {
+			klog.Errorf("failed to list pvcs : %s", err.Error())
+			return err
+		}
+		for _, pvc := range pvcs {
+			err := op.doDeletePvc(pvc, true)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (op *Operator) DeletePod(namespace string, name string) error {
 	err := op.client.CoreV1().Pods(namespace).Delete(name, &metav1.DeleteOptions{})
 	if err != nil {

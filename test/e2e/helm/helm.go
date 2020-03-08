@@ -34,7 +34,7 @@ var _ = Describe("HelmRelease", func() {
 		namespace, err = framework.CreateRandomNamespace("helmReleaseTest", nil)
 		Expect(err).NotTo(HaveOccurred())
 		stopChan = make(chan struct{})
-		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), nil, nil, 0, stopChan)
+		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), framework.GetK8sInstanceClient(), nil, nil, 0, stopChan)
 		registryClient, err := impl.NewRegistryClient(setting.Config.ChartImageConfig)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -71,6 +71,9 @@ var _ = Describe("HelmRelease", func() {
 				plugins.WalmPluginConfigKey: []*k8s.ReleasePlugin{
 					{
 						Name: plugins.ValidateReleaseConfigPluginName,
+					},
+					{
+						Name: plugins.IsomateSetConverterPluginName,
 					},
 				},
 			}, false)
@@ -185,6 +188,9 @@ var _ = Describe("HelmRelease", func() {
 				plugins.WalmPluginConfigKey: []*k8s.ReleasePlugin{
 					{
 						Name: plugins.ValidateReleaseConfigPluginName,
+					},
+					{
+						Name: plugins.IsomateSetConverterPluginName,
 					},
 				},
 			}, false)
@@ -308,6 +314,9 @@ var _ = Describe("HelmRelease", func() {
 					{
 						Name: plugins.ValidateReleaseConfigPluginName,
 					},
+					{
+						Name: plugins.IsomateSetConverterPluginName,
+					},
 				},
 			}, false)
 			assertYamlConfigValues(releaseCache.ComputedValues, tomcatComputedValues)
@@ -403,6 +412,9 @@ var _ = Describe("HelmRelease", func() {
 						{
 							Name: plugins.ValidateReleaseConfigPluginName,
 						},
+						{
+							Name: plugins.IsomateSetConverterPluginName,
+						},
 					},
 					"ZOOKEEPER_CLIENT_CONFIG": map[string]interface{}{
 						"zookeeper_addresses": "zookeeper-test-zookeeper-0.zookeeper-test-zookeeper-hl.helmreleasetest-fixedns1.svc,zookeeper-test-zookeeper-1.zookeeper-test-zookeeper-hl.helmreleasetest-fixedns1.svc,zookeeper-test-zookeeper-2.zookeeper-test-zookeeper-hl.helmreleasetest-fixedns1.svc",
@@ -438,6 +450,9 @@ var _ = Describe("HelmRelease", func() {
 					plugins.WalmPluginConfigKey: []*k8s.ReleasePlugin{
 						{
 							Name: plugins.ValidateReleaseConfigPluginName,
+						},
+						{
+							Name: plugins.IsomateSetConverterPluginName,
 						},
 					},
 					"ZOOKEEPER_CLIENT_CONFIG": map[string]interface{}{
@@ -538,6 +553,9 @@ var _ = Describe("HelmRelease", func() {
 					{
 						Name: plugins.ValidateReleaseConfigPluginName,
 					},
+					{
+						Name: plugins.IsomateSetConverterPluginName,
+					},
 				},
 			}, false)
 			assertYamlConfigValues(releaseCache.ComputedValues, tomcatComputedValues)
@@ -573,6 +591,9 @@ var _ = Describe("HelmRelease", func() {
 					},
 					{
 						Name: plugins.ValidateReleaseConfigPluginName,
+					},
+					{
+						Name: plugins.IsomateSetConverterPluginName,
 					},
 				},
 			}, false)
@@ -697,6 +718,9 @@ var _ = Describe("HelmRelease", func() {
 						{
 							Name: plugins.ValidateReleaseConfigPluginName,
 						},
+						{
+							Name: plugins.IsomateSetConverterPluginName,
+						},
 					},
 				}, false)
 
@@ -706,6 +730,9 @@ var _ = Describe("HelmRelease", func() {
 					plugins.WalmPluginConfigKey: []*k8s.ReleasePlugin{
 						{
 							Name: plugins.ValidateReleaseConfigPluginName,
+						},
+						{
+							Name: plugins.IsomateSetConverterPluginName,
 						},
 					},
 				}, false)
@@ -774,6 +801,10 @@ var _ = Describe("HelmRelease", func() {
 					Expect(err).NotTo(HaveOccurred())
 				})
 				It("list & delete v1 release", func() {
+					if setting.Config.CrdConfig.NotNeedInstance {
+						By("Ignore testing list & delete v1 release due to disabled ApplicationInstance")
+						return
+					}
 					By("list v1 release")
 					releaseCaches, err := helm.ListAllReleases()
 					Expect(err).NotTo(HaveOccurred())

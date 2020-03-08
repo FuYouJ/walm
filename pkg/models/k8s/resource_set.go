@@ -1,5 +1,9 @@
 package k8s
 
+const (
+	IsomateNameLabelKey = "IsomateName"
+)
+
 type ResourceSet struct {
 	Services     []*Service     `json:"services" description:"release services"`
 	ConfigMaps   []*ConfigMap   `json:"configmaps" description:"release configmaps"`
@@ -9,6 +13,7 @@ type ResourceSet struct {
 	Jobs         []*Job         `json:"jobs" description:"release jobs"`
 	Secrets      []*Secret      `json:"secrets" description:"release secrets"`
 	StatefulSets []*StatefulSet `json:"statefulsets" description:"release statefulsets"`
+	IsomateSets  []*IsomateSet  `json:"isomatesets" description:"release isomatesets"`
 }
 
 func (resourceSet *ResourceSet) GetPodsNeedRestart() []*Pod {
@@ -28,7 +33,46 @@ func (resourceSet *ResourceSet) GetPodsNeedRestart() []*Pod {
 			pods = append(pods, dp.Pods...)
 		}
 	}
+	for _, is := range resourceSet.IsomateSets {
+		for _, versionTemplate := range is.VersionTemplates {
+			pods = append(pods, versionTemplate.Pods...)
+		}
+	}
 	return pods
+}
+
+func (resourceSet *ResourceSet) GetIsomatePodsNeedRestart(isomateName string) []*Pod {
+	pods := []*Pod{}
+	for _, ds := range resourceSet.DaemonSets {
+		if resourceBelongToIsomate(ds.Labels, isomateName) && len(ds.Pods) > 0 {
+			pods = append(pods, ds.Pods...)
+		}
+	}
+	for _, ss := range resourceSet.StatefulSets {
+		if resourceBelongToIsomate(ss.Labels, isomateName) && len(ss.Pods) > 0 {
+			pods = append(pods, ss.Pods...)
+		}
+	}
+	for _, dp := range resourceSet.Deployments {
+		if resourceBelongToIsomate(dp.Labels, isomateName) && len(dp.Pods) > 0 {
+			pods = append(pods, dp.Pods...)
+		}
+	}
+	for _, is := range resourceSet.IsomateSets {
+		for _, versionTemplate := range is.VersionTemplates {
+			if resourceBelongToIsomate(versionTemplate.Labels, isomateName) {
+				pods = append(pods, versionTemplate.Pods...)
+			}
+		}
+	}
+	return pods
+}
+
+func resourceBelongToIsomate(labels map[string]string, isomateName string) bool {
+	if len(labels) > 0 && labels[IsomateNameLabelKey] == isomateName {
+		return true
+	}
+	return false
 }
 
 func (resourceSet *ResourceSet) IsReady() (bool, Resource) {
@@ -79,6 +123,11 @@ func (resourceSet *ResourceSet) IsReady() (bool, Resource) {
 			return false, configMap
 		}
 	}
+	for _, isomateSet := range resourceSet.IsomateSets {
+		if isomateSet.State.Status != "Ready" {
+			return false, isomateSet
+		}
+	}
 
 	return true, nil
 }
@@ -93,5 +142,6 @@ func NewResourceSet() *ResourceSet {
 		DaemonSets:   []*DaemonSet{},
 		ConfigMaps:   []*ConfigMap{},
 		Secrets:      []*Secret{},
+		IsomateSets:  []*IsomateSet{},
 	}
 }

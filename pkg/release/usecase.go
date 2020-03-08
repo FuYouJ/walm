@@ -30,6 +30,7 @@ type UseCase interface {
 	InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool) error
 	ReloadRelease(namespace, name string) error
 	RestartRelease(namespace, releaseName string) error
+	RestartReleaseIsomate(namespace, releaseName, isomateName string) error
 	PauseOrRecoverRelease(namespace, releaseName string, async bool, timeoutSec int64, paused bool) error
 
 	UpdateReleaseIngress(namespace, name, ingressName string, requestBody *k8s.IngressRequestBody) error

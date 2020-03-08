@@ -109,22 +109,10 @@ func (helm *Helm) loadQueryRlsEventsFunc(key interface{}, value interface{}) err
 		return err
 	}
 
-	for _, statefulSet := range releaseInfo.Status.StatefulSets {
-		statefulSetEvents, err := helm.k8sCache.GetStatefulSetEventList(statefulSet.Namespace, statefulSet.Name)
-		if err != nil {
-			klog.Errorf("failed to get statefulsets events: %s", err.Error())
-			return err
-		}
-		eventList.Events = append(eventList.Events, statefulSetEvents.Events...)
-	}
-
-	for _, deployment := range releaseInfo.Status.Deployments {
-		deploymentEvents, err := helm.k8sCache.GetDeploymentEventList(deployment.Namespace, deployment.Name)
-		if err != nil {
-			klog.Errorf("failed to get deployment events: %s", err.Error())
-			return err
-		}
-		eventList.Events = append(eventList.Events, deploymentEvents.Events...)
+	eventList.Events, err = helm.k8sCache.GetReleaseEventList(releaseInfo.Status)
+	if err != nil {
+		klog.Errorf("failed to get release events : %s", err.Error())
+		return err
 	}
 	return nil
 }

@@ -1,12 +1,11 @@
 package converter
 
 import (
-	"WarpCloud/walm/pkg/models/k8s"
-	"k8s.io/api/core/v1"
-	appsv1beta1 "k8s.io/api/apps/v1beta1"
-	appsv1 "k8s.io/api/apps/v1"
 	"WarpCloud/walm/pkg/k8s/utils"
-	"fmt"
+	"WarpCloud/walm/pkg/models/k8s"
+	appsv1 "k8s.io/api/apps/v1"
+	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	"k8s.io/api/core/v1"
 )
 
 func ConvertStatefulSetFromK8s(oriStatefulSet *appsv1beta1.StatefulSet, pods []*v1.Pod) (walmStatefulSet *k8s.StatefulSet, err error) {
@@ -59,15 +58,6 @@ func buildWalmStatefulSetState(statefulSet *appsv1beta1.StatefulSet, pods []*k8s
 		walmState = buildWalmStateByPods(pods, "StatefulSet")
 	}
 	return walmState
-}
-
-func isAnyPodTerminating(pods []*k8s.Pod) (bool, string, string) {
-	for _, pod := range pods {
-		if pod.State.Status == "Terminating" {
-			return true, "PodTerminating", fmt.Sprintf("Pod %s/%s is in state Terminating", pod.Namespace, pod.Name)
-		}
-	}
-	return false, "", ""
 }
 
 func isStatefulSetReady(statefulSet *appsv1beta1.StatefulSet) bool {

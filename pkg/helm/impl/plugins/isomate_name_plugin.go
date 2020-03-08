@@ -5,13 +5,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog"
 	"strings"
+	"WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/util"
 )
 
 const (
-	NeedIsomateNameAnnoationKey = "NeedIsomateName"
+	NeedIsomateNameAnnoationKey   = "NeedIsomateName"
 	NeedIsomateNameAnnoationValue = "true"
 
-	IsomateNameLabelKey = "IsomateName"
 	IsomateNamePluginName = "IsomateName"
 )
 
@@ -24,8 +25,8 @@ func init() {
 }
 
 type IsomateNameArgs struct {
-	Name string `json:"name" description:"isomate name"`
-	DefaultIsomate bool `json:"defaultIsomate" description:"default isomate"`
+	Name           string `json:"name" description:"isomate name"`
+	DefaultIsomate bool   `json:"defaultIsomate" description:"default isomate"`
 }
 
 func IsomateName(context *PluginContext, args string) error {
@@ -45,18 +46,45 @@ func IsomateName(context *PluginContext, args string) error {
 	if isomateNameArgs.Name != "" {
 		for _, resource := range context.Resources {
 			unstructured := resource.(*unstructured.Unstructured)
-			annos := unstructured.GetAnnotations()
-			if len(annos) > 0 && strings.ToLower(annos[NeedIsomateNameAnnoationKey]) == NeedIsomateNameAnnoationValue {
-				if !isomateNameArgs.DefaultIsomate {
-					unstructured.SetName(buildResourceName(unstructured, isomateNameArgs.Name))
+			isomateResourceName := buildResourceName(unstructured, isomateNameArgs.Name)
+			if unstructured.GetKind() == string(k8s.IsomateSetKind) {
+				isomateSet, err := convertUnstructuredToIsomateSet(unstructured)
+				if err != nil {
+					klog.Errorf("failed to convert unstructured to isomate set : %s", err.Error())
+					return err
+				}
+				isoName := isomateSet.Name
+				versionTemplate := isomateSet.Spec.VersionTemplates[isoName]
+				if versionTemplate != nil {
+					if versionTemplate.Labels == nil {
+						versionTemplate.Labels = map[string]string{}
+					}
+					versionTemplate.Labels[k8s.IsomateNameLabelKey] = isomateNameArgs.Name
+					stsAnnos := versionTemplate.Annotations
+					if needIsomateName(stsAnnos) && !isomateNameArgs.DefaultIsomate {
+						isomateSet.Spec.VersionTemplates[isomateResourceName] = versionTemplate
+						delete(isomateSet.Spec.VersionTemplates, isoName)
+					}
+					isomateSetJsonMap, err := util.ConvertObjectToJsonMap(isomateSet)
+					if err != nil {
+						klog.Errorf("failed to convert isomate set to json map : %s", err.Error())
+						return err
+					}
+					unstructured.Object = isomateSetJsonMap
 				}
 
-				labels := unstructured.GetLabels()
-				if labels == nil {
-					labels = map[string]string{}
+			} else {
+				err := addNestedStringMap(unstructured.Object, map[string]string{k8s.IsomateNameLabelKey: isomateNameArgs.Name}, "metadata", "labels")
+				if err != nil {
+					klog.Errorf("failed to set isomate name label : %s", err.Error())
+					return err
 				}
-				labels[IsomateNameLabelKey] = isomateNameArgs.Name
-				unstructured.SetLabels(labels)
+				annos := unstructured.GetAnnotations()
+				if needIsomateName(annos) {
+					if !isomateNameArgs.DefaultIsomate {
+						unstructured.SetName(isomateResourceName)
+					}
+				}
 			}
 		}
 	}
@@ -64,7 +92,10 @@ func IsomateName(context *PluginContext, args string) error {
 	return nil
 }
 
+func needIsomateName(annos map[string]string) bool {
+	return len(annos) > 0 && strings.ToLower(annos[NeedIsomateNameAnnoationKey]) == NeedIsomateNameAnnoationValue
+}
+
 func buildResourceName(unstructured *unstructured.Unstructured, isomateName string) string {
 	return unstructured.GetName() + "-" + isomateName
 }
-

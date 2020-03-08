@@ -205,6 +205,7 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Param(ws.QueryParameter("isomateName", "异构名字").DataType("string").Required(false)).
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
@@ -654,7 +655,8 @@ func (handler *ReleaseHandler) GetReleaseConfig(request *restful.Request, respon
 func (handler *ReleaseHandler) RestartRelease(request *restful.Request, response *restful.Response) {
 	namespace := request.PathParameter("namespace")
 	name := request.PathParameter("release")
-	err := handler.usecase.RestartRelease(namespace, name)
+	isomateName := request.QueryParameter("isomateName")
+	err := handler.usecase.RestartReleaseIsomate(namespace, name, isomateName)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to restart release %s: %s", name, err.Error()))
 		return

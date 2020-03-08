@@ -83,6 +83,7 @@ type WalmConfig struct {
 type CrdConfig struct {
 	NotNeedInstance    bool `json:"notNeedInstance"`
 	EnableMigrationCRD bool `json:"enableMigrationCRD"`
+	EnableIsomateSet   bool `json:"enableIsomateSet"`
 }
 
 type ElectorConfig struct {

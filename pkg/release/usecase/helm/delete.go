@@ -89,6 +89,11 @@ func (helm *Helm) doDeleteRelease(namespace, releaseName string, deletePvcs bool
 			klog.Errorf("failed to delete stateful set pvcs : %s", err.Error())
 			return err
 		}
+		err = helm.k8sOperator.DeleteIsomateSetPvcs(releaseInfo.Status.IsomateSets)
+		if err != nil {
+			klog.Errorf("failed to delete isomate set pvcs : %s", err.Error())
+			return err
+		}
 	}
 
 	klog.Infof("succeed to delete release %s/%s", namespace, releaseName)

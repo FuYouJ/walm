@@ -26,7 +26,7 @@ var _ = Describe("K8sOperatorPvc", func() {
 		namespace, err = framework.CreateRandomNamespace("k8sOperatorPvcTest", nil)
 		Expect(err).NotTo(HaveOccurred())
 		stopChan = make(chan struct{})
-		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), nil, nil, 0, stopChan)
+		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), framework.GetK8sInstanceClient(), nil, nil, 0, stopChan)
 		k8sOperator = operator.NewOperator(framework.GetK8sClient(), k8sCache, nil, nil)
 	})
 
