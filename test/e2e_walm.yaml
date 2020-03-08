@@ -10,7 +10,7 @@ kubeConfig:
 redisConfig:
   addr: localhost:6380
   password: "pwd"
-  db: 0
+  db: 2
 kafkaConfig:
   enable: false
   brokers:
