@@ -50,10 +50,12 @@ func (op *Operator) DeleteStatefulSetPvcs(statefulSets []*k8sModel.StatefulSet) 
 			return err
 		}
 		for _, pvc := range pvcs {
+			klog.Infof("start to delete statefulSet pvc %s/%s", pvc.Namespace, pvc.Name)
 			err := op.doDeletePvc(pvc, true)
 			if err != nil {
 				return err
 			}
+			klog.Infof("succeed to delete statefulSet pvc %s/%s", pvc.Namespace, pvc.Name)
 		}
 	}
 	return nil
@@ -67,10 +69,12 @@ func (op *Operator) DeleteIsomateSetPvcs(isomateSets []*k8sModel.IsomateSet) err
 			return err
 		}
 		for _, pvc := range pvcs {
+			klog.Infof("start to delete isomateSet pvc %s/%s", pvc.Namespace, pvc.Name)
 			err := op.doDeletePvc(pvc, true)
 			if err != nil {
 				return err
 			}
+			klog.Infof("succeed to delete isomateSet pvc %s/%s", pvc.Namespace, pvc.Name)
 		}
 	}
 	return nil
