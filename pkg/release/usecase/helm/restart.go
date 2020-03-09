@@ -8,6 +8,10 @@ import (
 )
 
 func (helm *Helm) RestartRelease(namespace, releaseName string) error {
+	return helm.RestartReleaseIsomate(namespace, releaseName, "")
+}
+
+func (helm *Helm) RestartReleaseIsomate(namespace, releaseName, isomateName string) error {
 	klog.V(2).Infof("Enter RestartRelease %s %s\n", namespace, releaseName)
 	releaseInfo, err := helm.GetRelease(namespace, releaseName)
 	if err != nil {
@@ -15,7 +19,13 @@ func (helm *Helm) RestartRelease(namespace, releaseName string) error {
 		return err
 	}
 
-	podsToRestart := releaseInfo.Status.GetPodsNeedRestart()
+	var podsToRestart []*k8s.Pod
+	if isomateName != "" {
+		podsToRestart = releaseInfo.Status.GetIsomatePodsNeedRestart(isomateName)
+	} else {
+		podsToRestart = releaseInfo.Status.GetPodsNeedRestart()
+	}
+
 	podsRestartFailed := []string{}
 	mux := &sync.Mutex{}
 	var wg sync.WaitGroup

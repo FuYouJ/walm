@@ -315,6 +315,30 @@ func (informer *Informer) getInstance(namespace, name string) (k8s.Resource, err
 	return converter.ConvertInstanceFromK8s(resource, instanceModules, dependencyMeta)
 }
 
+func (informer *Informer) getIsomateSet(namespace, name string) (k8s.Resource, error) {
+	notFoundResource := &k8s.IsomateSet{
+		Meta: k8s.NewNotFoundMeta(k8s.IsomateSetKind, namespace, name),
+	}
+	if informer.isomateSetLister == nil {
+		return notFoundResource, errorModel.NotFoundError{}
+	}
+	resource, err := informer.isomateSetLister.IsomateSets(namespace).Get(name)
+	if err != nil {
+		return convertResourceError(err, notFoundResource)
+	}
+
+	pods, err := informer.listPods(namespace, resource.Spec.Selector, false)
+	if err != nil {
+		return nil, err
+	}
+	pods, err = informer.filterPodsByOwnerRef(k8s.IsomateSetKind, resource.UID, pods)
+	if err != nil {
+
+		return nil, err
+	}
+	return converter.ConvertIsomateSetFromK8s(resource, pods)
+}
+
 func (informer *Informer) getReplicaSet(namespace, name string) (k8s.Resource, error) {
 	notFoundResource := &k8s.ReplicaSet{
 		Meta: k8s.NewNotFoundMeta(k8s.ReplicaSetKind, namespace, name),

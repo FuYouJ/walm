@@ -412,6 +412,8 @@ github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.0.0-20130911015532-6807e777504f/go.mod h1:sjUstKUATFIcff4qlB53Kml0wQPtJVc/3fWrmuUmcfA=
 github.com/kr/text v0.1.0 h1:45sCR5RtlFHMR4UwH9sdQ5TC8v0qDQCHnXt+kaKSTVE=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
+github.com/kylelemons/godebug v1.1.0 h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=
+github.com/kylelemons/godebug v1.1.0/go.mod h1:9/0rRGxNHcop5bhtWyNeEfOS8JIWk580+fNqagV/RAw=
 github.com/libopenstorage/openstorage v0.0.0-20170906232338-093a0c388875/go.mod h1:Sp1sIObHjat1BeXhfMqLZ14wnOzEhNx2YQedreMcUyc=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de h1:9TO3cAIGXtEhnIaL+V+BEER86oLrvS+kWobKpbJuye0=
 github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de/go.mod h1:zAbeS9B/r2mtpb6U+EI2rYA5OAXxsYw6wTamcNW+zcE=
@@ -665,6 +667,8 @@ gitlab.com/walm/cachex v0.0.0-20191030094821-9db63c60be1c h1:Vobmzb7L2jEhnGC5OX0
 gitlab.com/walm/cachex v0.0.0-20191030094821-9db63c60be1c/go.mod h1:TNMuFaUAT7+4pPuMnt9bhNngtzETgH7iXi+Dee9pCRI=
 gitlab.com/walm/helm v2.8.0-rc.1.0.20191203062205-45ab9253cc18+incompatible h1:SUry0hBQF2K/sE7nSmLbxKvllxAvrGiQkUBfp0bUpHU=
 gitlab.com/walm/helm v2.8.0-rc.1.0.20191203062205-45ab9253cc18+incompatible/go.mod h1:r7l+xp1B4kdimQuJ+l35AnqeGE3yfAbJRQM5C2Q1LXQ=
+gitlab.com/walm/isomateset-client v0.0.0-20200119030008-0bf5ceea6a2e h1:rQH5x1QrOxcpJDOXYnMlmxujBGxqk9N5W6akhT7xfY8=
+gitlab.com/walm/isomateset-client v0.0.0-20200119030008-0bf5ceea6a2e/go.mod h1:QnPLjrk8uDNssBeGM9kwGxLrp6DNnSV1Y9Npv1sUpn8=
 gitlab.com/walm/k8s-api v0.0.0-20190830074653-10ab632895af h1:VFxhzQ4Uzu5lsTyZtc/fVIwIypFH0SMi6q1DQ7bxqis=
 gitlab.com/walm/k8s-api v0.0.0-20190830074653-10ab632895af/go.mod h1:AOxZTnaXR/xiarlQL0JUfwQPxjmKDvVYoRp58cA7lUo=
 gitlab.com/walm/machinery v0.0.0-20200109094111-7178e4ed7814 h1:tnY2HV9MeY7DRR2lqZPr3p0CQDK57X6SrxaMCvqSJHU=
@@ -927,6 +931,7 @@ k8s.io/klog v0.0.0-20181102134211-b9b56d5dfc92/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUc
 k8s.io/klog v0.3.0/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUcqjScdoY3a9IHpCEIOOfk=
 k8s.io/klog v0.3.1 h1:RVgyDHY/kFKtLqh67NvEWIgkMneNoIrdkN0CxDSQc68=
 k8s.io/klog v0.3.1/go.mod h1:Gq+BEi5rUBO/HRz0bTSXDUcqjScdoY3a9IHpCEIOOfk=
+k8s.io/klog v0.4.0/go.mod h1:4Bi6QPql/J/LkTDqv7R/cd3hPo4k2DG6Ptcz060Ez5I=
 k8s.io/klog v1.0.0 h1:Pt+yjF5aB1xDSVbau4VsWe+dQNzA0qv1LlXdC2dF6Q8=
 k8s.io/klog v1.0.0/go.mod h1:4Bi6QPql/J/LkTDqv7R/cd3hPo4k2DG6Ptcz060Ez5I=
 k8s.io/kube-aggregator v0.0.0-20200131233918-43c2dfdafb33/go.mod h1:nXpYX1rYF4Ix85s78kcre1X/Z5yRpS3K784T8oaWtLc=

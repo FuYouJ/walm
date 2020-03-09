@@ -21,6 +21,7 @@ const (
 	ReplicaSetKind            ResourceKind = "ReplicaSet"
 	InstanceKind              ResourceKind = "ApplicationInstance"
 	MigKind                   ResourceKind = "Mig"
+	IsomateSetKind            ResourceKind = "IsomateSet"
 )
 
 type ResourceKind string
@@ -470,6 +471,35 @@ type ApplicationInstance struct {
 	DependencyMeta    *DependencyMeta   `json:"dependencyMeta"`
 }
 
+func (resource *ApplicationInstance) AddToResourceSet(resourceSet *ResourceSet) {
+	if resource.Modules != nil {
+		for _, resource := range resource.Modules.Deployments {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.Secrets {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.StatefulSets {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.ConfigMaps {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.DaemonSets {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.Services {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.Jobs {
+			resource.AddToResourceSet(resourceSet)
+		}
+		for _, resource := range resource.Modules.Ingresses {
+			resource.AddToResourceSet(resourceSet)
+		}
+	}
+}
+
 type ReplicaSet struct {
 	Meta
 	UID             string           `json:"-"`
@@ -545,31 +575,26 @@ type DependencyProvide struct {
 
 type ResourceType string
 
-func (resource *ApplicationInstance) AddToResourceSet(resourceSet *ResourceSet) {
-	if resource.Modules != nil {
-		for _, resource := range resource.Modules.Deployments {
-			resource.AddToResourceSet(resourceSet)
-		}
-		for _, resource := range resource.Modules.Secrets {
-			resource.AddToResourceSet(resourceSet)
-		}
-		for _, resource := range resource.Modules.StatefulSets {
-			resource.AddToResourceSet(resourceSet)
-		}
-		for _, resource := range resource.Modules.ConfigMaps {
-			resource.AddToResourceSet(resourceSet)
-		}
-		for _, resource := range resource.Modules.DaemonSets {
-			resource.AddToResourceSet(resourceSet)
-		}
-		for _, resource := range resource.Modules.Services {
-			resource.AddToResourceSet(resourceSet)
-		}
-		for _, resource := range resource.Modules.Jobs {
-			resource.AddToResourceSet(resourceSet)
-		}
-		for _, resource := range resource.Modules.Ingresses {
-			resource.AddToResourceSet(resourceSet)
-		}
-	}
+type IsomateSet struct {
+	Meta
+	UID              string             `json:"-"`
+	Labels           map[string]string  `json:"labels" description:"labels"`
+	Annotations      map[string]string  `json:"annotations" description:"annotations"`
+	Selector         string             `json:"selector" description:"label selector"`
+	VersionTemplates []*VersionTemplate `json:"versionTemplates" description:"version templates"`
+}
+
+type VersionTemplate struct {
+	Name             string `json:"name" description:"version template name"`
+	ExpectedReplicas int32  `json:"expectedReplicas" description:"expected replicas"`
+	ReadyReplicas    int32  `json:"readyReplicas" description:"ready replicas"`
+	CurrentVersion   string `json:"currentVersion" description:"current version"`
+	UpdateVersion    string `json:"updateVersion" description:"update version"`
+	Labels           map[string]string  `json:"labels" description:"labels"`
+	Annotations      map[string]string  `json:"annotations" description:"annotations"`
+	Pods             []*Pod             `json:"pods" description:"isomate set pods"`
+}
+
+func (resource *IsomateSet) AddToResourceSet(resourceSet *ResourceSet) {
+	resourceSet.IsomateSets = append(resourceSet.IsomateSets, resource)
 }

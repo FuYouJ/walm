@@ -63,6 +63,7 @@ import (
 	"syscall"
 	"time"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
+	isomatesetclientset "transwarp/isomateset-client/pkg/client/clientset/versioned"
 )
 
 const servDesc = `
@@ -187,7 +188,17 @@ func (sc *ServCmd) run() error {
 		}
 	}
 
-	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, k8sInstanceClient, k8sMigrationClient, 0, stopChan)
+	var k8sIsomateSetClient *isomatesetclientset.Clientset
+	if config.CrdConfig != nil && config.CrdConfig.EnableIsomateSet {
+		klog.Info("CRD IsomateSet should be installed in the k8s")
+		k8sIsomateSetClient, err = client.NewIsomateSetClient("", kubeConfig)
+		if err != nil {
+			klog.Errorf("failed to create k8s isomate set client : %s", err.Error())
+			return err
+		}
+	}
+
+	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, k8sInstanceClient, k8sMigrationClient, k8sIsomateSetClient, 0, stopChan)
 
 	if config.TaskConfig == nil {
 		err = errors.New("task config can not be empty")

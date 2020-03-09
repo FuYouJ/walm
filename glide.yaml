@@ -1,5 +1,8 @@
 package: WarpCloud/walm
 import:
+- package: transwarp/isomateset-client
+  repo: ssh://git@172.16.1.41:10022/yucheng.wu/isomateset-client.git
+  version: tos-2.0-dev
 - package: transwarp/cachex
   repo: ssh://git@172.16.1.41:10022/app/cachex.git
 - package: transwarp/application-instance
@@ -35,7 +38,7 @@ import:
   version: kubernetes-1.15.1
 - package: k8s.io/api
   repo: ssh://git@172.16.1.41:10022/k8s/api.git
-  version: release-1.15
+  version: release-1.15.1
 - package: k8s.io/apimachinery
   version: release-1.15
 - package: k8s.io/apiserver

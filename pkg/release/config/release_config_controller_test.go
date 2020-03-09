@@ -198,7 +198,7 @@ func TestReleaseConfigController_enqueueKafka(t *testing.T) {
 		rc.Name = "testnm"
 
 		mockReleaseConfigController.enqueueKafka(rc)
-		time.Sleep(time.Millisecond * 200)
+		time.Sleep(time.Millisecond * 500)
 
 		mockReleaseUseCase.AssertExpectations(t)
 		mockK8sCache.AssertExpectations(t)

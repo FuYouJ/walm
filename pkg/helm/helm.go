@@ -35,7 +35,8 @@ func BuildReleasePluginsByConfigValues(configValues map[string]interface{}) (rel
 			delete(configValues, plugins.WalmPluginConfigKey)
 			for _, plugin := range walmPlugins.([]interface{}) {
 				walmPlugin := plugin.(map[string]interface{})
-				if walmPlugin["name"].(string) != plugins.ValidateReleaseConfigPluginName && !walmPlugin["disable"].(bool) {
+				if walmPlugin["name"].(string) != plugins.ValidateReleaseConfigPluginName &&
+					walmPlugin["name"].(string) != plugins.IsomateSetConverterPluginName && !walmPlugin["disable"].(bool) {
 					if walmPlugin["name"].(string) == plugins.PauseReleasePluginName {
 						hasPauseReleasePlugin = true
 					}

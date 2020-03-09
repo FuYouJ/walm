@@ -1221,14 +1221,14 @@ func TestReleaseHandler_RestartRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("RestartRelease", "testns", "testname").Return(nil)
+				mockUseCase.On("RestartReleaseIsomate", "testns", "testname", "").Return(nil)
 			},
 			statusCode: 200,
 		},
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("RestartRelease", "testns", "testname").Return(errors.New(""))
+				mockUseCase.On("RestartReleaseIsomate", "testns", "testname", "").Return(errors.New(""))
 			},
 			statusCode: 500,
 		},

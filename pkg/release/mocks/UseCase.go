@@ -298,6 +298,20 @@ func (_m *UseCase) RestartRelease(namespace string, releaseName string) error {
 	return r0
 }
 
+// RestartReleaseIsomate provides a mock function with given fields: namespace, releaseName, isomateName
+func (_m *UseCase) RestartReleaseIsomate(namespace string, releaseName string, isomateName string) error {
+	ret := _m.Called(namespace, releaseName, isomateName)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string, string) error); ok {
+		r0 = rf(namespace, releaseName, isomateName)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // UpdateReleaseConfigMap provides a mock function with given fields: namespace, name, configMapName, requestBody
 func (_m *UseCase) UpdateReleaseConfigMap(namespace string, name string, configMapName string, requestBody *k8s.ConfigMapRequestBody) error {
 	ret := _m.Called(namespace, name, configMapName, requestBody)

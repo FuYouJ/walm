@@ -10,6 +10,7 @@ import (
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
+	isomatesetclientset "transwarp/isomateset-client/pkg/client/clientset/versioned"
 )
 
 const (
@@ -127,7 +128,7 @@ func NewInstanceClient(apiserverHost string, kubeConfig string) (*instanceclient
 	return client, nil
 }
 
-// k8s client to deal with application instance, only for k8s 1.9+
+// k8s client to deal with migration, only for k8s 1.9+
 func NewMigrationClient(apiserverHost string, kubeConfig string) (*migrationclientset.Clientset, error) {
 	cfg, err := clientcmd.BuildConfigFromFlags(apiserverHost, kubeConfig)
 	if err != nil {
@@ -140,6 +141,26 @@ func NewMigrationClient(apiserverHost string, kubeConfig string) (*migrationclie
 	klog.Infof("Creating API application migration client for %s", cfg.Host)
 
 	client, err := migrationclientset.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+// k8s client to deal with isomate set, only for k8s 1.9+
+func NewIsomateSetClient(apiserverHost string, kubeConfig string) (*isomatesetclientset.Clientset, error) {
+	cfg, err := clientcmd.BuildConfigFromFlags(apiserverHost, kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.QPS = defaultQPS
+	cfg.Burst = defaultBurst
+
+	klog.Infof("Creating API application migration client for %s", cfg.Host)
+
+	client, err := isomatesetclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

@@ -1181,6 +1181,17 @@ transwarp/application-instance/pkg/client/listers/transwarp/v1beta1
 # transwarp/cachex v0.0.0-20191030094821-9db63c60be1c => gitlab.com/walm/cachex v0.0.0-20191030094821-9db63c60be1c
 transwarp/cachex
 transwarp/cachex/rdscache
+# transwarp/isomateset-client v0.0.0-00010101000000-000000000000 => gitlab.com/walm/isomateset-client v0.0.0-20200119030008-0bf5ceea6a2e
+transwarp/isomateset-client/pkg/apis/apiextensions.transwarp.io/v1alpha1
+transwarp/isomateset-client/pkg/client/clientset/versioned
+transwarp/isomateset-client/pkg/client/clientset/versioned/scheme
+transwarp/isomateset-client/pkg/client/clientset/versioned/typed/apiextensions.transwarp.io/v1alpha1
+transwarp/isomateset-client/pkg/client/informers/externalversions
+transwarp/isomateset-client/pkg/client/informers/externalversions/apiextensions.transwarp.io
+transwarp/isomateset-client/pkg/client/informers/externalversions/apiextensions.transwarp.io/v1alpha1
+transwarp/isomateset-client/pkg/client/informers/externalversions/internalinterfaces
+transwarp/isomateset-client/pkg/client/listers/apiextensions.transwarp.io/v1alpha1
+transwarp/isomateset-client/pkg/convert
 # transwarp/release-config v0.0.0-00010101000000-000000000000 => github.com/WarpCloud/release-config v0.0.0-20191104093324-ee806404fe6e
 transwarp/release-config/pkg/apis/transwarp
 transwarp/release-config/pkg/apis/transwarp/v1beta1

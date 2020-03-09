@@ -5,6 +5,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
+	"github.com/tidwall/sjson"
+	"k8s.io/api/apps/v1"
+	"WarpCloud/walm/pkg/util"
+	"transwarp/isomateset-client/pkg/apis/apiextensions.transwarp.io/v1alpha1"
 )
 
 func convertToUnstructured(obj runtime.Object) (runtime.Object, error) {
@@ -53,7 +57,7 @@ func addNestedSliceObj(obj map[string]interface{}, sliceObjToAdd []interface{}, 
 
 	sliceToAdd := []interface{}{}
 	for _, obj := range sliceObjToAdd {
-		objMap, err := convertObjToJsonMap(obj)
+		objMap, err := util.ConvertObjectToJsonMap(obj)
 		if err != nil {
 			klog.Errorf("failed to convert obj to json map : %s", err.Error())
 			return err
@@ -76,15 +80,58 @@ func addNestedSliceObj(obj map[string]interface{}, sliceObjToAdd []interface{}, 
 	return nil
 }
 
-func convertObjToJsonMap(obj interface{}) (map[string]interface{}, error) {
-	objBytes, err := json.Marshal(obj)
+func convertUnstructuredToSts(unstructured *unstructured.Unstructured) (*v1.StatefulSet, error) {
+	resourceBytes, err := json.Marshal(unstructured.Object)
+	if err != nil {
+		klog.Errorf("failed to marshal : %s", err.Error())
+		return nil, err
+	}
+
+	resourceJson := string(resourceBytes)
+	resourceJson, err = sjson.Set(resourceJson, "apiVersion", "apps/v1")
+	if err != nil {
+		klog.Errorf("failed to set apiversion to apps/v1 : %s", err.Error())
+		return nil, err
+	}
+
+	sts := &v1.StatefulSet{}
+	err = json.Unmarshal([]byte(resourceJson), sts)
+	if err != nil {
+		klog.Errorf("failed to unmarshal : %s", err.Error())
+		return nil, err
+	}
+	return sts, nil
+}
+
+func convertUnstructuredToIsomateSet(unstructured *unstructured.Unstructured) (*v1alpha1.IsomateSet, error) {
+	resourceBytes, err := json.Marshal(unstructured.Object)
+	if err != nil {
+		klog.Errorf("failed to marshal : %s", err.Error())
+		return nil, err
+	}
+
+	isomateSet := &v1alpha1.IsomateSet{}
+	err = json.Unmarshal(resourceBytes, isomateSet)
+	if err != nil {
+		klog.Errorf("failed to unmarshal : %s", err.Error())
+		return nil, err
+	}
+	return isomateSet, nil
+}
+
+func MergeIsomateSets(iso1, iso2 runtime.Object) (runtime.Object, error) {
+	convertedIso1, err := convertUnstructuredToIsomateSet(iso1.(*unstructured.Unstructured))
 	if err != nil {
 		return nil, err
 	}
-	objMap := map[string]interface{}{}
-	err = json.Unmarshal(objBytes, &objMap)
+	convertedIso2, err := convertUnstructuredToIsomateSet(iso2.(*unstructured.Unstructured))
 	if err != nil {
 		return nil, err
 	}
-	return objMap, nil
+
+	for key, value := range convertedIso2.Spec.VersionTemplates {
+		convertedIso1.Spec.VersionTemplates[key] = value
+	}
+
+	return convertToUnstructured(convertedIso1)
 }

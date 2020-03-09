@@ -262,9 +262,7 @@ func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, release
 	}
 
 	// add default plugin
-	releasePlugins = append(releasePlugins, &k8sModel.ReleasePlugin{
-		Name: plugins.ValidateReleaseConfigPluginName,
-	})
+	releasePlugins = addDefaultPlugins(releasePlugins)
 
 	// compatible
 	if chartInfo.WalmVersion == common.WalmVersionV1 {
@@ -302,6 +300,15 @@ func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, release
 	}
 
 	return releaseCache, nil
+}
+
+func addDefaultPlugins(releasePlugins []*k8sModel.ReleasePlugin) []*k8sModel.ReleasePlugin {
+	releasePlugins = append(releasePlugins, &k8sModel.ReleasePlugin{
+		Name: plugins.ValidateReleaseConfigPluginName,
+	}, &k8sModel.ReleasePlugin{
+		Name: plugins.IsomateSetConverterPluginName,
+	})
+	return releasePlugins
 }
 
 func mergePausePlugin(paused bool, releasePlugins []*k8sModel.ReleasePlugin) (mergedPlugins []*k8sModel.ReleasePlugin, err error) {
@@ -420,9 +427,7 @@ func (helmImpl *Helm) PauseOrRecoverRelease(paused bool, oldReleaseInfo *release
 	}
 
 	// add default plugin
-	releasePlugins = append(releasePlugins, &k8sModel.ReleasePlugin{
-		Name: plugins.ValidateReleaseConfigPluginName,
-	})
+	releasePlugins = addDefaultPlugins(releasePlugins)
 
 	valueOverride := helmRel.Config
 	valueOverride[plugins.WalmPluginConfigKey] = releasePlugins
@@ -700,8 +705,15 @@ func (helm *Helm) mergeIsomateResources(namespace string, manifests map[string]s
 
 		for _, resource := range resources {
 			resourceKey := buildResourceKey(resource)
-			if _, ok := resourceMap[resourceKey]; ok {
-				if isDefaultIsomate {
+			if existedResource, ok := resourceMap[resourceKey]; ok {
+				if resource.Object.GetObjectKind().GroupVersionKind().Kind == string(k8sModel.IsomateSetKind) {
+					mergedIsomateSet, err := plugins.MergeIsomateSets(existedResource.Object, resource.Object)
+					if err != nil {
+						klog.Errorf("failed to merge isomate sets : %s", err.Error())
+						return nil, err
+					}
+					existedResource.Object = mergedIsomateSet
+				} else if isDefaultIsomate {
 					resourceMap[resourceKey] = resource
 				}
 			} else {

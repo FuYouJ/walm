@@ -145,6 +145,20 @@ func (_m *Operator) CreateSecret(namespace string, secretRequestBody *modelsk8s.
 	return r0
 }
 
+// DeleteIsomateSetPvcs provides a mock function with given fields: isomateSets
+func (_m *Operator) DeleteIsomateSetPvcs(isomateSets []*modelsk8s.IsomateSet) error {
+	ret := _m.Called(isomateSets)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func([]*modelsk8s.IsomateSet) error); ok {
+		r0 = rf(isomateSets)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeleteNamespace provides a mock function with given fields: name
 func (_m *Operator) DeleteNamespace(name string) error {
 	ret := _m.Called(name)
