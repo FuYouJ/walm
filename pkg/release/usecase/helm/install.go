@@ -5,6 +5,7 @@ import (
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/release"
 	"fmt"
+	"github.com/pkg/errors"
 	"k8s.io/klog"
 	"strings"
 	"time"
@@ -126,6 +127,9 @@ func (helm *Helm) doInstallUpgradeReleaseWithStrict(namespace string, releaseReq
 		if err != nil {
 			klog.Errorf("failed to build release info of %s/%s: %s", namespace, releaseRequest.Name, err.Error())
 			return nil, err
+		}
+		if oldReleaseInfo.ChartName != releaseRequest.ChartName {
+			return nil, errors.Errorf("upgrade release with different chartName is invalid")
 		}
 	}
 
