@@ -106,7 +106,7 @@ func (task *Task) TouchTask(sig *taskModel.TaskSig, pollingIntervalSec int64) (e
 	return nil
 }
 
-func (task *Task) PurgeTaskState(sig *taskModel.TaskSig) (error) {
+func (task *Task) PurgeTaskState(sig *taskModel.TaskSig) error {
 	if sig == nil || sig.UUID == "" {
 		return nil
 	}

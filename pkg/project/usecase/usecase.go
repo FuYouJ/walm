@@ -523,7 +523,11 @@ func (projectImpl *Project) sendProjectTask(namespace, projectName, taskName str
 	}
 
 	if oldProjectTask != nil && oldProjectTask.LatestTaskSignature != nil {
-		_ = projectImpl.task.PurgeTaskState(oldProjectTask.LatestTaskSignature)
+		err = projectImpl.task.PurgeTaskState(oldProjectTask.LatestTaskSignature)
+		if err != nil {
+			klog.Errorf("failed to purge task state : %s", err.Error())
+			return err
+		}
 	}
 
 	if !async {
