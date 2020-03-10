@@ -7,6 +7,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	"time"
+	monitorclientset "transwarp/monitor-crd-informer/pkg/client/versioned"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
@@ -121,6 +122,25 @@ func NewInstanceClient(apiserverHost string, kubeConfig string) (*instanceclient
 	klog.Infof("Creating API application instance client for %s", cfg.Host)
 
 	client, err := instanceclientset.NewForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func NewMonitorClient(apiserverHost string, kubeConfig string) (*monitorclientset.Clientset, error) {
+	cfg, err := clientcmd.BuildConfigFromFlags(apiserverHost, kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg.QPS = defaultQPS
+	cfg.Burst = defaultBurst
+
+	klog.Infof("Creating API service monitor client for %s", cfg.Host)
+
+	client, err := monitorclientset.NewForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}

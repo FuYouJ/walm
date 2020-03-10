@@ -103,15 +103,15 @@ require (
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.17.3
 	k8s.io/cli-runtime v0.17.3
-	k8s.io/client-go v0.17.3
+	k8s.io/client-go v11.0.0+incompatible
 	k8s.io/component-base v0.17.3 // indirect
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a // indirect
 	k8s.io/kubernetes v1.16.0-alpha.0.0.20200109023141-993e84935bc8
-	k8s.io/utils v0.0.0-20191114184206-e782cd3c129f // indirect
 	transwarp/application-instance v0.0.0-00010101000000-000000000000
 	transwarp/cachex v0.0.0-20191030094821-9db63c60be1c
 	transwarp/isomateset-client v0.0.0-00010101000000-000000000000
+	transwarp/monitor-crd-informer v0.0.0-00010101000000-000000000000
 	transwarp/release-config v0.0.0-00010101000000-000000000000
 )
 
@@ -148,5 +148,6 @@ replace (
 	transwarp/application-instance => gitlab.com/walm/application-instance v0.0.0-20190926165524-979f57cd9485
 	transwarp/cachex => gitlab.com/walm/cachex v0.0.0-20191030094821-9db63c60be1c
 	transwarp/isomateset-client => gitlab.com/walm/isomateset-client v0.0.0-20200119030008-0bf5ceea6a2e
+	transwarp/monitor-crd-informer => gitlab.com/walm/monitor-crd-informer v0.0.0-20200218172950-a263bba335d4
 	transwarp/release-config => github.com/WarpCloud/release-config v0.0.0-20191104093324-ee806404fe6e
 )

@@ -84,6 +84,7 @@ type CrdConfig struct {
 	NotNeedInstance    bool `json:"notNeedInstance"`
 	EnableMigrationCRD bool `json:"enableMigrationCRD"`
 	EnableIsomateSet   bool `json:"enableIsomateSet"`
+	EnableServiceMonitor bool `json:"enableServiceMonitor"`
 }
 
 type ElectorConfig struct {

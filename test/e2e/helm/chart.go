@@ -22,7 +22,7 @@ var _ = Describe("HelmChart", func() {
 
 	BeforeEach(func() {
 		stopChan = make(chan struct{})
-		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), framework.GetK8sInstanceClient(), nil,nil, 0, stopChan)
+		k8sCache := informer.NewInformer(framework.GetK8sClient(), framework.GetK8sReleaseConfigClient(), framework.GetK8sInstanceClient(), nil,nil, nil,0, stopChan)
 		registryClient, err := impl.NewRegistryClient(setting.Config.ChartImageConfig)
 		Expect(err).NotTo(HaveOccurred())
 
