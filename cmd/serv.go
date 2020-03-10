@@ -172,7 +172,7 @@ func (sc *ServCmd) run() error {
 	}
 
 	var k8sInstanceClient *instanceclientset.Clientset
-	if config.CrdConfig == nil || !config.CrdConfig.NotNeedInstance {
+	if config.CrdConfig != nil && !config.CrdConfig.NotNeedInstance {
 		klog.Info("CRD ApplicationInstance should be installed in the k8s")
 		k8sInstanceClient, err = client.NewInstanceClient("", kubeConfig)
 		if err != nil {
