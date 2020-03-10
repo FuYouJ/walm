@@ -62,6 +62,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	monitorclientset "transwarp/monitor-crd-informer/pkg/client/versioned"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	isomatesetclientset "transwarp/isomateset-client/pkg/client/clientset/versioned"
 )
@@ -160,6 +161,16 @@ func (sc *ServCmd) run() error {
 		return err
 	}
 
+	var k8sMonitorClient *monitorclientset.Clientset
+	if config.CrdConfig != nil && config.CrdConfig.EnableServiceMonitor {
+		klog.Info("CRD ServiceMonitor should be installed in the k8s")
+		k8sMonitorClient, err = client.NewMonitorClient("", kubeConfig)
+		if err != nil {
+			klog.Errorf("failed to create k8s service monitor client : %s", err.Error())
+			return err
+		}
+	}
+
 	var k8sInstanceClient *instanceclientset.Clientset
 	if config.CrdConfig == nil || !config.CrdConfig.NotNeedInstance {
 		klog.Info("CRD ApplicationInstance should be installed in the k8s")
@@ -198,7 +209,7 @@ func (sc *ServCmd) run() error {
 		}
 	}
 
-	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, k8sInstanceClient, k8sMigrationClient, k8sIsomateSetClient, 0, stopChan)
+	k8sCache := cacheInformer.NewInformer(k8sClient, k8sReleaseConfigClient, k8sInstanceClient, k8sMigrationClient, k8sIsomateSetClient, k8sMonitorClient, 0, stopChan)
 
 	if config.TaskConfig == nil {
 		err = errors.New("task config can not be empty")

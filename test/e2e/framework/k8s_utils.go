@@ -17,6 +17,7 @@ import(
 	"k8s.io/klog"
 	"path/filepath"
 	applicationinstanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
+	monitorclientset "transwarp/monitor-crd-informer/pkg/client/versioned"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
@@ -35,6 +36,10 @@ func GetKubeClient() *clienthelm.Client {
 
 func GetK8sInstanceClient() *applicationinstanceclientset.Clientset {
 	return k8sInstanceClient
+}
+
+func GetK8sMonitorClient() *monitorclientset.Clientset {
+	return k8sMonitoreClient
 }
 
 func GetK8sMigrationClient() *migrationclientset.Clientset {

@@ -33,3 +33,4 @@ chartImageConfig:
 crdConfig:
   notNeedInstance: true
   enableIsomateSet: false
+  enableServiceMonitor: false

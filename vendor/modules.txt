@@ -592,7 +592,7 @@ golang.org/x/net/internal/timeseries
 golang.org/x/net/proxy
 golang.org/x/net/publicsuffix
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+# golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 golang.org/x/oauth2
 golang.org/x/oauth2/google
 golang.org/x/oauth2/internal
@@ -626,7 +626,7 @@ golang.org/x/text/transform
 golang.org/x/text/unicode/bidi
 golang.org/x/text/unicode/norm
 golang.org/x/text/width
-# golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
+# golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 golang.org/x/time/rate
 # golang.org/x/tools v0.0.0-20191130070609-6e064ea0cf2d
 golang.org/x/tools/cmd/goimports
@@ -917,7 +917,7 @@ k8s.io/cli-runtime/pkg/kustomize/k8sdeps/transformer/patch
 k8s.io/cli-runtime/pkg/kustomize/k8sdeps/validator
 k8s.io/cli-runtime/pkg/printers
 k8s.io/cli-runtime/pkg/resource
-# k8s.io/client-go v0.17.3 => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
+# k8s.io/client-go v11.0.0+incompatible => k8s.io/client-go v0.0.0-20190718183610-8e956561bbf5
 k8s.io/client-go/discovery
 k8s.io/client-go/discovery/cached/disk
 k8s.io/client-go/dynamic
@@ -1134,7 +1134,7 @@ k8s.io/kubernetes/pkg/util/hash
 k8s.io/kubernetes/pkg/util/labels
 k8s.io/kubernetes/pkg/util/parsers
 k8s.io/kubernetes/pkg/util/taints
-# k8s.io/utils v0.0.0-20191114184206-e782cd3c129f
+# k8s.io/utils v0.0.0-20200124190032-861946025e34
 k8s.io/utils/buffer
 k8s.io/utils/exec
 k8s.io/utils/integer
@@ -1192,6 +1192,17 @@ transwarp/isomateset-client/pkg/client/informers/externalversions/apiextensions.
 transwarp/isomateset-client/pkg/client/informers/externalversions/internalinterfaces
 transwarp/isomateset-client/pkg/client/listers/apiextensions.transwarp.io/v1alpha1
 transwarp/isomateset-client/pkg/convert
+# transwarp/monitor-crd-informer v0.0.0-00010101000000-000000000000 => gitlab.com/walm/monitor-crd-informer v0.0.0-20200218172950-a263bba335d4
+transwarp/monitor-crd-informer/pkg/apis/monitoring
+transwarp/monitor-crd-informer/pkg/apis/monitoring/v1
+transwarp/monitor-crd-informer/pkg/client/informers/externalversions
+transwarp/monitor-crd-informer/pkg/client/informers/externalversions/internalinterfaces
+transwarp/monitor-crd-informer/pkg/client/informers/externalversions/monitoring
+transwarp/monitor-crd-informer/pkg/client/informers/externalversions/monitoring/v1
+transwarp/monitor-crd-informer/pkg/client/listers/monitoring/v1
+transwarp/monitor-crd-informer/pkg/client/versioned
+transwarp/monitor-crd-informer/pkg/client/versioned/scheme
+transwarp/monitor-crd-informer/pkg/client/versioned/typed/monitoring/v1
 # transwarp/release-config v0.0.0-00010101000000-000000000000 => github.com/WarpCloud/release-config v0.0.0-20191104093324-ee806404fe6e
 transwarp/release-config/pkg/apis/transwarp
 transwarp/release-config/pkg/apis/transwarp/v1beta1

@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"strings"
 	applicationinstanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
+	monitorclientset "transwarp/monitor-crd-informer/pkg/client/versioned"
 	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 )
 
@@ -24,6 +25,7 @@ var k8sReleaseConfigClient *releaseconfigclientset.Clientset
 var kubeClients *clienthelm.Client
 var k8sMigrationClient *migrationclientset.Clientset
 var k8sInstanceClient *applicationinstanceclientset.Clientset
+var k8sMonitoreClient *monitorclientset.Clientset
 
 const (
 	maxNameLength                = 62

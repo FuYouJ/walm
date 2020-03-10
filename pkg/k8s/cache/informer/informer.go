@@ -42,6 +42,10 @@ import (
 	isomatesetclientset "transwarp/isomateset-client/pkg/client/clientset/versioned"
 	isomatesetexternalversions "transwarp/isomateset-client/pkg/client/informers/externalversions"
 	isomatesetv1beta1 "transwarp/isomateset-client/pkg/client/listers/apiextensions.transwarp.io/v1alpha1"
+
+	monitorclientset "transwarp/monitor-crd-informer/pkg/client/versioned"
+	monitorexternalversions "transwarp/monitor-crd-informer/pkg/client/informers/externalversions"
+	monitorv1 "transwarp/monitor-crd-informer/pkg/client/listers/monitoring/v1"
 )
 
 type Informer struct {
@@ -75,6 +79,9 @@ type Informer struct {
 
 	isomateSetFactory isomatesetexternalversions.SharedInformerFactory
 	isomateSetLister  isomatesetv1beta1.IsomateSetLister
+
+	monitorFactory monitorexternalversions.SharedInformerFactory
+	monitorLister monitorv1.ServiceMonitorLister
 }
 
 func (informer *Informer) ListServices(namespace string, labelSelectorStr string) ([]*k8s.Service, error) {
@@ -657,6 +664,7 @@ func NewInformer(
 	instanceClient *instanceclientset.Clientset,
 	migrationClient *migrationclientset.Clientset,
 	isomateSetClient *isomatesetclientset.Clientset,
+	monitorClient *monitorclientset.Clientset,
 	resyncPeriod time.Duration, stopCh <-chan struct{},
 ) (*Informer) {
 	informer := &Informer{}
@@ -695,6 +703,11 @@ func NewInformer(
 	if isomateSetClient != nil {
 		informer.isomateSetFactory = isomatesetexternalversions.NewSharedInformerFactory(isomateSetClient, resyncPeriod)
 		informer.isomateSetLister = informer.isomateSetFactory.Apiextensions().V1alpha1().IsomateSets().Lister()
+	}
+
+	if monitorClient != nil {
+		informer.monitorFactory = monitorexternalversions.NewSharedInformerFactoryWithOptions(monitorClient, resyncPeriod)
+		informer.monitorLister = informer.monitorFactory.Monitoring().V1().ServiceMonitors().Lister()
 	}
 
 	informer.start(stopCh)
