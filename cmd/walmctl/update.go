@@ -137,7 +137,7 @@ func (uc *updateCmd) run() error {
 		for _, propertySet := range propertySetArray {
 			propertySet = strings.TrimSpace(propertySet)
 			propertyMap := strings.Split(propertySet, "=")
-			if len(propertyMap) != 2 {
+			if len(propertyMap) != 1 && len(propertyMap) != 2 {
 				return errors.Errorf("set values error, params should like --set pathA=valueA, pathB=valueB...")
 			}
 			propertyKey := propertyMap[0]
