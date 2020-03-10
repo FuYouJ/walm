@@ -650,7 +650,7 @@ func TestProject_sendProjectTask(t *testing.T) {
 			},
 			oldTask: &project.ProjectTask{LatestTaskSignature: &task.TaskSig{}},
 			async:   true,
-			err:     nil,
+			err:     errors.New(""),
 		},
 		{
 			initMock: func() {

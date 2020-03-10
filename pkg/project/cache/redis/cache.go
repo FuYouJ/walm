@@ -54,12 +54,12 @@ func (cache *Cache) CreateOrUpdateProjectTask(projectTask *project.ProjectTask) 
 		klog.Warning("failed to create or update project task as it is nil")
 		return nil
 	}
-
+	klog.Infof("start to set project task of %s/%s to redis", projectTask.Namespace, projectTask.Name)
 	err := cache.redis.SetFieldValues(redis.WalmProjectsKey, map[string]interface{}{redis.BuildFieldName(projectTask.Namespace, projectTask.Name): projectTask})
 	if err != nil {
 		return err
 	}
-	klog.V(2).Infof("succeed to set project task of %s/%s to redis", projectTask.Namespace, projectTask.Name)
+	klog.Infof("succeed to set project task of %s/%s to redis", projectTask.Namespace, projectTask.Name)
 	return nil
 }
 
