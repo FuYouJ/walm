@@ -199,6 +199,26 @@ func mountConfigMap(unstructuredObj *unstructured.Unstructured, releaseName, con
 		klog.Errorf("failed to get containers %s", err.Error())
 		return err
 	}
+
+	var k8sContainers []v1.Container
+	containersData, err := json.Marshal(containers)
+	if err != nil {
+		klog.Errorf("failed to marshal containers type interface to []byte : %s", err.Error())
+		return err
+	}
+	err = json.Unmarshal(containersData, &k8sContainers)
+	if err != nil {
+		klog.Errorf("failed to unmarshal containers type []byte to []corev1.Container : %s", err.Error())
+		return err
+	}
+
+	existMountPaths := getExistMountPaths(k8sContainers)
+	for _, configMapVolumeMount := range configMapVolumeMounts {
+		if existMountPaths[configMapVolumeMount.MountPath] != "" {
+			return errors.Errorf("volumeMountPath %s already exist in containers, duplicated with volume mount name %s", configMapVolumeMount.Name, existMountPaths[configMapVolumeMount.MountPath])
+		}
+	}
+
 	if found {
 		for _, container := range containers {
 			configMapVolumeMountsInterface := []interface{}{}
@@ -218,6 +238,16 @@ func mountConfigMap(unstructuredObj *unstructured.Unstructured, releaseName, con
 		}
 	}
 	return nil
+}
+
+func getExistMountPaths(containers []v1.Container) map[string]string {
+	existMountPaths := map[string]string{}
+	for _, container := range containers {
+		for _, volumeMount := range container.VolumeMounts {
+			existMountPaths[volumeMount.MountPath] = volumeMount.Name
+		}
+	}
+	return existMountPaths
 }
 
 func checkConfigMapMountPath(items []*AddConfigItem) error {
