@@ -32,5 +32,6 @@ chartImageConfig:
   cacheRootDir: "/chart-cache"
 crdConfig:
   notNeedInstance: false
+  enableIsomateSet: false
 # only for test
 chartImageRegistry: "172.26.0.5:5000"

@@ -32,3 +32,4 @@ chartImageConfig:
   cacheRootDir: "/chart-cache"
 crdConfig:
   notNeedInstance: true
+  enableIsomateSet: false
