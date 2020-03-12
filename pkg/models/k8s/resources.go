@@ -428,6 +428,7 @@ type ReleasePlugin struct {
 	Args    string `json:"args" description:"plugin args"`
 	Version string `json:"version" description:"plugin version"`
 	Disable bool   `json:"disable" description:"disable plugin"`
+	Priority int   `json:"priority" description:"priority for plugins execute order"`
 }
 
 type Namespace struct {

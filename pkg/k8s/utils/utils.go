@@ -66,6 +66,20 @@ func (list SortableEvents) Less(i, j int) bool {
 	return list[i].LastTimestamp.Time.Before(list[j].LastTimestamp.Time)
 }
 
+type SortablePlugins []*k8s.ReleasePlugin
+
+func (list SortablePlugins) Len() int {
+	return len(list)
+}
+
+func (list SortablePlugins) Swap(i, j int) {
+	list[i], list[j] = list[j], list[i]
+}
+
+func (list SortablePlugins) Less(i, j int) bool {
+	return list[i].Priority > list[j].Priority
+}
+
 func IsK8sResourceNotFoundErr(err error) bool {
 	if e, ok := err.(*errors.StatusError); ok {
 		if e.Status().Reason == metav1.StatusReasonNotFound {
