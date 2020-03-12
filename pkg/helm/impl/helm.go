@@ -4,6 +4,7 @@ import (
 	"WarpCloud/walm/pkg/helm/impl/plugins"
 	"WarpCloud/walm/pkg/k8s"
 	k8sHelm "WarpCloud/walm/pkg/k8s/client/helm"
+	"WarpCloud/walm/pkg/k8s/utils"
 	"WarpCloud/walm/pkg/models/common"
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"WarpCloud/walm/pkg/models/release"
@@ -35,6 +36,7 @@ import (
 	"k8s.io/klog"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 )
@@ -559,6 +561,7 @@ func buildContext(kubeClient *kube.Client, release *helmRelease.Release) (*plugi
 }
 
 func runPlugins(releasePlugins []*k8sModel.ReleasePlugin, context *plugins.PluginContext, runnerType plugins.RunnerType) error {
+	sort.Sort(utils.SortablePlugins(releasePlugins))
 	for _, plugin := range releasePlugins {
 		if plugin.Disable {
 			continue
