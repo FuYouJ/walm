@@ -18,6 +18,7 @@ import (
 	"io/ioutil"
 	"k8s.io/klog"
 	"net/url"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -122,7 +123,7 @@ func (helmImpl *Helm) getRawChartFromRepo(repoName, chartName, chartVersion stri
 		klog.Errorf("failed to init chartLoader : %s", err.Error())
 		return nil, errors.Wrap(err, "failed to init chartLoader ")
 	}
-
+	defer os.RemoveAll(filepath.Dir(chartPath))
 	return chartLoader.Load()
 }
 
