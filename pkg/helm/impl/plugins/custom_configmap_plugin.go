@@ -130,7 +130,9 @@ func convertK8SConfigMap(releaseName, releaseNamespace, configMapName string, ad
 	})
 	configMapObj.Data = make(map[string]string, 0)
 	for _, item := range addObj.Items {
-		configMapObj.Data[item.ConfigMapVolumeMountsSubPath] = item.ConfigMapData
+		if item.ConfigMapVolumeMountsSubPath != "" {
+			configMapObj.Data[item.ConfigMapVolumeMountsSubPath] = item.ConfigMapData
+		}
 	}
 
 	return configMapObj, nil
