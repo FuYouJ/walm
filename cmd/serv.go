@@ -239,6 +239,9 @@ func (sc *ServCmd) run() error {
 		klog.Error(err.Error())
 		return err
 	}
+	if strings.HasSuffix(config.RedisConfig.Addr, ".svc") {
+		config.RedisConfig.Addr = config.RedisConfig.Addr + ".transwarp.local"
+	}
 	redisClient := impl.NewRedisClient(config.RedisConfig)
 	redis := impl.NewRedis(redisClient)
 	redisEx := impl.NewRedisEx(config.RedisConfig, time.Second*30)
