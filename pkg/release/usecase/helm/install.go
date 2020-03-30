@@ -129,7 +129,10 @@ func (helm *Helm) doInstallUpgradeReleaseWithStrict(namespace string, releaseReq
 			return nil, err
 		}
 		if oldReleaseInfo.ChartName != releaseRequest.ChartName {
-			return nil, errors.Errorf("upgrade release with different chartName is invalid")
+			/* ignore install release with chart && upgrade from old release version */
+			if !(releaseRequest.ChartName == "" || oldReleaseInfo.ChartName == "") {
+				return nil, errors.Errorf("upgrade release with different chartName is invalid")
+			}
 		}
 	}
 
