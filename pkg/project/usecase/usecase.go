@@ -2,12 +2,14 @@ package usecase
 
 import (
 	"WarpCloud/walm/pkg/helm"
+	k8sutils "WarpCloud/walm/pkg/k8s/utils"
 	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	projectModel "WarpCloud/walm/pkg/models/project"
 	releaseModel "WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/project"
 	"WarpCloud/walm/pkg/release"
+	"WarpCloud/walm/pkg/release/utils"
 	"WarpCloud/walm/pkg/task"
 	"WarpCloud/walm/pkg/util"
 	"WarpCloud/walm/pkg/util/dag"
@@ -15,9 +17,9 @@ import (
 	"errors"
 	"fmt"
 	"k8s.io/klog"
-	"sync"
+	"sort"
 	"strings"
-	"WarpCloud/walm/pkg/release/utils"
+	"sync"
 )
 
 const (
@@ -84,16 +86,20 @@ func (projectImpl *Project) GetProjectInfo(namespace, projectName string) (*proj
 }
 
 func (projectImpl *Project) DryRunProject(namespace, projectName string, projectParams *projectModel.ProjectParams) ([]map[string]interface{}, error) {
-	manifests := make([]map[string]interface{}, 0)
+	releaseManifestsList := make([]map[string]interface{}, 0)
 	rawValsBase := map[string]interface{}{}
 	rawValsBase = util.MergeValues(rawValsBase, projectParams.CommonValues, false)
 
+	releaseOrder := map[string]int{}
+	releaseIndex := 1
 	for _, releaseParams := range projectParams.Releases {
 		releaseParams.ConfigValues = util.MergeValues(releaseParams.ConfigValues, rawValsBase, false)
 		if releaseParams.ReleaseLabels == nil {
 			releaseParams.ReleaseLabels = map[string]string{}
 		}
 		releaseParams.ReleaseLabels[projectModel.ProjectNameLabelKey] = projectName
+		releaseOrder[releaseParams.Name] = releaseIndex
+		releaseIndex++
 	}
 
 	var err error
@@ -110,7 +116,11 @@ func (projectImpl *Project) DryRunProject(namespace, projectName string, project
 				return
 			}
 			mux.Lock()
-			manifests = append(manifests, releaseManifests...)
+			releaseManifestsList = append(releaseManifestsList, map[string]interface{}{
+				"name": releaseParams.Name,
+				"id": releaseOrder[releaseParams.Name],
+				"manifests": releaseManifests,
+			})
 			klog.V(2).Infof("succeed to dryRun project release %s/%s", namespace, releaseParams.Name)
 			mux.Unlock()
 		}(releaseParams)
@@ -121,7 +131,8 @@ func (projectImpl *Project) DryRunProject(namespace, projectName string, project
 		klog.Errorf("failed to dryrun project : %s", err.Error())
 		return nil, err
 	}
-	return manifests, nil
+	sort.Sort(k8sutils.SortableReleaseManifests(releaseManifestsList))
+	return releaseManifestsList, nil
 }
 
 func (projectImpl *Project) ComputeResourcesByDryRunProject(namespace, projectName string, projectParams *projectModel.ProjectParams) ([]*releaseModel.ReleaseResources, error) {
