@@ -80,6 +80,19 @@ func (list SortablePlugins) Less(i, j int) bool {
 	return list[i].Priority > list[j].Priority
 }
 
+type SortableReleaseManifests []map[string]interface{}
+func (list SortableReleaseManifests) Len() int {
+	return len(list)
+}
+
+func (list SortableReleaseManifests) Swap(i, j int) {
+	list[i], list[j] = list[j], list[i]
+}
+
+func (list SortableReleaseManifests) Less(i, j int) bool {
+	return list[i]["id"].(int) < list[j]["id"].(int)
+}
+
 func IsK8sResourceNotFoundErr(err error) bool {
 	if e, ok := err.(*errors.StatusError); ok {
 		if e.Status().Reason == metav1.StatusReasonNotFound {
