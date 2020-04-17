@@ -128,6 +128,9 @@ func (helm *Helm) doInstallUpgradeReleaseWithStrict(namespace string, releaseReq
 			klog.Errorf("failed to build release info of %s/%s: %s", namespace, releaseRequest.Name, err.Error())
 			return nil, err
 		}
+		if releaseRequest.RepoName == "" && oldReleaseInfo.RepoName != "" {
+			releaseRequest.RepoName = oldReleaseInfo.RepoName
+		}
 		if oldReleaseInfo.ChartName != releaseRequest.ChartName {
 			/* ignore install release with chart && upgrade from old release version */
 			if !(releaseRequest.ChartName == "" || oldReleaseInfo.ChartName == "") {

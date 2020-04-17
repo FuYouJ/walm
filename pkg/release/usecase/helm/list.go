@@ -169,7 +169,9 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 		releaseV2.Plugins = []*k8sModel.ReleasePlugin{}
 		releaseV2.Paused = buildV1ReleasePauseInfo(releaseV2.ConfigValues)
 		releaseV2.ChartWalmVersion = common.WalmVersionV1
-
+		if releaseV2.RepoName == "" {
+			releaseV2.RepoName = "stable"
+		}
 		instResource, err := helm.k8sCache.GetResource(k8sModel.InstanceKind, releaseCache.Namespace, releaseCache.Name)
 		if err != nil {
 			if !errorModel.IsNotFoundError(err) {
