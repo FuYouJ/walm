@@ -28,6 +28,7 @@ func Test_convertK8SConfigMap(t *testing.T) {
 
 	configMap, _ := convertK8SConfigMap(releaseName, releaseNamespace, configMapName, addObj)
 	assert.Equal(t, configMap.Kind, "ConfigMap")
+	assert.Equal(t, configMap.Data, map[string]string{"/aa/bb/c/path-name": "test data\n"})
 }
 
 func Test_mountConfigMap(t *testing.T) {

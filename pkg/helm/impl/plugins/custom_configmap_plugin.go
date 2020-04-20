@@ -8,6 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog"
+	"path/filepath"
 )
 
 const (
@@ -131,7 +132,7 @@ func convertK8SConfigMap(releaseName, releaseNamespace, configMapName string, ad
 	configMapObj.Data = make(map[string]string, 0)
 	for _, item := range addObj.Items {
 		if item.ConfigMapVolumeMountsSubPath != "" {
-			configMapObj.Data[item.ConfigMapVolumeMountsSubPath] = item.ConfigMapData
+			configMapObj.Data[filepath.Join(item.ConfigMapVolumeMountsMountPath, item.ConfigMapVolumeMountsSubPath)] = item.ConfigMapData
 		}
 	}
 
