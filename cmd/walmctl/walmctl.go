@@ -63,6 +63,8 @@ func newRootCmd(args []string) *cobra.Command {
 		newPackageCmd(out),
 		newEditCmd(out),
 		newSyncCmd(out),
+		newPauseCmd(out),
+		newRecoverCmd(out),
 		newLintCmd(),
 		newComposeCmd(),
 		newVersionCmd(),
