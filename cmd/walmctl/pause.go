@@ -25,6 +25,9 @@ func newPauseCmd(out io.Writer) *cobra.Command {
 			if walmserver == "" {
 				return errServerRequired
 			}
+                        if namespace == "" {
+                                return errNamespaceRequired
+                        }
 			if len(args) != 2{
 				return errors.New("arguments error, pause command receive two arguments, eg: pause release releaseName")
 			}

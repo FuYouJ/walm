@@ -25,6 +25,9 @@ func newRecoverCmd(out io.Writer) *cobra.Command {
 			if walmserver == "" {
 				return errServerRequired
 			}
+                        if namespace == "" {
+                                return errNamespaceRequired
+                        }
 			if len(args) != 2{
 				return errors.New("arguments error, recover command receive two arguments, eg: recover release releaseName")
 			}
