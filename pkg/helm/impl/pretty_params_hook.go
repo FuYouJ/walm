@@ -62,6 +62,7 @@ func processPrettyParams(releaseRequest *release.ReleaseRequest){
 				storageConfigValues["storageClass"] = storageConfig.StorageClass
 				storageConfigValues["size"] = storageConfig.Size
 				storageConfigValues["accessMode"] = storageConfig.AccessMode
+				storageConfigValues["disk_replicas"] = storageConfig.DiskReplicas
 				commonAppRoleStorage[storageConfig.Name] = storageConfigValues
 			}
 			if storageConfig.StorageType == "pvc" {
