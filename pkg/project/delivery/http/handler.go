@@ -83,7 +83,7 @@ func RegisterProjectHandler(handler *ProjectHandler) *restful.WebService {
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.PathParameter("project", "Project名字").DataType("string")).
 		Reads(projectModel.ProjectParams{}).
-		Returns(200, "OK", []*release.ReleaseResources{}).
+		Returns(200, "OK", []*release.ReleaseResourcesInfo{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.DELETE("/{namespace}/name/{project}").To(handler.DeleteProject).
