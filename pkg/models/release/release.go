@@ -135,6 +135,12 @@ type ReleaseResources struct {
 	Pvcs         []*ReleaseResourceStorage     `json:"pvcs" description:"release resource pvcs"`
 }
 
+type ReleaseResourcesInfo struct {
+	*ReleaseResources
+	Namespace string           `json:"namespace" description:"release namespace"`
+	Name      string           `json:"name" description:"release name"`
+}
+
 type ReleaseResourcePodStorageType string
 
 const (
