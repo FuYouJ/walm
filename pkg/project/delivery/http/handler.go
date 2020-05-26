@@ -77,13 +77,13 @@ func RegisterProjectHandler(handler *ProjectHandler) *restful.WebService {
 		Returns(200, "OK", []map[string]interface{}{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
-	ws.Route(ws.POST("/{namespace}/name/{project}/dryrun/resources").To(handler.ComputeResourcesByDryRunProject).
+	ws.Route(ws.POST("/{namespace}/name/{project}/dryrun/resources").Consumes().To(handler.ComputeResourcesByDryRunProject).
 		Doc("模拟计算安装一个Project需要多少资源").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.PathParameter("project", "Project名字").DataType("string")).
 		Reads(projectModel.ProjectParams{}).
-		Returns(200, "OK", []*release.ReleaseResourcesInfo{}).
+		Returns(200, "OK", []release.ReleaseResourcesInfo{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.DELETE("/{namespace}/name/{project}").To(handler.DeleteProject).

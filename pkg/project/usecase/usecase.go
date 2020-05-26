@@ -135,8 +135,8 @@ func (projectImpl *Project) DryRunProject(namespace, projectName string, project
 	return releaseManifestsList, nil
 }
 
-func (projectImpl *Project) ComputeResourcesByDryRunProject(namespace, projectName string, projectParams *projectModel.ProjectParams) ([]*releaseModel.ReleaseResourcesInfo, error) {
-	resourcesInfo := make([]*releaseModel.ReleaseResourcesInfo, 0)
+func (projectImpl *Project) ComputeResourcesByDryRunProject(namespace, projectName string, projectParams *projectModel.ProjectParams) ([]releaseModel.ReleaseResourcesInfo, error) {
+	resourcesInfo := make([]releaseModel.ReleaseResourcesInfo, 0)
 	rawValsBase := map[string]interface{}{}
 	rawValsBase = util.MergeValues(rawValsBase, projectParams.CommonValues, false)
 
@@ -163,8 +163,16 @@ func (projectImpl *Project) ComputeResourcesByDryRunProject(namespace, projectNa
 			}
 			mux.Lock()
 
-			resourcesInfo = append(resourcesInfo, &releaseModel.ReleaseResourcesInfo{
-				ReleaseResources: releaseResources,
+			resources := releaseModel.ReleaseResources{
+				DaemonSets: releaseResources.DaemonSets,
+				StatefulSets: releaseResources.StatefulSets,
+				Deployments: releaseResources.Deployments,
+				Pvcs: releaseResources.Pvcs,
+				Jobs: releaseResources.Jobs,
+			}
+
+			resourcesInfo = append(resourcesInfo, releaseModel.ReleaseResourcesInfo{
+				ReleaseResources: resources,
 				Namespace:        namespace,
 				Name:             releaseParams.Name,
 			})

@@ -39,15 +39,15 @@ func (_m *UseCase) AddReleasesInProject(namespace string, projectName string, pr
 }
 
 // ComputeResourcesByDryRunProject provides a mock function with given fields: namespace, projectName, projectParams
-func (_m *UseCase) ComputeResourcesByDryRunProject(namespace string, projectName string, projectParams *project.ProjectParams) ([]*release.ReleaseResourcesInfo, error) {
+func (_m *UseCase) ComputeResourcesByDryRunProject(namespace string, projectName string, projectParams *project.ProjectParams) ([]release.ReleaseResourcesInfo, error) {
 	ret := _m.Called(namespace, projectName, projectParams)
 
-	var r0 []*release.ReleaseResourcesInfo
-	if rf, ok := ret.Get(0).(func(string, string, *project.ProjectParams) []*release.ReleaseResourcesInfo); ok {
+	var r0 []release.ReleaseResourcesInfo
+	if rf, ok := ret.Get(0).(func(string, string, *project.ProjectParams) []release.ReleaseResourcesInfo); ok {
 		r0 = rf(namespace, projectName, projectParams)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*release.ReleaseResourcesInfo)
+			r0 = ret.Get(0).([]release.ReleaseResourcesInfo)
 		}
 	}
 
