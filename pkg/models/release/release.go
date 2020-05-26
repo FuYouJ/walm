@@ -136,7 +136,7 @@ type ReleaseResources struct {
 }
 
 type ReleaseResourcesInfo struct {
-	*ReleaseResources
+	ReleaseResources
 	Namespace string           `json:"namespace" description:"release namespace"`
 	Name      string           `json:"name" description:"release name"`
 }
