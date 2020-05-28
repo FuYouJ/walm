@@ -148,16 +148,44 @@ type Container struct {
 func (resource *Pod) AddToResourceSet(resourceSet *ResourceSet) {
 }
 
+type CreateServiceRequestBody struct {
+	Name		string   		  `json:"name" description:"service name"`
+	Labels      map[string]string `json:"labels" description:"service labels"`
+	Ports       []NewServicePort     `json:"ports" description:"service ports"`
+	ClusterIp   string            `json:"clusterIp" description:"service cluster ip"`
+	Selector    map[string]string `json:"selector" description:"service label selector"`
+	ServiceType string            `json:"serviceType" description:"service type"`
+	ExternalIPs []string          `json:"externalIPs" description:"externalIPs"`
+	Annotations map[string]string `json:"annotations" description:"annotations"`
+}
+
+type NewServicePort struct {
+	Name       string   `json:"name" description:"service port name"`
+	Protocol   string   `json:"protocol" description:"service port protocol"`
+	Port       int32    `json:"port" description:"service port"`
+	TargetPort string   `json:"targetPort" description:"backend pod port"`
+	NodePort   int32    `json:"nodePort" description:"node port"`
+}
+
 type Service struct {
 	Meta
+	Labels      map[string]string `json:"labels" description:"service labels"`
 	Ports       []ServicePort     `json:"ports" description:"service ports"`
 	ClusterIp   string            `json:"clusterIp" description:"service cluster ip"`
+	ResourceVersion string        `json:"resourceVersion" description:"service resourceVersion"`
 	ServiceType string            `json:"serviceType" description:"service type"`
+	Selector    map[string]string `json:"selector" description:"service label selector"`
+	ExternalIPs []string          `json:"externalIPs" description:"externalIPs"`
 	Annotations map[string]string `json:"annotations" description:"annotations"`
 }
 
 func (resource *Service) AddToResourceSet(resourceSet *ResourceSet) {
 	resourceSet.Services = append(resourceSet.Services, resource)
+}
+
+type ServiceList struct {
+	Num   int       `json:"num" description:"service num"`
+	Items []*Service `json:"items" description:"services"`
 }
 
 type ServicePort struct {

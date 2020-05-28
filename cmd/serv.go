@@ -29,6 +29,7 @@ import (
 	"WarpCloud/walm/pkg/task/machinery"
 	tenanthttp "WarpCloud/walm/pkg/tenant/delivery/http"
 	tenantusecase "WarpCloud/walm/pkg/tenant/usecase"
+	servicehttp "WarpCloud/walm/pkg/service/delivery/http"
 	httpUtils "WarpCloud/walm/pkg/util/http"
 	"bytes"
 	"context"
@@ -363,6 +364,7 @@ func (sc *ServCmd) run() error {
 	restful.Add(nodehttp.RegisterNodeHandler(k8sCache, k8sOperator))
 	restful.Add(migrationhttp.RegisterCrdHandler(k8sCache, k8sOperator))
 	restful.Add(secrethttp.RegisterSecretHandler(k8sCache, k8sOperator))
+	restful.Add(servicehttp.RegisterServiceHandler(k8sCache, k8sOperator))
 	restful.Add(storageclasshttp.RegisterStorageClassHandler(k8sCache))
 	restful.Add(pvchttp.RegisterPvcHandler(k8sCache, k8sOperator))
 	tenantUseCase := tenantusecase.NewTenant(k8sCache, k8sOperator, releaseUseCase)

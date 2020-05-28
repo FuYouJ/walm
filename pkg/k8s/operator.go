@@ -38,6 +38,9 @@ type Operator interface {
 	UpdateSecret(namespace string, secretRequestBody *k8s.CreateSecretRequestBody) error
 	DeleteSecret(namespace, name string) (err error)
 
+	CreateService(namespace string, serviceRequestBody *k8s.CreateServiceRequestBody) error
+	UpdateService(namespace string, serviceRequestBody *k8s.CreateServiceRequestBody, fullUpdate bool) error
+	DeleteService(namespacae, name string) (err error)
 	UpdateIngress(namespace, ingressName string, requestBody *k8s.IngressRequestBody) error
 	UpdateConfigMap(namespace, configMapName string, requestBody *k8s.ConfigMapRequestBody) error
 }

@@ -91,7 +91,7 @@ func (informer *Informer) ListServices(namespace string, labelSelectorStr string
 		return nil, err
 	}
 
-	resources, err := informer.serviceLister.List(selector)
+	resources, err := informer.serviceLister.Services(namespace).List(selector)
 	if err != nil {
 		klog.Errorf("failed to list services in namespace %s : %s", namespace, err.Error())
 		return nil, err
