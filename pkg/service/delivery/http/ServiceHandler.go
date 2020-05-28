@@ -35,6 +35,7 @@ func RegisterServiceHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restf
 		Doc("获取Namepace下的所有Service列表").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.QueryParameter("labelselector", "标签过滤").DataType("string")).
 		Writes(k8sModel.ServiceList{}).
 		Returns(200, "OK", k8sModel.ServiceList{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
@@ -79,7 +80,8 @@ func RegisterServiceHandler(k8sCache k8s.Cache, k8sOperator k8s.Operator) *restf
 
 func (handler ServiceHandler) GetServices(request *restful.Request, response *restful.Response) {
 	namespace := request.PathParameter("namespace")
-	services, err := handler.k8sCache.ListServices(namespace, "")
+	labelSelectorStr := request.QueryParameter("labelselector")
+	services, err := handler.k8sCache.ListServices(namespace, labelSelectorStr)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to list services under %s: %s", namespace, err.Error()))
 		return
