@@ -145,6 +145,20 @@ func (_m *Operator) CreateSecret(namespace string, secretRequestBody *modelsk8s.
 	return r0
 }
 
+// CreateService provides a mock function with given fields: namespace, serviceRequestBody
+func (_m *Operator) CreateService(namespace string, serviceRequestBody *modelsk8s.CreateServiceRequestBody) error {
+	ret := _m.Called(namespace, serviceRequestBody)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, *modelsk8s.CreateServiceRequestBody) error); ok {
+		r0 = rf(namespace, serviceRequestBody)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // DeleteIsomateSetPvcs provides a mock function with given fields: isomateSets
 func (_m *Operator) DeleteIsomateSetPvcs(isomateSets []*modelsk8s.IsomateSet) error {
 	ret := _m.Called(isomateSets)
@@ -236,6 +250,20 @@ func (_m *Operator) DeleteSecret(namespace string, name string) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string, string) error); ok {
 		r0 = rf(namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeleteService provides a mock function with given fields: namespacae, name
+func (_m *Operator) DeleteService(namespacae string, name string) error {
+	ret := _m.Called(namespacae, name)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(namespacae, name)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -376,6 +404,20 @@ func (_m *Operator) UpdateSecret(namespace string, secretRequestBody *modelsk8s.
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string, *modelsk8s.CreateSecretRequestBody) error); ok {
 		r0 = rf(namespace, secretRequestBody)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// UpdateService provides a mock function with given fields: namespace, serviceRequestBody, fullUpdate
+func (_m *Operator) UpdateService(namespace string, serviceRequestBody *modelsk8s.CreateServiceRequestBody, fullUpdate bool) error {
+	ret := _m.Called(namespace, serviceRequestBody, fullUpdate)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, *modelsk8s.CreateServiceRequestBody, bool) error); ok {
+		r0 = rf(namespace, serviceRequestBody, fullUpdate)
 	} else {
 		r0 = ret.Error(0)
 	}

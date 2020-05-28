@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
 	migrationclientset "github.com/migration/pkg/client/clientset/versioned"
 	"github.com/pkg/errors"
 	appsv1beta1 "k8s.io/api/apps/v1beta1"
@@ -19,15 +20,16 @@ import (
 	"k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
-	tosv1beta1 "github.com/migration/pkg/apis/tos/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -125,7 +127,7 @@ func (op *Operator) DeletePodMigration(namespace string, name string) error {
 	migName := "mig" + "-" + namespace + "-" + name
 	err := op.k8sMigrationClient.ApiextensionsV1beta1().Migs("default").Delete(migName, &metav1.DeleteOptions{})
 	if err != nil {
-		if strings.Contains(err.Error(), "not found"){
+		if strings.Contains(err.Error(), "not found") {
 			return nil
 		} else {
 			klog.Errorf("failed to delete pod migration: %s", err.Error())
@@ -186,7 +188,6 @@ func (op *Operator) MigrateNode(srcNode string, destNode string) error {
 	} else {
 		klog.Infof("node %s is unschedulable now", src.Name)
 	}
-
 
 	/*  get pods to be migrated && pre-check */
 	var podList []*k8sModel.Pod
@@ -891,6 +892,200 @@ func buildSecret(namespace string, walmSecret *k8sModel.CreateSecretRequestBody)
 		Type: v1.SecretType(walmSecret.Type),
 	}
 	return
+}
+
+func buildService(namespace string, walmService *k8sModel.CreateServiceRequestBody) (service *v1.Service, err error) {
+	var serviceType v1.ServiceType
+	switch walmService.ServiceType {
+	case "ClusterIP":
+		serviceType = v1.ServiceTypeClusterIP
+	case "NodePort":
+		serviceType = v1.ServiceTypeNodePort
+	case "LoadBalancer":
+		serviceType = v1.ServiceTypeLoadBalancer
+	case "ExternalName":
+		serviceType = v1.ServiceTypeExternalName
+	case "":
+	default:
+		return nil, errors.Errorf("invalid service type %s", walmService.ServiceType)
+	}
+
+	var servicePorts []v1.ServicePort
+	for _, port := range walmService.Ports {
+		var protocol v1.Protocol
+		switch port.Protocol {
+		case "TCP", "":
+			protocol = v1.ProtocolTCP
+		case "UDP":
+			protocol = v1.ProtocolUDP
+		case "SCTP":
+			protocol = v1.ProtocolSCTP
+		default:
+			return nil, errors.Errorf("invalid service port protocol %s", port.Protocol)
+
+		}
+
+		servicePort := v1.ServicePort{
+			Name:     port.Name,
+			Protocol: protocol,
+			Port:     port.Port,
+			NodePort: port.NodePort,
+		}
+		if port.TargetPort != "" {
+			targetPort, err := strconv.Atoi(port.TargetPort)
+			if err != nil {
+				return nil, errors.Errorf("targetPort not valid: %s", err.Error())
+			}
+			servicePort.TargetPort = intstr.IntOrString{
+				Type:   intstr.Int,
+				IntVal: int32(targetPort),
+			}
+		}
+		servicePorts = append(servicePorts, servicePort)
+	}
+
+	service = &v1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        walmService.Name,
+			Namespace:   namespace,
+			Labels:      walmService.Labels,
+			Annotations: walmService.Annotations,
+		},
+		Spec: v1.ServiceSpec{
+			Ports:       servicePorts,
+			ClusterIP:   walmService.ClusterIp,
+			Selector:    walmService.Selector,
+			Type:        serviceType,
+			ExternalIPs: walmService.ExternalIPs,
+		},
+	}
+	return service, err
+}
+
+func (op *Operator) CreateService(namespace string, serviceRequestBody *k8sModel.CreateServiceRequestBody) error {
+	service, err := buildService(namespace, serviceRequestBody)
+	if err != nil {
+		return err
+	}
+
+	_, err = op.client.CoreV1().Services(namespace).Create(service)
+	if err != nil {
+		klog.Errorf("failed to create service %s/%s : %s", namespace, serviceRequestBody.Name, err.Error())
+		return err
+	}
+	klog.Infof("succeed to create service %s/%s", namespace, serviceRequestBody.Name)
+	return nil
+}
+
+func (op *Operator) UpdateService(namespace string, serviceRequest *k8sModel.CreateServiceRequestBody, fullUpdate bool) error {
+	service, err := op.k8sCache.GetResource(k8sModel.ServiceKind, namespace, serviceRequest.Name)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			klog.Errorf("service %s/%s not found", namespace, serviceRequest.Name)
+			return errors.Errorf("service %s/%s not found", namespace, serviceRequest.Name)
+		}
+		klog.Errorf("failed to get old service %s/%s", namespace, serviceRequest.Name)
+		return err
+	}
+	oldService := service.(*k8sModel.Service)
+	oldK8sService, err := converter.ConvertServiceToK8s(oldService)
+	if err != nil {
+		return err
+	}
+
+	newK8sService, err := buildService(namespace, serviceRequest)
+	if fullUpdate {
+		if err != nil {
+			return err
+		}
+		newK8sService.ResourceVersion = oldK8sService.ResourceVersion
+		newK8sService.Spec.ClusterIP = oldK8sService.Spec.ClusterIP
+		_, err = op.client.CoreV1().Services(namespace).Update(newK8sService)
+		if err != nil {
+			klog.Errorf("failed to update service %s/%s", namespace, serviceRequest.Name)
+			return err
+		}
+	} else {
+		newService, err := reuseServiceRequest(oldK8sService, newK8sService)
+		if err != nil {
+			return err
+		}
+		_, err = op.client.CoreV1().Services(namespace).Update(newService)
+		if err != nil {
+			klog.Errorf("failed to update service %s/%s", namespace, serviceRequest.Name)
+			return err
+		}
+	}
+
+	klog.Infof("succeed to update service %s/%s", namespace, serviceRequest.Name)
+	return nil
+}
+
+func reuseServiceRequest(oldService *v1.Service, newService *v1.Service) (*v1.Service, error) {
+	externalIPSet := make(map[string]bool)
+	for _, externalIP := range oldService.Spec.ExternalIPs {
+		externalIPSet[externalIP] = true
+	}
+	for _, externalIP := range newService.Spec.ExternalIPs {
+		externalIPSet[externalIP] = true
+	}
+	var externalIps []string
+	for k, _ := range externalIPSet {
+		externalIps = append(externalIps, k)
+	}
+
+	servicePorts := make(map[string]v1.ServicePort)
+	for _, port := range oldService.Spec.Ports {
+		servicePorts[port.Name] = port
+	}
+
+	for _, port := range newService.Spec.Ports {
+		servicePorts[port.Name] = port
+	}
+
+	var ports []v1.ServicePort
+	for _, port := range servicePorts {
+		ports = append(ports, port)
+	}
+
+	serviceType := oldService.Spec.Type
+	if newService.Spec.Type != "" {
+		serviceType = newService.Spec.Type
+	}
+	service := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        oldService.Name,
+			Namespace:   oldService.Namespace,
+			ResourceVersion: oldService.ResourceVersion,
+			Labels:      utils.MergeLabels(oldService.Labels, newService.Labels, nil),
+			Annotations: utils.MergeLabels(oldService.Annotations, newService.Annotations, nil),
+		},
+		Spec: v1.ServiceSpec{
+			Selector: utils.MergeLabels(oldService.Spec.Selector, newService.Spec.Selector, nil),
+			ClusterIP: oldService.Spec.ClusterIP,
+			ExternalIPs: externalIps,
+			Ports: ports,
+			Type: serviceType,
+		},
+	}
+	return service, nil
+}
+
+func (op *Operator) DeleteService(namespace, name string) (err error) {
+	err = op.client.CoreV1().Services(namespace).Delete(name, &metav1.DeleteOptions{})
+	if err != nil {
+		if utils.IsK8sResourceNotFoundErr(err) {
+			klog.Warningf("service %s/%s is not found ", namespace, name)
+			return nil
+		}
+		klog.Errorf("failed to delete service : %s", err.Error())
+		return err
+	}
+	klog.Infof("succeed to delete service %s/%s", namespace, name)
+	return nil
 }
 
 func (op *Operator) UpdateIngress(namespace, ingressName string, requestBody *k8sModel.IngressRequestBody) (err error) {
