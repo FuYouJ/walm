@@ -5,6 +5,8 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	yaml2 "github.com/ghodss/yaml"
+	"github.com/tidwall/sjson"
 	"io"
 	"io/ioutil"
 	"k8s.io/klog"
@@ -235,7 +237,7 @@ func BuildNotRenderedFileName(fileName string) (notRenderFileName string) {
 	return
 }
 
-func buildKubeResourcesByJsonStr(jsonStr string) (resources map[string][]byte, err error) {
+func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string) (resources map[string][]byte, err error) {
 	// key: resource.json, value: resource template(map)
 	resourcesMap := make(map[string]map[string]interface{})
 	err = json.Unmarshal([]byte(jsonStr), &resourcesMap)
@@ -247,6 +249,24 @@ func buildKubeResourcesByJsonStr(jsonStr string) (resources map[string][]byte, e
 	resources = map[string][]byte{}
 	for fileName, resource := range resourcesMap {
 		resourceBytes, err := yaml.Marshal(resource)
+		if err != nil {
+			return nil, err
+		}
+		resourceBytes, err = yaml2.YAMLToJSON(resourceBytes)
+		if err != nil {
+			return nil, err
+		}
+		resourceStr := string(resourceBytes)
+		for k, v := range labels {
+			path := "metadata.labels." + k
+			resourceStr, err = sjson.Set(resourceStr, path, v)
+			if err != nil {
+				klog.Errorf("failed to set %s to %s of resource %s: %s", v, path, fileName, err.Error())
+				return nil, err
+			}
+		}
+		resourceBytes, err = yaml2.JSONToYAML([]byte(resourceStr))
+
 		if err != nil {
 			klog.Errorf("failed to marshal resource to yaml bytes : %s", err.Error())
 			return nil, err
