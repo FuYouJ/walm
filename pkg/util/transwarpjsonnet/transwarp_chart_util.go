@@ -240,7 +240,16 @@ func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace,
 		return err
 	}
 
-	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr)
+	// adjust for kundb devops modules
+	k8sLabels := map[string]string{}
+	if releaseLabels["project-name"] != "" {
+		k8sLabels["project-name"] = releaseLabels["project-name"]
+	}
+	if releaseLabels["product-line"] != "" {
+		k8sLabels["product-line"] = releaseLabels["product-line"]
+	}
+
+	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels)
 	if err != nil {
 		klog.Errorf("failed to build native chart templates : %s", err.Error())
 		return err
@@ -308,7 +317,15 @@ func ProcessJsonnetChartV1(
 		return err
 	}
 
-	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr)
+	// adjust for kundb devops modules
+	k8sLabels := map[string]string{}
+	if releaseLabels["project-name"] != "" {
+		k8sLabels["project-name"] = releaseLabels["project-name"]
+	}
+	if releaseLabels["product-line"] != "" {
+		k8sLabels["product-line"] = releaseLabels["product-line"]
+	}
+	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels)
 	if err != nil {
 		klog.Errorf("failed to build native chart templates : %s", err.Error())
 		return err

@@ -119,6 +119,7 @@ type Deployment struct {
 	CurrentReplicas   int32             `json:"currentReplicas" description:"current replicas"`
 	AvailableReplicas int32             `json:"availableReplicas" description:"available replicas"`
 	Pods              []*Pod            `json:"pods" description:"deployment pods"`
+	Selector         string            `json:"selector" description:"stateful set label selector"`
 }
 
 func (resource *Deployment) AddToResourceSet(resourceSet *ResourceSet) {

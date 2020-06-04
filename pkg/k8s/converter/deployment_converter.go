@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"WarpCloud/walm/pkg/k8s/utils"
 	extv1beta1 "k8s.io/api/extensions/v1beta1"
 	"WarpCloud/walm/pkg/models/k8s"
 	"k8s.io/api/core/v1"
@@ -20,6 +21,11 @@ func ConvertDeploymentFromK8s(oriDeployment *extv1beta1.Deployment, pods []*v1.P
 		UpdatedReplicas:   deployment.Status.UpdatedReplicas,
 		CurrentReplicas:   deployment.Status.Replicas,
 		AvailableReplicas: deployment.Status.AvailableReplicas,
+	}
+
+	walmDeployment.Selector, err = utils.ConvertLabelSelectorToStr(deployment.Spec.Selector)
+	if err != nil {
+		return
 	}
 
 	if deployment.Spec.Replicas == nil {
