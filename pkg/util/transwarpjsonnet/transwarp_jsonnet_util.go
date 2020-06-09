@@ -1,11 +1,13 @@
 package transwarpjsonnet
 
 import (
+	k8sModel "WarpCloud/walm/pkg/models/k8s"
 	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	yaml2 "github.com/ghodss/yaml"
+	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"io"
 	"io/ioutil"
@@ -263,6 +265,15 @@ func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string) (reso
 			if err != nil {
 				klog.Errorf("failed to set %s to %s of resource %s: %s", v, path, fileName, err.Error())
 				return nil, err
+			}
+			resourceKind := gjson.Get(resourceStr, "kind").String()
+			if resourceKind == string(k8sModel.StatefulSetKind) || resourceKind == string(k8sModel.DeploymentKind){
+				templatePath := "spec.template.metadata.labels." + k
+				resourceStr, err = sjson.Set(resourceStr, templatePath, v)
+				if err != nil {
+					klog.Errorf("failed to set %s to %s of resource %s: %s", v, path, fileName, err.Error())
+					return nil, err
+				}
 			}
 		}
 		resourceBytes, err = yaml2.JSONToYAML([]byte(resourceStr))
