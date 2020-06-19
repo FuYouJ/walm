@@ -625,6 +625,9 @@ func (helmImpl *Helm) convertHelmRelease(helmRelease *helmRelease.Release) (rele
 }
 
 func (helmImpl *Helm) getReleaseResourceMetas(helmRelease *helmRelease.Release) (resources []release.ReleaseResourceMeta, err error) {
+	if helmRelease.Name == "app-manager" {
+		return nil, nil
+	}
 	resources = []release.ReleaseResourceMeta{}
 	_, kubeClient := helmImpl.kubeClients.GetKubeClient(helmRelease.Namespace)
 	results, err := kubeClient.Build(bytes.NewBufferString(helmRelease.Manifest))
