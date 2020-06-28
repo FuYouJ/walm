@@ -145,13 +145,13 @@ func buildConfigValuesToRender(
 
 func ProcessChart(chartInfo *release.ChartDetailInfo, releaseRequest *release.ReleaseRequestV2, rawChart *chart.Chart,
 	namespace string, configValues, dependencyConfigs map[string]interface{}, dependencies, releaseLabels map[string]string,
-	isomateConfigValue map[string]interface{}) (err error) {
+	isomateConfigValue map[string]interface{}, updateConfigMap bool) (err error) {
 	if chartInfo.WalmVersion == common.WalmVersionV2 {
 		err = ProcessJsonnetChart(
 			releaseRequest.RepoName, rawChart, namespace,
 			releaseRequest.Name, configValues, dependencyConfigs,
 			dependencies, releaseLabels, releaseRequest.ChartImage,
-			releaseRequest.IsomateConfig, isomateConfigValue, common.WalmVersionV2)
+			releaseRequest.IsomateConfig, isomateConfigValue, common.WalmVersionV2, updateConfigMap)
 		if err != nil {
 			klog.Errorf("failed to ProcessJsonnetChart : %s", err.Error())
 			return
@@ -161,7 +161,7 @@ func ProcessChart(chartInfo *release.ChartDetailInfo, releaseRequest *release.Re
 			releaseRequest.RepoName, rawChart, namespace,
 			releaseRequest.Name, configValues, dependencyConfigs,
 			dependencies, releaseLabels, releaseRequest.ChartImage,
-			releaseRequest.IsomateConfig, isomateConfigValue, common.WalmVersionV1)
+			releaseRequest.IsomateConfig, isomateConfigValue, common.WalmVersionV1, updateConfigMap)
 		if err != nil {
 			klog.Errorf("failed to ProcessJsonnetChart v1: %s", err.Error())
 			return
@@ -183,7 +183,7 @@ func ProcessChart(chartInfo *release.ChartDetailInfo, releaseRequest *release.Re
 func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace,
 	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
 	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig,
-	isomateConfigValue map[string]interface{}, chartWalmVersion common.WalmVersion) error {
+	isomateConfigValue map[string]interface{}, chartWalmVersion common.WalmVersion, updateConfigMap bool) error {
 	jsonnetTemplateFiles := make(map[string]string, 0)
 	var rawChartFiles []*chart.File
 	for _, f := range rawChart.Files {
@@ -249,7 +249,7 @@ func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace,
 		k8sLabels["product-line"] = releaseLabels["product-line"]
 	}
 
-	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels)
+	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels, updateConfigMap)
 	if err != nil {
 		klog.Errorf("failed to build native chart templates : %s", err.Error())
 		return err
@@ -268,7 +268,7 @@ func ProcessJsonnetChartV1(
 	repo string, rawChart *chart.Chart, releaseNamespace,
 	releaseName string, userConfigs, dependencyConfigs map[string]interface{},
 	dependencies, releaseLabels map[string]string, chartImage string, isomateConfig *k8s.IsomateConfig,
-	isomateConfigValue map[string]interface{}, chartWalmVersion common.WalmVersion) error {
+	isomateConfigValue map[string]interface{}, chartWalmVersion common.WalmVersion, updateConfigMap bool) error {
 	jsonnetTemplateFiles := make(map[string]string, 0)
 	var rawChartFiles []*chart.File
 	for _, f := range rawChart.Files {
@@ -325,7 +325,7 @@ func ProcessJsonnetChartV1(
 	if releaseLabels["product-line"] != "" {
 		k8sLabels["product-line"] = releaseLabels["product-line"]
 	}
-	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels)
+	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels, updateConfigMap)
 	if err != nil {
 		klog.Errorf("failed to build native chart templates : %s", err.Error())
 		return err
