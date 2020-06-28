@@ -52,7 +52,7 @@ func (helm *Helm) ReloadRelease(namespace, name string) error {
 
 	if utils.ConfigValuesDiff(oldDependenciesConfigValues, newDependenciesConfigValues) {
 		releaseRequest := releaseInfo.BuildReleaseRequestV2()
-		err = helm.InstallUpgradeRelease(namespace, releaseRequest, nil, false, 0, false)
+		err = helm.InstallUpgradeRelease(namespace, releaseRequest, nil, false, 0, false, false)
 		if err != nil {
 			klog.Errorf("failed to upgrade release v2 %s/%s : %s", namespace, name, err.Error())
 			return err

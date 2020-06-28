@@ -73,3 +73,15 @@ func GetFullUpdateParam(request *restful.Request) (fullUpdate bool, err error) {
 	}
 	return
 }
+
+func GetUpdateConfigMapParam(request *restful.Request) (updateConfigMap bool, err error) {
+	updateConfigMapStr := request.QueryParameter("updateConfigMap")
+	if len(updateConfigMapStr) > 0 {
+		updateConfigMap, err = strconv.ParseBool(updateConfigMapStr)
+		if err != nil {
+			klog.Errorf("failed to parse query parameter updateConfigMap %s : %s",updateConfigMapStr, err.Error())
+			return
+		}
+	}
+	return
+}

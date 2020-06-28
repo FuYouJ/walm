@@ -15,7 +15,7 @@ type Helm interface {
 	InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
 		dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error)
 	InstallOrCreateReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
-		dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, fullUpdate bool, strict bool) (*release.ReleaseCache, error)
+		dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, fullUpdate bool, updateConfigMap bool, strict bool) (*release.ReleaseCache, error)
 	DeleteRelease(namespace string, name string) error
 	PauseOrRecoverRelease(paused bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error)
 	ListAllReleases() ([]*release.ReleaseCache, error)
