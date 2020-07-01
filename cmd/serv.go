@@ -23,13 +23,13 @@ import (
 	releasehttp "WarpCloud/walm/pkg/release/delivery/http"
 	releaseusecase "WarpCloud/walm/pkg/release/usecase/helm"
 	secrethttp "WarpCloud/walm/pkg/secret/delivery/http"
+	servicehttp "WarpCloud/walm/pkg/service/delivery/http"
 	"WarpCloud/walm/pkg/setting"
 	storageclasshttp "WarpCloud/walm/pkg/storageclass/delivery/http"
 	"WarpCloud/walm/pkg/sync"
 	"WarpCloud/walm/pkg/task/machinery"
 	tenanthttp "WarpCloud/walm/pkg/tenant/delivery/http"
 	tenantusecase "WarpCloud/walm/pkg/tenant/usecase"
-	servicehttp "WarpCloud/walm/pkg/service/delivery/http"
 	httpUtils "WarpCloud/walm/pkg/util/http"
 	"bytes"
 	"context"
@@ -63,9 +63,9 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	monitorclientset "transwarp/monitor-crd-informer/pkg/client/versioned"
 	instanceclientset "transwarp/application-instance/pkg/client/clientset/versioned"
 	isomatesetclientset "transwarp/isomateset-client/pkg/client/clientset/versioned"
+	monitorclientset "transwarp/monitor-crd-informer/pkg/client/versioned"
 )
 
 const servDesc = `
@@ -88,6 +88,8 @@ type ServCmd struct {
 var (
 	HTTPReqDuration *prometheus.HistogramVec
 	HTTPReqTotal    *prometheus.CounterVec
+	ClusterCIDR     string
+	ServiceRange    string
 )
 
 func NewServCmd() *cobra.Command {
@@ -128,6 +130,12 @@ func (sc *ServCmd) run() error {
 	}
 	if setting.Config.ElectorConfig.ElectionId == "" {
 		setting.Config.ElectorConfig.ElectionId = DefaultElectionId
+	}
+	if os.Getenv("CLUSTER_CIDR") != "" {
+		ClusterCIDR = os.Getenv("CLUSTER_CIDR")
+	}
+	if os.Getenv("SERVICE_RANGE") != "" {
+		ServiceRange = os.Getenv("SERVICE_RANGE")
 	}
 	config := &setting.Config
 	initLogLevel()
@@ -597,7 +605,19 @@ func InitRootRouter(handler *RootHandler) *restful.WebService {
 		Returns(200, "OK", nil).
 		Returns(500, "Internal Error", httpModel.ErrorMessageResponse{}))
 
+	ws.Route(ws.GET("/network").To(networkData).
+		Doc("获取服务Network信息(集群服务cluster-ip段和容器网络ip段)").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Returns(200, "OK", nil).
+		Returns(500, "Internal Error", httpModel.ErrorMessageResponse{}))
 	return ws
+}
+
+func networkData(request *restful.Request, response *restful.Response) {
+	response.WriteEntity(map[string]string{
+		"clusterCIDR": ClusterCIDR,
+		"serviceRange": ServiceRange,
+	})
 }
 
 func initLogLevel() {
