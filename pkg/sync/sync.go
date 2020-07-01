@@ -39,10 +39,15 @@ type Sync struct {
 func (sync *Sync) Start(stopCh <-chan struct{}) {
 	klog.Infof("start to resync release cache every %v", resyncInterval)
 	// first time should be sync successfully
+	count := 0
 	for {
 		err := sync.Resync()
 		if err != nil {
 			time.Sleep(time.Second * 30)
+			count++
+			if count > 1 {
+				break
+			}
 			continue
 		}
 		break
