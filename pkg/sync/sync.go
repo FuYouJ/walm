@@ -55,7 +55,10 @@ func (sync *Sync) Start(stopCh <-chan struct{}) {
 			time.Sleep(resyncInterval)
 			firstTime = false
 		}
-		sync.Resync()
+		if err := sync.Resync(); err != nil {
+			klog.Errorf("failed to resync release cache now: %s", err.Error())
+			panic(err)
+ 		}
 	}, resyncInterval, stopCh)
 }
 
