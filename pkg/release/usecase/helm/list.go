@@ -187,6 +187,11 @@ func (helm *Helm) buildReleaseInfoV2(releaseCache *releaseModel.ReleaseCache) (*
 		}
 	}
 
+	if releaseV2.ConfigValues[transwarpjsonnet.TranswarpInstallIDKey] == "" {
+		klog.Errorf("Transwarp_Install_ID in configValues/configs must not be empty if install or update release")
+		return nil, errors.New("Transwarp_Install_ID in configValues/configs must not be empty")
+	}
+
 	if releaseV2.Paused {
 		releaseV2.Ready = false
 		releaseV2.Message = "Release is paused now"
