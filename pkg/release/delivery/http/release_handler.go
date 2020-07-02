@@ -90,6 +90,16 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Returns(404, "Not Found", http.ErrorMessageResponse{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
+	ws.Route(ws.GET("/{namespace}/name/{release}/releaseRequest").To(releaseHandler.GetReleaseRequest).
+		Doc("获取用于创建Release的ReleaseRequest").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Writes(releaseModel.ReleaseRequestV2{}).
+		Returns(200, "OK", releaseModel.ReleaseRequestV2{}).
+		Returns(404, "Not Found", http.ErrorMessageResponse{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
 	ws.Route(ws.GET("/{namespace}/name/{release}/events").To(releaseHandler.GetReleaseEvents).
 		Doc("获取对应Release的Events信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
@@ -605,6 +615,36 @@ func (handler *ReleaseHandler) GetRelease(request *restful.Request, response *re
 		return
 	}
 	response.WriteEntity(info)
+}
+
+func (handler *ReleaseHandler) GetReleaseRequest(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	info, err := handler.usecase.GetRelease(namespace, name)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("release %s is not found", name))
+			return
+		}
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get release %s: %s", name, err.Error()))
+		return
+	}
+	response.WriteEntity(&releaseModel.ReleaseRequestV2{
+		ReleaseRequest: releaseModel.ReleaseRequest{
+			Name:                info.Name,
+			RepoName:            info.RepoName,
+			ChartName:           info.ChartName,
+			ChartVersion:        info.ChartVersion,
+			ConfigValues:        info.ConfigValues,
+			Dependencies:        info.Dependencies,
+			ReleasePrettyParams: info.PrettyParams,
+		},
+		ReleaseLabels:  info.ReleaseLabels,
+		Plugins:        info.Plugins,
+		MetaInfoParams: info.MetaInfoValues,
+		ChartImage:     info.ChartVersion,
+		IsomateConfig:  info.IsomateConfig,
+	})
 }
 
 func (handler *ReleaseHandler) ListReleaseConfigByNamespace(request *restful.Request, response *restful.Response) {
