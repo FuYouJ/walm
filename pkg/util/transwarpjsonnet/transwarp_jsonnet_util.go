@@ -337,13 +337,12 @@ func parseTemplateWithTLAString(templatePath string, tlaVar string, tlaValue str
 
 func renderDataWithConfd(data map[string]interface{}) (map[string]interface{}, error) {
 	tmplFiles := map[string]string{}
-	tomlFiles := map[string]interface{}{}
+	renderedFiles := map[string]interface{}{}
 	confdKV := make(map[string]string)
 	var err error
 	for file, fileData := range data {
-		if strings.HasSuffix(file, ".toml") {
-			tomlFiles[file] = fileData
-		} else if strings.HasSuffix(file, ".tmpl") || strings.HasSuffix(file, ".raw") {
+		renderedFiles[file] = fileData
+		if strings.HasSuffix(file, ".tmpl") || strings.HasSuffix(file, ".raw") {
 			tmplFiles[file] = fmt.Sprintf("%v", fileData)
 		} else if strings.HasSuffix(file, ".conf") {
 			confdKV, err = getConfdKV(fileData, []string{"/"})
@@ -364,10 +363,10 @@ func renderDataWithConfd(data map[string]interface{}) (map[string]interface{}, e
 			klog.Errorf("failed to render resource file %s %v: %s", k, v, err.Error())
 			return nil, err
 		}
-		tmplRenderedFiles[k] = str
+		renderedFiles[k] = str
 	}
 
-	return nil, nil
+	return renderedFiles, nil
 }
 
 func renderFileWithCfd(filename string, data string, confdkv interface{}) (string, error) {
