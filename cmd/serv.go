@@ -608,7 +608,7 @@ func InitRootRouter(handler *RootHandler) *restful.WebService {
 	ws.Route(ws.GET("/network").To(networkData).
 		Doc("获取服务Network信息(集群服务cluster-ip段和容器网络ip段)").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
-		Returns(200, "OK", nil).
+		Returns(200, "OK", map[string]string{}).
 		Returns(500, "Internal Error", httpModel.ErrorMessageResponse{}))
 	return ws
 }
