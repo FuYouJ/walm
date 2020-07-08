@@ -85,6 +85,11 @@ type ServCmd struct {
 	cfgFile string
 }
 
+type networkInfo struct {
+	clusterCIDR string  `json:"clusterCIDR" description:"cluster cidr"`
+	serviceRange string  `json:"serviceRange" description:"service range"`
+}
+
 var (
 	HTTPReqDuration *prometheus.HistogramVec
 	HTTPReqTotal    *prometheus.CounterVec
@@ -608,17 +613,18 @@ func InitRootRouter(handler *RootHandler) *restful.WebService {
 	ws.Route(ws.GET("/network").To(networkData).
 		Doc("获取服务Network信息(集群服务cluster-ip段和容器网络ip段)").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
-		Writes(map[string]string{}).
-		Returns(200, "OK", map[string]string{}).
+		Writes(networkInfo{}).
+		Returns(200, "OK", networkInfo{}).
 		Returns(500, "Internal Error", httpModel.ErrorMessageResponse{}))
 	return ws
 }
 
 func networkData(request *restful.Request, response *restful.Response) {
-	response.WriteEntity(map[string]string{
-		"clusterCIDR": ClusterCIDR,
-		"serviceRange": ServiceRange,
-	})
+	info := networkInfo{
+		clusterCIDR: ClusterCIDR,
+		serviceRange: ServiceRange,
+	}
+	response.WriteEntity(info)
 }
 
 func initLogLevel() {
