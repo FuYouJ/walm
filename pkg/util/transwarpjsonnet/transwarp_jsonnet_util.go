@@ -250,6 +250,31 @@ func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string, updat
 		return nil, err
 	}
 
+	// for pod getenv
+	envMap := make(map[string]string)
+	for _, resource := range resourcesMap {
+		if  resource["kind"] == string(k8sModel.StatefulSetKind)  || resource["kind"] == string(k8sModel.DeploymentKind) {
+			data, _ := json.Marshal(resource)
+
+			envMapArray := gjson.GetBytes(data, "spec.template.spec.containers.#.env").Array()
+			if len(envMapArray) == 0 {
+				continue
+			}
+
+			for _, tmpEnvMap := range envMapArray {
+				envs := tmpEnvMap.Array()
+				for _, env := range envs {
+					tmpValue := gjson.Get(env.String(), "value").String()
+					tmpName := gjson.Get(env.String(), "name").String()
+					if tmpValue != "" {
+						envMap[tmpName] = tmpValue
+					}
+				}
+			}
+
+		}
+	}
+
 	resources = map[string][]byte{}
 	for fileName, resource := range resourcesMap {
 		// render with confd
@@ -258,7 +283,7 @@ func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string, updat
 				continue
 			}
 			data := resource["data"].(map[string]interface{})
-			newData, err := renderDataWithConfd(data)
+			newData, err := renderDataWithConfd(data, envMap)
 			if err != nil {
 				klog.Errorf("failed to render configmap template with confd")
 				return nil, err
@@ -335,7 +360,7 @@ func parseTemplateWithTLAString(templatePath string, tlaVar string, tlaValue str
 	return string(output), nil
 }
 
-func renderDataWithConfd(data map[string]interface{}) (map[string]interface{}, error) {
+func renderDataWithConfd(data map[string]interface{}, envMap map[string]string) (map[string]interface{}, error) {
 	tmplFiles := map[string]string{}
 	renderedFiles := map[string]interface{}{}
 	confdKV := make(map[string]string)
@@ -354,7 +379,7 @@ func renderDataWithConfd(data map[string]interface{}) (map[string]interface{}, e
 	}
 	tmplRenderedFiles := map[string]interface{}{}
 	for k, v := range tmplFiles {
-		str, err := renderFileWithCfd(k, v, confdKV)
+		str, err := renderFileWithCfd(k, v, confdKV, envMap)
 		if err != nil {
 			if strings.Contains(err.Error(),"function \"getenv\" not defined") {
 				tmplRenderedFiles[k] = v
@@ -369,7 +394,7 @@ func renderDataWithConfd(data map[string]interface{}) (map[string]interface{}, e
 	return renderedFiles, nil
 }
 
-func renderFileWithCfd(filename string, data string, confdkv interface{}) (string, error) {
+func renderFileWithCfd(filename string, data string, confdkv interface{}, envMap map[string]string) (string, error) {
 	var t *template.Template
 
 	store := memkv.New()
@@ -390,6 +415,7 @@ func renderFileWithCfd(filename string, data string, confdkv interface{}) (strin
 	t, err = template.New(filename).
 		Funcs(sprig.TxtFuncMap()).
 		Funcs(newFuncMap()).
+		Funcs(userDefinedFuncMap(envMap)).
 		Funcs(store.FuncMap).Parse(data)
 	if err != nil {
 		return "", err
