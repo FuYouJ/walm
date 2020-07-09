@@ -53,6 +53,28 @@ func newFuncMap() map[string]interface{} {
 	return m
 }
 
+
+func userDefinedFuncMap(envMap map[string]string) map[string]interface{} {
+	m := make(map[string]interface{})
+
+	m["getenv"] = func(key string, v ...string) string {
+
+		defaultValue := ""
+		if len(v) > 0 {
+			defaultValue = v[0]
+		}
+
+		value := envMap[key]
+		if value == "" {
+			return defaultValue
+		}
+		return value
+	}
+
+	return m
+}
+
+
 // Seq creates a sequence of integers. It's named and used as GNU's seq.
 // Seq takes the first and the last element as arguments. So Seq(3, 5) will generate [3,4,5]
 func Seq(first, last int) []int {
