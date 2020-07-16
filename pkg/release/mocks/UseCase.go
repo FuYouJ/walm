@@ -90,6 +90,29 @@ func (_m *UseCase) DryRunRelease(namespace string, releaseRequest *release.Relea
 	return r0, r1
 }
 
+// DryRunUpdateRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles
+func (_m *UseCase) DryRunUpdateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) ([]*k8s.ReleaseConfig, error) {
+	ret := _m.Called(namespace, releaseRequest, chartFiles)
+
+	var r0 []*k8s.ReleaseConfig
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile) []*k8s.ReleaseConfig); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*k8s.ReleaseConfig)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile) error); ok {
+		r1 = rf(namespace, releaseRequest, chartFiles)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetBackUpRelease provides a mock function with given fields: namespace, name
 func (_m *UseCase) GetBackUpRelease(namespace string, name string) (*release.ReleaseInfoV2, error) {
 	ret := _m.Called(namespace, name)
