@@ -173,6 +173,14 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Returns(200, "OK", []map[string]interface{}{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
+	ws.Route(ws.POST("/{namespace}/dryrun/update").To(releaseHandler.DryRunUpdateRelease).
+		Doc("模拟更新一个Release").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Reads(releaseModel.ReleaseRequestV2{}).
+		Returns(200, "OK", []k8s.ReleaseConfig{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
 	ws.Route(ws.POST("/{namespace}/dryrun/withchart").Consumes().To(releaseHandler.DryRunReleaseWithChart).
 		Consumes("multipart/form-data").
 		Doc("模拟用本地chart安装一个Release").
@@ -392,6 +400,23 @@ func (handler *ReleaseHandler) DryRunRelease(request *restful.Request, response 
 		return
 	}
 	response.WriteEntity(manifest)
+}
+
+func (handler *ReleaseHandler) DryRunUpdateRelease(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	releaseRequest := &releaseModel.ReleaseRequestV2{}
+	err := request.ReadEntity(releaseRequest)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
+		return
+	}
+
+	releaseConfigs, err := handler.usecase.DryRunUpdateRelease(namespace, releaseRequest, nil)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to dry run release: %s", err.Error()))
+		return
+	}
+	response.WriteEntity(releaseConfigs)
 }
 
 func (handler *ReleaseHandler) ComputeResourcesByDryRunRelease(request *restful.Request, response *restful.Response) {
