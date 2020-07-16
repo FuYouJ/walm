@@ -8,7 +8,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/klog"
-	"path/filepath"
+	"strings"
 )
 
 const (
@@ -26,13 +26,13 @@ type AddConfigmapObject struct {
 	ApplyAllResources bool             `json:"applyAllResources"`
 	Kind              string           `json:"kind"`
 	ResourceName      string           `json:"resourceName"`
+	VolumeMountPath   string		   `json:"volumeMountPath"`
 	ContainerName     string           `json:"containerName"`
 	Items             []*AddConfigItem `json:"items"`
 }
 
 type AddConfigItem struct {
 	ConfigMapData                  string `json:"configMapData"`
-	ConfigMapVolumeMountsMountPath string `json:"configMapVolumeMountsMountPath"`
 	ConfigMapVolumeMountsSubPath   string `json:"configMapVolumeMountsSubPath"`
 	ConfigMapMode                  int32  `json:"configMapMode"`
 }
@@ -132,14 +132,15 @@ func convertK8SConfigMap(releaseName, releaseNamespace, configMapName string, ad
 	configMapObj.Data = make(map[string]string, 0)
 	for _, item := range addObj.Items {
 		if item.ConfigMapVolumeMountsSubPath != "" {
-			configMapObj.Data[filepath.Join(item.ConfigMapVolumeMountsMountPath, item.ConfigMapVolumeMountsSubPath)] = item.ConfigMapData
+			token := strings.Split(item.ConfigMapVolumeMountsSubPath, "/")
+			configMapObj.Data[token[len(token) - 1]] = item.ConfigMapData
 		}
 	}
 
 	return configMapObj, nil
 }
 
-func splitConfigmapVolumes(releaseName, configMapName string, addConfigMapObj *AddConfigmapObject) (v1.Volume, []v1.VolumeMount, error) {
+func splitConfigmapVolumes(releaseName, configMapName string, addConfigMapObj *AddConfigmapObject) (v1.Volume, v1.VolumeMount, error) {
 	// ToDo: Add Params Validate
 
 	//ConfigMapVolumeSource
@@ -153,18 +154,18 @@ func splitConfigmapVolumes(releaseName, configMapName string, addConfigMapObj *A
 			},
 		},
 	}
-	configMapVolumeMounts := make([]v1.VolumeMount, 0)
+
 	for _, addConfigItem := range addConfigMapObj.Items {
+		token := strings.Split(addConfigItem.ConfigMapVolumeMountsSubPath, "/")
 		configMapVolume.VolumeSource.ConfigMap.Items = append(configMapVolume.VolumeSource.ConfigMap.Items, v1.KeyToPath{
-			Key:  addConfigItem.ConfigMapVolumeMountsSubPath,
+			Key:  token[len(token) - 1],
 			Path: addConfigItem.ConfigMapVolumeMountsSubPath,
 		})
+	}
 
-		configMapVolumeMounts = append(configMapVolumeMounts, v1.VolumeMount{
-			Name:      fmt.Sprintf("walmplugin-%s-%s-cm", configMapName, releaseName),
-			MountPath: addConfigItem.ConfigMapVolumeMountsMountPath,
-			SubPath:   addConfigItem.ConfigMapVolumeMountsSubPath,
-		})
+	configMapVolumeMounts := v1.VolumeMount{
+		Name:      fmt.Sprintf("walmplugin-%s-%s-cm", configMapName, releaseName),
+		MountPath: addConfigMapObj.VolumeMountPath,
 	}
 
 	return configMapVolume, configMapVolumeMounts, nil
@@ -178,11 +179,7 @@ func mountConfigMap(unstructuredObj *unstructured.Unstructured, releaseName, con
 			return nil
 		}
 	}
-	err := checkConfigMapMountPath(addConfigMapObj.Items)
-	if err != nil {
-		klog.Errorf("failed to check configmap mountPath: %s", err.Error())
-		return err
-	}
+
 	configMapVolume, configMapVolumeMounts, err := splitConfigmapVolumes(releaseName, configMapName, addConfigMapObj)
 	if err != nil {
 		klog.Errorf("failed to split config map volumes : %s", err.Error())
@@ -216,18 +213,14 @@ func mountConfigMap(unstructuredObj *unstructured.Unstructured, releaseName, con
 	}
 
 	existMountPaths := getExistMountPaths(k8sContainers)
-	for _, configMapVolumeMount := range configMapVolumeMounts {
-		if existMountPaths[configMapVolumeMount.MountPath] != "" {
-			return errors.Errorf("volumeMountPath %s already exist in containers, duplicated with volume mount name %s", configMapVolumeMount.Name, existMountPaths[configMapVolumeMount.MountPath])
-		}
+	if existMountPaths[configMapVolumeMounts.MountPath] != "" {
+			return errors.Errorf("volumeMountPath %s already exist in containers, duplicated with volume mount name %s", configMapVolumeMounts.Name, existMountPaths[configMapVolumeMounts.MountPath])
 	}
 
 	if found {
 		for _, container := range containers {
 			configMapVolumeMountsInterface := []interface{}{}
-			for _, configMapVolumeMount := range configMapVolumeMounts {
-				configMapVolumeMountsInterface = append(configMapVolumeMountsInterface, configMapVolumeMount)
-			}
+			configMapVolumeMountsInterface = append(configMapVolumeMountsInterface, configMapVolumeMounts)
 			err = addNestedSliceObj(container.(map[string]interface{}), configMapVolumeMountsInterface, "volumeMounts")
 			if err != nil {
 				klog.Errorf("failed to add nested slice obj : %s", err.Error())
@@ -251,21 +244,4 @@ func getExistMountPaths(containers []v1.Container) map[string]string {
 		}
 	}
 	return existMountPaths
-}
-
-func checkConfigMapMountPath(items []*AddConfigItem) error {
-	visited := map[string]bool{}
-	existPaths := []string{"/bin", "/home", "/mnt", "/tmp", "/dev", "/lib", "/opt", "/root", "/srv",
-		"/usr","/etc","/media", "/plugins", "/run", "/sys", "/var", "/var/cache", "/var/empty", "/var/lib",
-		"/var/local", "/var/lock", "/var/log", "var/opt", "/var/run", "/var/spool", "/var/tmp"}
-	for _, existPath := range existPaths {
-		visited[existPath] = true
-	}
-	for _, item := range items {
-		if visited[item.ConfigMapVolumeMountsMountPath] {
-			return errors.Errorf("exist configmap volume mount path are not allowed")
-		}
-		visited[item.ConfigMapVolumeMountsMountPath] = true
-	}
-	return nil
 }
