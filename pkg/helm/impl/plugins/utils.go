@@ -8,6 +8,7 @@ import (
 	"github.com/tidwall/sjson"
 	"k8s.io/api/apps/v1"
 	"WarpCloud/walm/pkg/util"
+	"strings"
 	"transwarp/isomateset-client/pkg/apis/apiextensions.transwarp.io/v1alpha1"
 )
 
@@ -67,8 +68,12 @@ func addNestedSliceObj(obj map[string]interface{}, sliceObjToAdd []interface{}, 
 
 	slice, _, err := unstructured.NestedSlice(obj, fields...)
 	if err != nil {
-		klog.Errorf("failed to get slice : %s", err.Error())
-		return err
+		if strings.Contains(err.Error(), ".spec.template.spec.volumes accessor error") || strings.Contains(err.Error(), ".volumeMounts accessor error") {
+			slice = []interface{}{}
+		} else {
+			klog.Errorf("failed to get slice : %s", err.Error())
+			return err
+		}
 	}
 
 	slice = append(slice, sliceToAdd...)
