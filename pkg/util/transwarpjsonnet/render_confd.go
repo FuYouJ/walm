@@ -67,7 +67,7 @@ func renderConfdFiles(name string, confdKV interface{}, confdFilesConfig interfa
 		// 生成 Volumes Config
 		volumeConfig := volume{
 			Key:  confdFileParam.ConfigMapKey,
-			Path: confdFileParam.VolumeMountPath,
+			Path: confdFileParam.ConfigMapKey,
 			Mode: 420,
 		}
 		if confdFileParam.VolConfigMapMode != 0 {
