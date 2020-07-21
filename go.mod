@@ -39,6 +39,7 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang/snappy v0.0.2-0.20190904063534-ff6b7dc882cf // indirect
 	github.com/gomodule/redigo v2.0.1-0.20191111085604-09d84710e01a+incompatible // indirect
+	github.com/google/btree v1.0.0 // indirect
 	github.com/google/go-jsonnet v0.14.0
 	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4-0.20191121170500-49c01487a141 // indirect
@@ -121,6 +122,7 @@ replace (
 	github.com/go-resty/resty v1.11.0 => gopkg.in/resty.v1 v1.11.0
 	github.com/kubernetes/klog v0.4.0 => k8s.io/klog v0.4.0
 	github.com/migration/pkg => gitlab.com/walm/migration-client-subpkg v0.0.0-20191012120105-e529c87a3a96
+	go.opencensus.io => github.com/census-instrumentation/opencensus-go v0.22.4
 
 	helm.sh/helm => gitlab.com/walm/helm v2.8.0-rc.1.0.20191203062205-45ab9253cc18+incompatible
 
