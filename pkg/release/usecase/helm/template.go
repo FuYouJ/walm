@@ -2,6 +2,7 @@ package helm
 
 import (
 	"WarpCloud/walm/pkg/models/common"
+	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/release"
 	"k8s.io/klog"
 )
@@ -36,3 +37,22 @@ func (helm *Helm) ComputeResourcesByDryRunRelease(namespace string, releaseReque
 	}
 	return resources, nil
 }
+
+func (helm *Helm) ComputeResourcesByGetRelease(namespace string, name string) (*release.ReleaseResources, error) {
+	r, err := helm.releaseCache.GetReleaseCache(namespace, name)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			klog.Warningf("release cache %s is not found in redis", name)
+			return nil, err
+		}
+		klog.Errorf("failed to get release cache %s : %s", name, err.Error())
+		return nil, err
+	}
+	resources, err := helm.k8sOperator.ComputeReleaseResourcesByManifest(namespace, r.Manifest)
+	if err != nil {
+		klog.Errorf("failed to compute release resources by manifest : %s", err.Error())
+		return nil, err
+	}
+	return resources, nil
+}
+
