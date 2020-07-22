@@ -86,6 +86,14 @@ func RegisterProjectHandler(handler *ProjectHandler) *restful.WebService {
 		Returns(200, "OK", []release.ReleaseResourcesInfo{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
+	ws.Route(ws.GET("/{namespace}/name/{project}/resources").To(handler.ComputeResourcesByGetProject).
+		Doc("获取并计算一个Project需要多少资源").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("project", "Project名字").DataType("string")).
+		Returns(200, "OK", []release.ReleaseResourcesInfo{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
 	ws.Route(ws.DELETE("/{namespace}/name/{project}").To(handler.DeleteProject).
 		Doc("删除一个Project").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
@@ -243,6 +251,21 @@ func (handler *ProjectHandler) ComputeResourcesByDryRunProject(request *restful.
 	resources, err := handler.usecase.ComputeResourcesByDryRunProject(tenantName, projectName, projectParams)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to compute resources project : %s", err.Error()))
+		return
+	}
+	response.WriteEntity(resources)
+}
+
+func (handler *ProjectHandler) ComputeResourcesByGetProject(request *restful.Request, response *restful.Response) {
+	tenantName := request.PathParameter("namespace")
+	projectName := request.PathParameter("project")
+	resources, err := handler.usecase.ComputeResourcesByGetProject(tenantName, projectName)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("project %s/%s is not found", tenantName, projectName))
+			return
+		}
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get project resources : %s", err.Error()))
 		return
 	}
 	response.WriteEntity(resources)
