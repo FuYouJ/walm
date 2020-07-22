@@ -201,6 +201,16 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Returns(200, "OK", releaseModel.ReleaseResources{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
+	ws.Route(ws.GET("/{namespace}/name/{release}/resources").To(releaseHandler.ComputeResourcesByGetRelease).
+		Doc("获取并计算一个Release需要多少资源").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Writes(releaseModel.ReleaseResources{}).
+		Returns(200, "OK", releaseModel.ReleaseResources{}).
+		Returns(404, "Not Found", http.ErrorMessageResponse{}).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
 	//ws.Route(ws.POST("/{namespace}/name/{release}/version/{version}/rollback").To(releaseHandler.RollBackRelease).
 	//	Doc("RollBack　Release版本").
 	//	Metadata(restfulspec.KeyOpenAPITags, tags).
@@ -827,4 +837,19 @@ func (handler *ReleaseHandler) ListBackUpReleaseByNamespace(request *restful.Req
 		return
 	}
 	response.WriteEntity(releaseModel.ReleaseInfoV2List{Num: len(infos), Items: infos})
+}
+
+func (handler *ReleaseHandler) ComputeResourcesByGetRelease(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	resources, err := handler.usecase.ComputeResourcesByGetRelease(namespace, name)
+	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("release %s is not found", name))
+			return
+		}
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to get release resources %s: %s", name, err.Error()))
+		return
+	}
+	response.WriteEntity(resources)
 }
