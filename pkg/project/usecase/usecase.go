@@ -190,6 +190,36 @@ func (projectImpl *Project) ComputeResourcesByDryRunProject(namespace, projectNa
 	return resourcesInfo, nil
 }
 
+func (projectImpl *Project) ComputeResourcesByGetProject(namespace, projectName string) ([]releaseModel.ReleaseResourcesInfo, error) {
+	resourcesInfo := make([]releaseModel.ReleaseResourcesInfo, 0)
+	projectInfo, err := projectImpl.GetProjectInfo(namespace, projectName)
+	if err != nil {
+		klog.Errorf("failed to get project info: %s", err.Error())
+		return nil, err
+	}
+	for _, releaseInfo := range projectInfo.Releases {
+		releaseResources, err := projectImpl.releaseUseCase.ComputeResourcesByGetRelease(namespace, releaseInfo.Name)
+		if err != nil {
+			klog.Errorf("failed to computeResources project release %s/%s : %s", namespace, releaseInfo.Name, err.Error())
+			return nil, err
+		}
+		resources := releaseModel.ReleaseResources{
+			DaemonSets: releaseResources.DaemonSets,
+			StatefulSets: releaseResources.StatefulSets,
+			Deployments: releaseResources.Deployments,
+			Pvcs: releaseResources.Pvcs,
+			Jobs: releaseResources.Jobs,
+		}
+
+		resourcesInfo = append(resourcesInfo, releaseModel.ReleaseResourcesInfo{
+			ReleaseResources: resources,
+			Namespace:        namespace,
+			Name:             releaseInfo.Name,
+		})
+	}
+	return resourcesInfo, nil
+}
+
 func (projectImpl *Project) CreateProject(namespace string, project string, projectParams *projectModel.ProjectParams, async bool, timeoutSec int64) error {
 	if len(projectParams.Releases) == 0 {
 		return errors.New("project releases can not be empty")
