@@ -91,15 +91,15 @@ func (_m *UseCase) DryRunRelease(namespace string, releaseRequest *release.Relea
 }
 
 // DryRunUpdateRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles
-func (_m *UseCase) DryRunUpdateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) ([]*k8s.ReleaseConfig, error) {
+func (_m *UseCase) DryRunUpdateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (map[string]interface{}, error) {
 	ret := _m.Called(namespace, releaseRequest, chartFiles)
 
-	var r0 []*k8s.ReleaseConfig
-	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile) []*k8s.ReleaseConfig); ok {
+	var r0 map[string]interface{}
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile) map[string]interface{}); ok {
 		r0 = rf(namespace, releaseRequest, chartFiles)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]*k8s.ReleaseConfig)
+			r0 = ret.Get(0).(map[string]interface{})
 		}
 	}
 

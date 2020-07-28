@@ -178,7 +178,7 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Reads(releaseModel.ReleaseRequestV2{}).
-		Returns(200, "OK", []k8s.ReleaseConfig{}).
+		Returns(200, "OK", map[string]interface{}{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.POST("/{namespace}/dryrun/withchart").Consumes().To(releaseHandler.DryRunReleaseWithChart).
@@ -411,12 +411,16 @@ func (handler *ReleaseHandler) DryRunUpdateRelease(request *restful.Request, res
 		return
 	}
 
-	releaseConfigs, err := handler.usecase.DryRunUpdateRelease(namespace, releaseRequest, nil)
+	results, err := handler.usecase.DryRunUpdateRelease(namespace, releaseRequest, nil)
 	if err != nil {
+		if errorModel.IsNotFoundError(err) {
+			httpUtils.WriteNotFoundResponse(response, -1, fmt.Sprintf("release %s is not found", releaseRequest.Name))
+			return
+		}
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to dry run release: %s", err.Error()))
 		return
 	}
-	response.WriteEntity(releaseConfigs)
+	response.WriteEntity(results)
 }
 
 func (handler *ReleaseHandler) ComputeResourcesByDryRunRelease(request *restful.Request, response *restful.Response) {
