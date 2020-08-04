@@ -26,7 +26,7 @@ func (helm *Helm) DryRunRelease(namespace string, releaseRequest *release.Releas
 	return resources, nil
 }
 
-func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (map[string]interface{}, error) {
+func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (*release.ReleaseDryRunUpdateInfo, error) {
 	oldReleaseCache, err := helm.releaseCache.GetReleaseCache(namespace, releaseRequest.Name)
 	if err != nil {
 		klog.Errorf("failed to get release cache of %s/%s : %s", namespace, releaseRequest.Name, err.Error())
@@ -124,9 +124,9 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 		}
 	}
 
-	return map[string]interface{}{
-		"dependedReleases": dependedReleases,
-		"configmaps": configmapList,
+	return &release.ReleaseDryRunUpdateInfo{
+		Configmaps:       configmapList,
+		DependedReleases: dependedReleases,
 	}, nil
 }
 

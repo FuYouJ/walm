@@ -19,7 +19,7 @@ type UseCase interface {
 	ListBackUpReleases(namespace string) ([]*release.ReleaseInfoV2, error)
 	ListReleasesByLabels(namespace string, labelSelectorStr string) ([]*release.ReleaseInfoV2, error)
 	DryRunRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) ([]map[string]interface{}, error)
-	DryRunUpdateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (map[string]interface{}, error)
+	DryRunUpdateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (*release.ReleaseDryRunUpdateInfo, error)
 	ComputeResourcesByDryRunRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (*release.ReleaseResources, error)
 	DeleteReleaseWithRetry(namespace, releaseName string, deletePvcs bool, async bool, timeoutSec int64) error
 	DeleteRelease(namespace, releaseName string, deletePvcs bool, async bool, timeoutSec int64) error

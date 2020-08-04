@@ -178,7 +178,7 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Reads(releaseModel.ReleaseRequestV2{}).
-		Returns(200, "OK", map[string]interface{}{}).
+		Returns(200, "OK", releaseModel.ReleaseDryRunUpdateInfo{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
 
 	ws.Route(ws.POST("/{namespace}/dryrun/withchart").Consumes().To(releaseHandler.DryRunReleaseWithChart).
