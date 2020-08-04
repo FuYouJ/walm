@@ -18,6 +18,7 @@ func ConvertPodFromK8s(oriPod *corev1.Pod) (*k8s.Pod, error) {
 		Meta:        k8s.NewMeta(k8s.PodKind, pod.Namespace, pod.Name, buildWalmPodState(pod)),
 		Labels:      map[string]string{},
 		Annotations: map[string]string{},
+		CreationTimestamp: 	oriPod.CreationTimestamp.String(),
 		PodIp:       pod.Status.PodIP,
 		HostIp:      pod.Status.HostIP,
 		Containers:  buildWalmPodContainers(pod),

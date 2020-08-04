@@ -88,6 +88,7 @@ func TestConvertPodFromK8s(t *testing.T) {
 						},
 					},
 				},
+				CreationTimestamp: testCreationTimestamp.String(),
 				Age: duration.ShortHumanDuration(time.Since(testCreationTimestamp.Time)),
 				InitContainers: []k8s.Container{
 					{
@@ -143,6 +144,7 @@ func TestConvertPodFromK8s(t *testing.T) {
 						Message: "containers with unready status",
 					},
 				},
+				CreationTimestamp: testCreationTimestamp.String(),
 				Labels: map[string]string{"test1": "test1"},
 				Annotations: map[string]string{"test2": "test2"},
 				Age: duration.ShortHumanDuration(time.Since(testCreationTimestamp.Time)),
@@ -197,6 +199,7 @@ func TestConvertPodFromK8s(t *testing.T) {
 				},
 				Labels: map[string]string{"test1": "test1"},
 				Annotations: map[string]string{"test2": "test2"},
+				CreationTimestamp: testCreationTimestamp.String(),
 				Age: duration.ShortHumanDuration(time.Since(testCreationTimestamp.Time)),
 				Containers:  []k8s.Container{
 					{
