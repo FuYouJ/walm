@@ -39,6 +39,29 @@ func (_m *UseCase) ComputeResourcesByDryRunRelease(namespace string, releaseRequ
 	return r0, r1
 }
 
+// ComputeResourcesByGetRelease provides a mock function with given fields: namespace, name
+func (_m *UseCase) ComputeResourcesByGetRelease(namespace string, name string) (*release.ReleaseResources, error) {
+	ret := _m.Called(namespace, name)
+
+	var r0 *release.ReleaseResources
+	if rf, ok := ret.Get(0).(func(string, string) *release.ReleaseResources); ok {
+		r0 = rf(namespace, name)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*release.ReleaseResources)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, name)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // DeleteRelease provides a mock function with given fields: namespace, releaseName, deletePvcs, async, timeoutSec
 func (_m *UseCase) DeleteRelease(namespace string, releaseName string, deletePvcs bool, async bool, timeoutSec int64) error {
 	ret := _m.Called(namespace, releaseName, deletePvcs, async, timeoutSec)

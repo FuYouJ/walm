@@ -61,6 +61,29 @@ func (_m *UseCase) ComputeResourcesByDryRunProject(namespace string, projectName
 	return r0, r1
 }
 
+// ComputeResourcesByGetProject provides a mock function with given fields: namespace, projectName
+func (_m *UseCase) ComputeResourcesByGetProject(namespace string, projectName string) ([]release.ReleaseResourcesInfo, error) {
+	ret := _m.Called(namespace, projectName)
+
+	var r0 []release.ReleaseResourcesInfo
+	if rf, ok := ret.Get(0).(func(string, string) []release.ReleaseResourcesInfo); ok {
+		r0 = rf(namespace, projectName)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]release.ReleaseResourcesInfo)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, string) error); ok {
+		r1 = rf(namespace, projectName)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // CreateProject provides a mock function with given fields: namespace, _a1, projectParams, async, timeoutSec
 func (_m *UseCase) CreateProject(namespace string, _a1 string, projectParams *project.ProjectParams, async bool, timeoutSec int64) error {
 	ret := _m.Called(namespace, _a1, projectParams, async, timeoutSec)
