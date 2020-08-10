@@ -130,6 +130,7 @@ type Pod struct {
 	Meta
 	Labels         map[string]string `json:"labels" description:"pod labels"`
 	Annotations    map[string]string `json:"annotations" description:"pod annotations"`
+	CreationTimestamp string         `json:"creationTimestamp" description:"creation time stamp"`
 	HostIp         string            `json:"hostIp" description:"host ip where pod is on"`
 	PodIp          string            `json:"podIp" description:"pod ip"`
 	Containers     []Container       `json:"containers" description:"pod containers"`

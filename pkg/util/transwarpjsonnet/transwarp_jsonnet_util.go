@@ -2,10 +2,12 @@ package transwarpjsonnet
 
 import (
 	k8sModel "WarpCloud/walm/pkg/models/k8s"
+	"WarpCloud/walm/pkg/util/transwarpjsonnet/memkv"
 	"bytes"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"github.com/Masterminds/sprig"
 	yaml2 "github.com/ghodss/yaml"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -239,7 +241,7 @@ func BuildNotRenderedFileName(fileName string) (notRenderFileName string) {
 	return
 }
 
-func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string) (resources map[string][]byte, err error) {
+func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string, updateConfigMap bool) (resources map[string][]byte, err error) {
 	// key: resource.json, value: resource template(map)
 	resourcesMap := make(map[string]map[string]interface{})
 	err = json.Unmarshal([]byte(jsonStr), &resourcesMap)
@@ -248,8 +250,48 @@ func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string) (reso
 		return nil, err
 	}
 
+	// for pod getenv
+	envMap := make(map[string]string)
+	for _, resource := range resourcesMap {
+		if  resource["kind"] == string(k8sModel.StatefulSetKind)  || resource["kind"] == string(k8sModel.DeploymentKind) {
+			data, _ := json.Marshal(resource)
+
+			envMapArray := gjson.GetBytes(data, "spec.template.spec.containers.#.env").Array()
+			if len(envMapArray) == 0 {
+				continue
+			}
+
+			for _, tmpEnvMap := range envMapArray {
+				envs := tmpEnvMap.Array()
+				for _, env := range envs {
+					tmpValue := gjson.Get(env.String(), "value").String()
+					tmpName := gjson.Get(env.String(), "name").String()
+					if tmpValue != "" {
+						envMap[tmpName] = tmpValue
+					}
+				}
+			}
+
+		}
+	}
+
 	resources = map[string][]byte{}
 	for fileName, resource := range resourcesMap {
+		// render with confd
+		if  resource["kind"] == string(k8sModel.ConfigMapKind) {
+			if !updateConfigMap {
+				continue
+			}
+			data := resource["data"].(map[string]interface{})
+			newData, err := renderDataWithConfd(data, envMap)
+			if err != nil {
+				klog.Errorf("failed to render configmap template with confd")
+				return nil, err
+			}
+			resource["data"] = newData
+		}
+
+		// set labels with each k8s resource
 		resourceBytes, err := yaml.Marshal(resource)
 		if err != nil {
 			return nil, err
@@ -316,4 +358,125 @@ func parseTemplateWithTLAString(templatePath string, tlaVar string, tlaValue str
 		return "", err
 	}
 	return string(output), nil
+}
+
+func renderDataWithConfd(data map[string]interface{}, envMap map[string]string) (map[string]interface{}, error) {
+	tmplFiles := map[string]string{}
+	renderedFiles := map[string]interface{}{}
+	confdKV := make(map[string]string)
+	var err error
+	for file, fileData := range data {
+		renderedFiles[file] = fileData
+		if strings.HasSuffix(file, ".tmpl") || strings.HasSuffix(file, ".raw") {
+			tmplFiles[file] = fmt.Sprintf("%v", fileData)
+		} else if strings.HasSuffix(file, ".conf") {
+			confdKV, err = getConfdKV(fileData, []string{"/"})
+			if err != nil {
+				klog.Errorf("failed to get confd kv from confd.conf: %s", err.Error())
+				return nil, err
+			}
+		}
+	}
+	tmplRenderedFiles := map[string]interface{}{}
+	for k, v := range tmplFiles {
+		str, err := renderFileWithCfd(k, v, confdKV, envMap)
+		if err != nil {
+			if strings.Contains(err.Error(),"function \"getenv\" not defined") {
+				tmplRenderedFiles[k] = v
+				continue
+			}
+			klog.Errorf("failed to render resource file %s %v: %s", k, v, err.Error())
+			return nil, err
+		}
+		renderedFiles[k] = str
+	}
+
+	return renderedFiles, nil
+}
+
+func renderFileWithCfd(filename string, data string, confdkv interface{}, envMap map[string]string) (string, error) {
+	var t *template.Template
+
+	store := memkv.New()
+	vars := make(map[string]string)
+	yamlMap := make(map[string]interface{})
+	byteKV, _ := json.Marshal(confdkv)
+	err := json.Unmarshal(byteKV, &yamlMap)
+
+	err = nodeWalk(yamlMap, "", vars)
+	if err != nil {
+		return "", err
+	}
+
+	for k, v := range vars {
+		store.Set(path.Join("/", k), v)
+	}
+
+	t, err = template.New(filename).
+		Funcs(sprig.TxtFuncMap()).
+		Funcs(newFuncMap()).
+		Funcs(userDefinedFuncMap(envMap)).
+		Funcs(store.FuncMap).Parse(data)
+	if err != nil {
+		return "", err
+	}
+
+	var fileTpl bytes.Buffer
+	err = t.Execute(&fileTpl, confdkv)
+	if err != nil {
+		return "", err
+	}
+	return fileTpl.String(), nil
+}
+
+
+func getConfdKV(fileData interface{}, keys []string) (map[string]string, error) {
+	vars := make(map[string]string)
+	yamlMap := make(map[string]interface{})
+
+	data, err := yaml2.Marshal(fileData)
+	if err != nil {
+		return nil, err
+	}
+	data = stripData(data)
+	data, err = yaml2.YAMLToJSON(data)
+	if err != nil {
+		return nil, err
+	}
+
+	err = yaml2.Unmarshal(data, &yamlMap)
+	if err != nil {
+		return nil, err
+	}
+
+	err = nodeWalk(yamlMap, "/", vars)
+	if err != nil {
+
+	}
+VarsLoop:
+	for k, _ := range vars {
+		for _, key := range keys {
+			if strings.HasPrefix(k, key) {
+				continue VarsLoop
+			}
+		}
+		delete(vars, k)
+	}
+	klog.Infof(fmt.Sprintf("Key Map: %#v", vars))
+	return vars, nil
+}
+
+func stripData(file []byte) []byte {
+	stripped := []byte{}
+	lines := bytes.Split(file, []byte("\n"))
+	for i, line := range lines {
+		if bytes.HasPrefix(bytes.TrimSpace(line), []byte("#")) || bytes.HasPrefix(bytes.TrimSpace(line), []byte("|")) || bytes.HasPrefix(bytes.TrimSpace(line), []byte("|-")) {
+			continue
+		}
+		stripped = append(stripped, line...)
+		if i < len(lines)-1 {
+			stripped = append(stripped, '\n')
+		}
+	}
+	return stripped
 }

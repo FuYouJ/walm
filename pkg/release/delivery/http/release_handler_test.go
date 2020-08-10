@@ -122,7 +122,7 @@ func TestReleaseHandler_InstallRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), false, int64(0), false).Return(nil)
+				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), false, int64(0), false, mock.Anything).Return(nil)
 			},
 			body:       release.ReleaseRequestV2{},
 			statusCode: 200,
@@ -130,7 +130,7 @@ func TestReleaseHandler_InstallRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), false, int64(0), false).Return(errors.New(""))
+				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), false, int64(0), false, mock.Anything).Return(errors.New(""))
 			},
 			body:       release.ReleaseRequestV2{},
 			statusCode: 500,
@@ -138,7 +138,7 @@ func TestReleaseHandler_InstallRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), true, int64(60), false).Return(nil)
+				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), true, int64(60), false, mock.Anything).Return(nil)
 			},
 			queryUrl:   "?async=true&timeoutSec=60",
 			body:       release.ReleaseRequestV2{},
@@ -227,7 +227,7 @@ func TestReleaseHandler_InstallReleaseWithChart(t *testing.T) {
 				refreshMockUseCase()
 				mockUseCase.On("InstallUpgradeRelease", "testns",
 					&release.ReleaseRequestV2{ReleaseRequest: release.ReleaseRequest{Name: "testname"}},
-					mock.Anything, false, int64(0), false).Return(nil)
+					mock.Anything, false, int64(0), false, true).Return(nil)
 			},
 			chartPath:   filepath.Join(filepath.Dir(currentFilePath), "../../../../test/resources/helm/tomcat-0.2.0.tgz"),
 			body:        "{}",
@@ -239,7 +239,7 @@ func TestReleaseHandler_InstallReleaseWithChart(t *testing.T) {
 				refreshMockUseCase()
 				mockUseCase.On("InstallUpgradeRelease", "testns",
 					&release.ReleaseRequestV2{ReleaseRequest: release.ReleaseRequest{Name: "testname"}},
-					mock.Anything, false, int64(0), false).Return(errors.New(""))
+					mock.Anything, false, int64(0), false, true).Return(errors.New(""))
 			},
 			chartPath:   filepath.Join(filepath.Dir(currentFilePath), "../../../../test/resources/helm/tomcat-0.2.0.tgz"),
 			body:        "{}",
@@ -336,7 +336,7 @@ func TestReleaseHandler_UpgradeRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), false, int64(0), false).Return(nil)
+				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), false, int64(0), false, mock.Anything).Return(nil)
 			},
 			body:       release.ReleaseRequestV2{},
 			statusCode: 200,
@@ -344,7 +344,7 @@ func TestReleaseHandler_UpgradeRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), false, int64(0), false).Return(errors.New(""))
+				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), false, int64(0), false, mock.Anything).Return(errors.New(""))
 			},
 			body:       release.ReleaseRequestV2{},
 			statusCode: 500,
@@ -352,7 +352,7 @@ func TestReleaseHandler_UpgradeRelease(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), true, int64(60), false).Return(nil)
+				mockUseCase.On("InstallUpgradeRelease", "testns", &release.ReleaseRequestV2{}, ([]*common.BufferedFile)(nil), true, int64(60), false, mock.Anything).Return(nil)
 			},
 			queryUrl:   "?async=true&timeoutSec=60",
 			body:       release.ReleaseRequestV2{},
@@ -441,7 +441,7 @@ func TestReleaseHandler_UpgradeReleaseWithChart(t *testing.T) {
 				refreshMockUseCase()
 				mockUseCase.On("InstallUpgradeRelease", "testns",
 					&release.ReleaseRequestV2{ReleaseRequest: release.ReleaseRequest{Name: "testname"}},
-					mock.Anything, false, int64(0), false).Return(nil)
+					mock.Anything, false, int64(0), false, mock.Anything).Return(nil)
 			},
 			chartPath:   filepath.Join(filepath.Dir(currentFilePath), "../../../../test/resources/helm/tomcat-0.2.0.tgz"),
 			body:        "{}",
@@ -453,7 +453,7 @@ func TestReleaseHandler_UpgradeReleaseWithChart(t *testing.T) {
 				refreshMockUseCase()
 				mockUseCase.On("InstallUpgradeRelease", "testns",
 					&release.ReleaseRequestV2{ReleaseRequest: release.ReleaseRequest{Name: "testname"}},
-					mock.Anything, false, int64(0), false).Return(errors.New(""))
+					mock.Anything, false, int64(0), false, mock.Anything).Return(errors.New(""))
 			},
 			chartPath:   filepath.Join(filepath.Dir(currentFilePath), "../../../../test/resources/helm/tomcat-0.2.0.tgz"),
 			body:        "{}",

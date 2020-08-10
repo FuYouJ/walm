@@ -200,11 +200,11 @@ func processMetaInfoParams(metaInfo *release.ChartMetaInfo, metaInfoParams *rele
 
 func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
 	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error) {
-	return helmImpl.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, false,true)
+	return helmImpl.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, false, true,true)
 }
 
 func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
-	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, fullUpdate bool, strict bool) (*release.ReleaseCache, error) {
+	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2, fullUpdate bool, updateConfigMap bool, strict bool) (*release.ReleaseCache, error) {
 	rawChart, err := helmImpl.loadChart(chartFiles, releaseRequest)
 	if err != nil {
 		klog.Errorf("failed to load chart : %s", err.Error())
@@ -283,13 +283,13 @@ func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, release
 	if releaseRequest.IsomateConfig != nil && len(releaseRequest.IsomateConfig.Isomates) > 0 {
 		err = helmImpl.processChartWithIsomate(chartInfo, releaseRequest,
 			rawChart, namespace, configValues, dependencyConfigs, dependencies,
-			releaseLabels, releasePlugins, valueOverride, update)
+			releaseLabels, releasePlugins, valueOverride, update, updateConfigMap)
 		if err != nil {
 			klog.Errorf("failed to process chart with isomate config : %s", err.Error())
 			return nil, err
 		}
 	} else {
-		err = transwarpjsonnet.ProcessChart(chartInfo, releaseRequest, rawChart, namespace, configValues, dependencyConfigs, dependencies, releaseLabels, nil)
+		err = transwarpjsonnet.ProcessChart(chartInfo, releaseRequest, rawChart, namespace, configValues, dependencyConfigs, dependencies, releaseLabels, nil, updateConfigMap)
 		if err != nil {
 			return nil, err
 		}
@@ -335,7 +335,7 @@ func mergePausePlugin(paused bool, releasePlugins []*k8sModel.ReleasePlugin) (me
 
 func (helmImpl *Helm) processChartWithIsomate(chartInfo *release.ChartDetailInfo, releaseRequest *release.ReleaseRequestV2,
 	rawChart *chart.Chart, namespace string, configValues, dependencyConfigs map[string]interface{}, dependencies,
-	releaseLabels map[string]string, releasePlugins []*k8sModel.ReleasePlugin, valueOverride map[string]interface{}, update bool) (err error) {
+	releaseLabels map[string]string, releasePlugins []*k8sModel.ReleasePlugin, valueOverride map[string]interface{}, update bool, updateConfigMap bool) (err error) {
 	rawChartTemplates := []*chart.File{}
 	for _, template := range rawChart.Templates {
 		rawChartTemplates = append(rawChartTemplates, template)
@@ -348,7 +348,7 @@ func (helmImpl *Helm) processChartWithIsomate(chartInfo *release.ChartDetailInfo
 	manifests := map[string]string{}
 	var chartFiles []*chart.File
 	for _, isomate := range releaseRequest.IsomateConfig.Isomates {
-		err = transwarpjsonnet.ProcessChart(chartInfo, releaseRequest, rawChart, namespace, configValues, dependencyConfigs, dependencies, releaseLabels, isomate.ConfigValues)
+		err = transwarpjsonnet.ProcessChart(chartInfo, releaseRequest, rawChart, namespace, configValues, dependencyConfigs, dependencies, releaseLabels, isomate.ConfigValues, updateConfigMap)
 		if err != nil {
 			return err
 		}

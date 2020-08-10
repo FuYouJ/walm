@@ -196,7 +196,7 @@ func (lint *lintOptions) run() error {
 			repo, rawChart, testCase.caseNamespace,
 			testCase.caseName, testCase.userConfigs, testCase.dependencyConfigs,
 			testCase.dependencies, testCase.releaseLabels, "", nil,
-			nil, "",
+			nil, "", true,
 		)
 		if err != nil {
 			klog.Errorf("processJsonnetChart error %v", err)
