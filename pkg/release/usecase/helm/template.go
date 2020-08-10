@@ -99,7 +99,7 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 		}
 	}
 
-	dependedReleases := []map[string]string{}
+	dependedReleases := []release.DependedRelease{}
 	if utils.ConfigValuesDiff(oldReleaseInfo.OutputConfigValues, outputConfigValues) {
 		releaseConfigs, err := helm.k8sCache.ListReleaseConfigs("", "")
 		if err != nil {
@@ -113,12 +113,12 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 					continue
 				}
 				if dependedReleaseNamespace == releaseCache.Namespace && dependedReleaseName == releaseCache.Name {
-					dependedReleases = append(dependedReleases, map[string]string{
-						"name": releaseConfig.Name,
-						"namespace": releaseConfig.Namespace,
-						"chartName": releaseConfig.ChartName,
-						"chartVersion": releaseConfig.ChartVersion,
-						"repo": releaseConfig.Repo,
+					dependedReleases = append(dependedReleases, release.DependedRelease{
+						Name:         releaseConfig.Name,
+						RepoName:     releaseConfig.Repo,
+						ChartName:    releaseConfig.ChartName,
+						ChartVersion: releaseConfig.ChartVersion,
+						Namespace:    releaseConfig.Namespace,
 					})
 				}
 			}
