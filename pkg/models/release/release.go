@@ -187,3 +187,16 @@ type ReleaseResourceJob struct {
 	Completions int32 `json:"completions" description:"job completions"`
 	ReleaseResourceBase
 }
+
+type ReleaseDryRunUpdateInfo struct {
+	Configmaps       []interface{}       `json:"configmaps" description:"dryrun configmap results"`
+	DependedReleases []DependedRelease `json:"dependedReleases" description:"releases depended on current release"`
+}
+
+type DependedRelease struct {
+	Name                string                 `json:"name" description:"name of the release"`
+	RepoName            string                 `json:"repoName" description:"chart name"`
+	ChartName           string                 `json:"chartName" description:"chart name"`
+	ChartVersion        string                 `json:"chartVersion" description:"chart repo"`
+	Namespace           string                 `json:"namespace" description:"namespace"`
+}

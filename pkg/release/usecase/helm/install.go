@@ -20,7 +20,7 @@ const (
 func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
 	retryTimes := 40
 	for {
-		err := helm.installUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, async, timeoutSec, false, false)
+		err := helm.installUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, async, timeoutSec, false, true, true)
 		if err != nil {
 			if strings.Contains(err.Error(), releasei.WaitReleaseTaskMsgPrefix) && retryTimes > 0 {
 				klog.Warningf("retry to install or upgrade release %s/%s after 15 second", namespace, releaseRequest.Name)
@@ -33,12 +33,13 @@ func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseReques
 	}
 }
 
-func (helm *Helm) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool) error {
-	return helm.installUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate, true)
+
+func (helm *Helm) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool, updateConfigMap bool) error {
+	return helm.installUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate, updateConfigMap, true)
 }
 
 // strict: describe whether to allow that the dependency release does not exist. true: not allow, false: allow.
-func (helm *Helm) installUpgradeReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool, strict bool) error {
+func (helm *Helm) installUpgradeReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool, updateConfigMap bool, strict bool) error {
 	err := validateParams(releaseRequest, chartFiles)
 	if err != nil {
 		klog.Errorf("failed to validate params : %s", err.Error())
@@ -60,6 +61,7 @@ func (helm *Helm) installUpgradeReleaseWithStrict(namespace string, releaseReque
 		ChartFiles:     chartFiles,
 		Strict:         strict,
 		FullUpdate:     fullUpdate,
+		UpdateConfigMap: updateConfigMap,
 	}
 
 	err = helm.sendReleaseTask(namespace, releaseRequest.Name, createReleaseTaskName, releaseTaskArgs, oldReleaseTask, timeoutSec, async)
@@ -106,10 +108,10 @@ func validateParams(releaseRequest *release.ReleaseRequestV2, chartFiles []*comm
 }
 
 func (helm *Helm) doInstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool) (*release.ReleaseCache, error) {
-	return helm.doInstallUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, false, true)
+	return helm.doInstallUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, false, true, true)
 }
 
-func (helm *Helm) doInstallUpgradeReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool, fullUpdate bool, strict bool) (*release.ReleaseCache, error) {
+func (helm *Helm) doInstallUpgradeReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, dryRun bool, fullUpdate bool, updateConfigMap bool, strict bool) (*release.ReleaseCache, error) {
 	update := true
 	oldReleaseCache, err := helm.releaseCache.GetReleaseCache(namespace, releaseRequest.Name)
 	if err != nil {
@@ -141,7 +143,7 @@ func (helm *Helm) doInstallUpgradeReleaseWithStrict(namespace string, releaseReq
 
 	preProcessRequest(releaseRequest)
 
-	releaseCache, err := helm.helm.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, fullUpdate, strict)
+	releaseCache, err := helm.helm.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, fullUpdate, updateConfigMap, strict)
 	if err != nil {
 		klog.Errorf("failed to install or update release %s/%s : %s", namespace, releaseRequest.Name, err.Error())
 		return nil, err

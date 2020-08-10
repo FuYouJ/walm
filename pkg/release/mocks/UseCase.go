@@ -113,6 +113,29 @@ func (_m *UseCase) DryRunRelease(namespace string, releaseRequest *release.Relea
 	return r0, r1
 }
 
+// DryRunUpdateRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles
+func (_m *UseCase) DryRunUpdateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (*release.ReleaseDryRunUpdateInfo, error) {
+	ret := _m.Called(namespace, releaseRequest, chartFiles)
+
+	var r0 *release.ReleaseDryRunUpdateInfo
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile) *release.ReleaseDryRunUpdateInfo); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*release.ReleaseDryRunUpdateInfo)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile) error); ok {
+		r1 = rf(namespace, releaseRequest, chartFiles)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetBackUpRelease provides a mock function with given fields: namespace, name
 func (_m *UseCase) GetBackUpRelease(namespace string, name string) (*release.ReleaseInfoV2, error) {
 	ret := _m.Called(namespace, name)
@@ -182,13 +205,13 @@ func (_m *UseCase) GetReleaseEvents(namespace string, name string) (*k8s.EventLi
 	return r0, r1
 }
 
-// InstallUpgradeRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate
-func (_m *UseCase) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool) error {
-	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate)
+// InstallUpgradeRelease provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate, updateConfigMap
+func (_m *UseCase) InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool, updateConfigMap bool) error {
+	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate, updateConfigMap)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64, bool) error); ok {
-		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate)
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64, bool, bool) error); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec, fullUpdate, updateConfigMap)
 	} else {
 		r0 = ret.Error(0)
 	}
