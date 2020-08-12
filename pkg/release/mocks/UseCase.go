@@ -316,6 +316,34 @@ func (_m *UseCase) PauseOrRecoverRelease(namespace string, releaseName string, a
 	return r0
 }
 
+// PauseReleaseWithoutChart provides a mock function with given fields: namespace, name
+func (_m *UseCase) PauseReleaseWithoutChart(namespace string, name string) error {
+	ret := _m.Called(namespace, name)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// RecoverReleaseWithoutChart provides a mock function with given fields: namespace, name
+func (_m *UseCase) RecoverReleaseWithoutChart(namespace string, name string) error {
+	ret := _m.Called(namespace, name)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string) error); ok {
+		r0 = rf(namespace, name)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // ReloadRelease provides a mock function with given fields: namespace, name
 func (_m *UseCase) ReloadRelease(namespace string, name string) error {
 	ret := _m.Called(namespace, name)

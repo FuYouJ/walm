@@ -118,7 +118,7 @@ func GetNode(name string) (*v1.Node, error) {
 }
 
 func LabelNode(name string, labelsToAdd map[string]string, labelsToRemove []string) error {
-	k8sOperator := operator.NewOperator(k8sClient, nil, nil, nil)
+	k8sOperator := operator.NewOperator(k8sClient, nil, nil, nil, nil)
 	return k8sOperator.LabelNode(name, labelsToAdd, labelsToRemove)
 }
 

@@ -31,7 +31,7 @@ var _ = Describe("K8sOperatorNamespace", func() {
 	)
 
 	BeforeEach(func() {
-		k8sOperator = operator.NewOperator(framework.GetK8sClient(), nil, nil, nil)
+		k8sOperator = operator.NewOperator(framework.GetK8sClient(), nil, nil, nil, nil)
 	})
 
 	AfterEach(func() {

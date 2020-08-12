@@ -260,6 +260,23 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
 	)
 
+	ws.Route(ws.POST("/{namespace}/name/{release}/pause/withoutchart").To(releaseHandler.PauseReleaseWithoutChart).
+		Doc("暂停Release服务(不渲染chart)").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Returns(200, "OK", nil).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
+
+	ws.Route(ws.POST("/{namespace}/name/{release}/recover/withoutchart").To(releaseHandler.RecoverReleaseWithoutChart).
+		Doc("恢复Release服务(不渲染chart)").
+		Metadata(restfulspec.KeyOpenAPITags, tags).
+		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
+		Param(ws.PathParameter("release", "Release名字").DataType("string")).
+		Returns(200, "OK", nil).
+		Returns(500, "Internal Error", http.ErrorMessageResponse{}),
+	)
+
 	ws.Route(ws.POST("/{namespace}/name/{release}/ingresses/{ingress}").To(releaseHandler.UpdateReleaseIngress).
 		Doc("修改Release下Ingress资源信息").
 		Metadata(restfulspec.KeyOpenAPITags, tags).
@@ -791,6 +808,27 @@ func (handler *ReleaseHandler) RecoverRelease(request *restful.Request, response
 		return
 	}
 	err = handler.usecase.PauseOrRecoverRelease(namespace, name, async, timeoutSec, false)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to recover release %s: %s", name, err.Error()))
+		return
+	}
+}
+
+func (handler *ReleaseHandler) PauseReleaseWithoutChart(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	err := handler.usecase.PauseReleaseWithoutChart(namespace, name)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to pause release %s: %s", name, err.Error()))
+		return
+	}
+
+}
+
+func (handler *ReleaseHandler) RecoverReleaseWithoutChart(request *restful.Request, response *restful.Response) {
+	namespace := request.PathParameter("namespace")
+	name := request.PathParameter("release")
+	err := handler.usecase.RecoverReleaseWithoutChart(namespace, name)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to recover release %s: %s", name, err.Error()))
 		return

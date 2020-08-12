@@ -31,6 +31,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	releaseconfigclientset "transwarp/release-config/pkg/client/clientset/versioned"
 )
 
 const (
@@ -42,6 +43,7 @@ type Operator struct {
 	k8sCache           k8s.Cache
 	kubeClients        *helm.Client
 	k8sMigrationClient *migrationclientset.Clientset
+	k8sReleaseConfigClient *releaseconfigclientset.Clientset
 }
 
 func (op *Operator) DeleteStatefulSetPvcs(statefulSets []*k8sModel.StatefulSet) error {
@@ -1136,11 +1138,117 @@ func (op *Operator) UpdateConfigMap(namespace, configMapName string, requestBody
 	return
 }
 
-func NewOperator(client *kubernetes.Clientset, k8sCache k8s.Cache, kubeClients *helm.Client, k8sMigrationClient *migrationclientset.Clientset) *Operator {
+func (op *Operator) BackupAndUpdateReplicas(namespace, releaseName string, releaseStatus *k8sModel.ResourceSet, replicas int32) (err error) {
+	releaseConfig, err := op.k8sReleaseConfigClient.TranswarpV1beta1().ReleaseConfigs(namespace).Get(releaseName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	if releaseConfig.GetAnnotations() == nil {
+		releaseConfig.SetAnnotations(map[string]string{})
+	}
+
+	for _, deployment := range releaseStatus.Deployments {
+		k8sDeployment, err := op.client.AppsV1beta1().Deployments(deployment.Namespace).Get(deployment.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if k8sDeployment.Status.Replicas == replicas {
+			return errors.Errorf("deployment %s replicas already be zero", k8sDeployment.Name)
+		}
+
+		releaseConfig.Annotations["deploy/" + k8sDeployment.Name] = strconv.FormatInt(int64(k8sDeployment.Status.Replicas), 10)
+		k8sDeployment.Spec.Replicas = &replicas
+		_, err = op.client.AppsV1beta1().Deployments(namespace).Update(k8sDeployment)
+		if err != nil {
+			return err
+		}
+	}
+
+	for _, sts := range releaseStatus.StatefulSets {
+		k8sStatefulSet, err := op.client.AppsV1beta1().StatefulSets(sts.Namespace).Get(sts.Name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if k8sStatefulSet.Status.Replicas == replicas {
+			return errors.Errorf("statefulset %s replicas already be zero", k8sStatefulSet.Name)
+		}
+		releaseConfig.Annotations["sts/" + k8sStatefulSet.Name] = strconv.FormatInt(int64(k8sStatefulSet.Status.Replicas), 10)
+		k8sStatefulSet.Spec.Replicas = &replicas
+		_, err = op.client.AppsV1beta1().StatefulSets(namespace).Update(k8sStatefulSet)
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = op.k8sReleaseConfigClient.TranswarpV1beta1().ReleaseConfigs(namespace).Update(releaseConfig)
+	if err != nil {
+		return err
+	}
+	return
+}
+
+func(op *Operator) RecoverReplicas(namespace string, releaseName string, releaseStatus *k8sModel.ResourceSet) error {
+	releaseConfig, err := op.k8sReleaseConfigClient.TranswarpV1beta1().ReleaseConfigs(namespace).Get(releaseName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	deployList := map[string]string{}
+	stsList := map[string]string{}
+	for k, v := range releaseConfig.Annotations {
+		if strings.HasPrefix(k, "sts/") {
+			tokens := strings.Split(k, "/")
+			stsList[tokens[1]] = v
+			//delete(releaseConfig.Annotations, k)
+		} else if strings.HasPrefix(k, "deploy/") {
+			tokens := strings.Split(k, "/")
+			deployList[tokens[1]] = v
+			//delete(releaseConfig.Annotations, k)
+		} else {
+			continue
+		}
+	}
+
+	// update deployment, sts
+	for name, replicaStr := range deployList {
+		deployment, err := op.client.AppsV1beta1().Deployments(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		replicas64, err :=  strconv.ParseInt(replicaStr,10,32)
+		if err != nil {
+			return err
+		}
+		replicas32 := int32(replicas64)
+		deployment.Spec.Replicas = &replicas32
+		_, err = op.client.AppsV1beta1().Deployments(namespace).Update(deployment)
+		if err != nil {
+			return err
+		}
+	}
+
+	for name, replicaStr := range stsList {
+		sts, err := op.client.AppsV1beta1().StatefulSets(namespace).Get(name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		replicas64, err := strconv.ParseInt(replicaStr, 10, 32)
+		replicas32 := int32(replicas64)
+		sts.Spec.Replicas = &replicas32
+		_, err = op.client.AppsV1beta1().StatefulSets(namespace).Update(sts)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+
+func NewOperator(client *kubernetes.Clientset, k8sCache k8s.Cache, kubeClients *helm.Client, k8sMigrationClient *migrationclientset.Clientset, k8sReleaseConfigClient *releaseconfigclientset.Clientset) *Operator {
 	return &Operator{
 		client:             client,
 		k8sCache:           k8sCache,
 		kubeClients:        kubeClients,
 		k8sMigrationClient: k8sMigrationClient,
+		k8sReleaseConfigClient: k8sReleaseConfigClient,
 	}
 }

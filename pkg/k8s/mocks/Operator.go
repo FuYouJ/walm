@@ -29,6 +29,20 @@ func (_m *Operator) AnnotateNode(name string, annotationsToAdd map[string]string
 	return r0
 }
 
+// BackupAndUpdateReplicas provides a mock function with given fields: namespace, releaseName, releaseStatus, replicas
+func (_m *Operator) BackupAndUpdateReplicas(namespace string, releaseName string, releaseStatus *modelsk8s.ResourceSet, replicas int32) error {
+	ret := _m.Called(namespace, releaseName, releaseStatus, replicas)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string, *modelsk8s.ResourceSet, int32) error); ok {
+		r0 = rf(namespace, releaseName, releaseStatus, replicas)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // BuildManifestObjects provides a mock function with given fields: namespace, manifest
 func (_m *Operator) BuildManifestObjects(namespace string, manifest string) ([]map[string]interface{}, error) {
 	ret := _m.Called(namespace, manifest)
@@ -320,6 +334,20 @@ func (_m *Operator) MigratePod(mig *modelsk8s.Mig) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(*modelsk8s.Mig) error); ok {
 		r0 = rf(mig)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// RecoverReplicas provides a mock function with given fields: namespace, name, releaseStatus
+func (_m *Operator) RecoverReplicas(namespace string, name string, releaseStatus *modelsk8s.ResourceSet) error {
+	ret := _m.Called(namespace, name, releaseStatus)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, string, *modelsk8s.ResourceSet) error); ok {
+		r0 = rf(namespace, name, releaseStatus)
 	} else {
 		r0 = ret.Error(0)
 	}
