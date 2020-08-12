@@ -247,7 +247,7 @@ func (sc *ServCmd) run() error {
 		klog.Errorf("failed to create helm manager: %s", err.Error())
 		return err
 	}
-	k8sOperator := operator.NewOperator(k8sClient, k8sCache, kubeClients, k8sMigrationClient)
+	k8sOperator := operator.NewOperator(k8sClient, k8sCache, kubeClients, k8sMigrationClient, k8sReleaseConfigClient)
 	if config.RedisConfig == nil {
 		err = errors.New("redis config can not be empty")
 		klog.Error(err.Error())

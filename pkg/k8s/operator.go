@@ -43,4 +43,6 @@ type Operator interface {
 	DeleteService(namespacae, name string) (err error)
 	UpdateIngress(namespace, ingressName string, requestBody *k8s.IngressRequestBody) error
 	UpdateConfigMap(namespace, configMapName string, requestBody *k8s.ConfigMapRequestBody) error
+	BackupAndUpdateReplicas(namespace, releaseName string, releaseStatus *k8s.ResourceSet, replicas int32) error
+	RecoverReplicas(namespace string, name string, releaseStatus *k8s.ResourceSet) error
 }

@@ -58,3 +58,30 @@ func buildActionMsg(paused bool) string {
 		return "recover"
 	}
 }
+
+func (helm *Helm) PauseReleaseWithoutChart(namespace, releaseName string) error {
+	releaseInfo, err := helm.GetRelease(namespace, releaseName)
+	if err != nil {
+		return err
+	}
+
+	replicas := int32(0)
+	err = helm.k8sOperator.BackupAndUpdateReplicas(namespace, releaseName, releaseInfo.Status, replicas)
+	if err != nil {
+		klog.Errorf("failed to backup and update replicas of %s/%s : %s", namespace, releaseName, err.Error())
+		return err
+	}
+	return nil
+}
+
+func (helm *Helm) RecoverReleaseWithoutChart(namespace, releaseName string) error {
+	releaseInfo, err := helm.GetRelease(namespace, releaseName)
+	if err != nil {
+		return err
+	}
+	err = helm.k8sOperator.RecoverReplicas(namespace, releaseName, releaseInfo.Status)
+	if err != nil {
+		return err
+	}
+	return nil
+}

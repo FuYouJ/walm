@@ -37,4 +37,6 @@ type UseCase interface {
 
 	UpdateReleaseIngress(namespace, name, ingressName string, requestBody *k8s.IngressRequestBody) error
 	UpdateReleaseConfigMap(namespace, name, configMapName string, requestBody *k8s.ConfigMapRequestBody) error
+	PauseReleaseWithoutChart(namespace string, name string) error
+	RecoverReleaseWithoutChart(namespace string, name string) error
 }
