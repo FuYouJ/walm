@@ -3,6 +3,7 @@ package release
 import (
 	"WarpCloud/walm/pkg/models/common"
 	"WarpCloud/walm/pkg/models/k8s"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type ReleaseInfoList struct {
@@ -189,7 +190,7 @@ type ReleaseResourceJob struct {
 }
 
 type ReleaseDryRunUpdateInfo struct {
-	Configmaps       []interface{}       `json:"configmaps" description:"dryrun configmap results"`
+	Configmaps       []corev1.ConfigMap `json:"configmaps" description:"dryrun configmap results"`
 	DependedReleases []DependedRelease `json:"dependedReleases" description:"releases depended on current release"`
 }
 

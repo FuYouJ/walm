@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/tidwall/gjson"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 )
 
@@ -62,7 +63,7 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 		return nil, err
 	}
 
-	configmapList := []interface{}{}
+	configmapList := []corev1.ConfigMap{}
 	for name, resource := range cmResources {
 		oldResource := oldcmResources[name]
 		oldResourceByte, err := json.Marshal(oldResource)
@@ -78,7 +79,17 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 		dmp := diffmatchpatch.New()
 		diffs := dmp.DiffMain(oldData, data, false)
 		if len(diffs) > 1 {
-			configmapList = append(configmapList, resource)
+			data, err := json.Marshal(resource)
+			if err != nil {
+				klog.Errorf("failed to marshal configmap interface: %s", err.Error())
+				return nil, err
+			}
+			configmap := corev1.ConfigMap{}
+			err = json.Unmarshal(data, &configmap)
+			if err != nil {
+				return nil, err
+			}
+			configmapList = append(configmapList, configmap)
 		}
 	}
 	// compare outputValues
