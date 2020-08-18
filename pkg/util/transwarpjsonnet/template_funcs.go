@@ -24,7 +24,7 @@ func newFuncMap() map[string]interface{} {
 	m["jsonArray"] = UnmarshalJsonArray
 	m["dir"] = path.Dir
 	m["map"] = CreateMap
-	//m["getenv"] = Getenv
+	m["getenv"] = os.Getenv
 	m["join"] = strings.Join
 	m["datetime"] = time.Now
 	m["toUpper"] = strings.ToUpper

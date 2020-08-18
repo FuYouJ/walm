@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"text/template/parse"
 
 	"github.com/google/go-jsonnet"
 	jsonnetAst "github.com/google/go-jsonnet/ast"
@@ -415,10 +416,29 @@ func renderFileWithCfd(filename string, data string, confdkv interface{}, envMap
 	t, err = template.New(filename).
 		Funcs(sprig.TxtFuncMap()).
 		Funcs(newFuncMap()).
-		Funcs(userDefinedFuncMap(envMap)).
+		//Funcs(userDefinedFuncMap(envMap)).
 		Funcs(store.FuncMap).Parse(data)
 	if err != nil {
 		return "", err
+	}
+
+	matchNames := make(map[string]struct{})
+	matchNames["getenv"] = struct{}{}
+
+	for idx, node := range t.Tree.Root.Nodes {
+		if matchNode(node, matchNames) {
+			textTmpl, err := template.New(filename).Funcs(sprig.TxtFuncMap()).Funcs(newFuncMap()).Funcs(store.FuncMap).Delims("{{{{{{", "}}}}}}").Parse(node.String())
+			if err != nil {
+				panic(err)
+			}
+			newNode := textTmpl.Root.Nodes[0]
+			// newNode must be text node
+			textNode := newNode.(*parse.TextNode)
+			// assign node position to newNode
+			textNode.Pos = node.Position()
+			//t := reflect.ValueOf(&node).MethodByName("tree").Call([]reflect.Value{})
+			t.Tree.Root.Nodes[idx] = textNode
+		}
 	}
 
 	var fileTpl bytes.Buffer
@@ -429,6 +449,136 @@ func renderFileWithCfd(filename string, data string, confdkv interface{}, envMap
 	return fileTpl.String(), nil
 }
 
+func matchActionNode(actionNode *parse.ActionNode, funcNames map[string]struct{}) bool {
+	if actionNode == nil {
+		return false
+	}
+	for _, cmdNode := range actionNode.Pipe.Cmds {
+		if matchCmdNode(cmdNode, funcNames) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchPipeNode(pipeNode *parse.PipeNode, funcNames map[string]struct{}) bool {
+	if pipeNode == nil {
+		return false
+	}
+	for _, cmdNode := range pipeNode.Cmds {
+		if matchCmdNode(cmdNode, funcNames) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchCmdNode(cmdNode *parse.CommandNode, funcNames map[string]struct{}) bool {
+	if cmdNode == nil {
+		return false
+	}
+	// check the first argument of command node
+	if _, exists := funcNames[cmdNode.Args[0].String()]; exists {
+		return true
+	}
+	// recursively check other arguments
+	if len(cmdNode.Args) > 1 {
+		for _, argNode := range cmdNode.Args[1:] {
+			if matchNode(argNode, funcNames) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// used by if, range, with
+func matchBranchNode(branchNode *parse.BranchNode, funcNames map[string]struct{}) bool {
+	if branchNode == nil {
+		return false
+	}
+	if matchPipeNode(branchNode.Pipe, funcNames) {
+		return true
+	}
+	if matchListNode(branchNode.List, funcNames) {
+		return true
+	}
+	if matchListNode(branchNode.ElseList, funcNames) {
+		return true
+	}
+	return false
+}
+
+func matchListNode(listNode *parse.ListNode, funcNames map[string]struct{}) bool {
+	if listNode == nil {
+		return false
+	}
+	for _, node := range listNode.Nodes {
+		if matchNode(node, funcNames) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchIfNode(ifNode *parse.IfNode, funcNames map[string]struct{}) bool {
+	if ifNode == nil {
+		return false
+	}
+	return matchBranchNode(&ifNode.BranchNode, funcNames)
+}
+
+func matchRangeNode(rangeNode *parse.RangeNode, funcNames map[string]struct{}) bool {
+	if rangeNode == nil {
+		return false
+	}
+	return matchBranchNode(&rangeNode.BranchNode, funcNames)
+}
+
+func matchWithNode(withNode *parse.WithNode, funcNames map[string]struct{}) bool {
+	if withNode == nil {
+		return false
+	}
+	return matchBranchNode(&withNode.BranchNode, funcNames)
+}
+
+func matchTemplateNode(templateNode *parse.TemplateNode, funcNames map[string]struct{}) bool {
+	if templateNode == nil {
+		return false
+	}
+	return matchPipeNode(templateNode.Pipe, funcNames)
+}
+
+// traverse node to match given function name
+func matchNode(node parse.Node, funcNames map[string]struct{}) bool {
+	switch node.Type() {
+	case parse.NodeAction:
+		actionNode := node.(*parse.ActionNode)
+		return matchActionNode(actionNode, funcNames)
+	case parse.NodePipe:
+		pipeNode := node.(*parse.PipeNode)
+		return matchPipeNode(pipeNode, funcNames)
+	case parse.NodeCommand:
+		cmdNode := node.(*parse.CommandNode)
+		return matchCmdNode(cmdNode, funcNames)
+	case parse.NodeList:
+		listNode := node.(*parse.ListNode)
+		return matchListNode(listNode, funcNames)
+	case parse.NodeIf:
+		ifNode := node.(*parse.IfNode)
+		return matchIfNode(ifNode, funcNames)
+	case parse.NodeRange:
+		rangeNode := node.(*parse.RangeNode)
+		return matchRangeNode(rangeNode, funcNames)
+	case parse.NodeWith:
+		withNode := node.(*parse.WithNode)
+		return matchWithNode(withNode, funcNames)
+	case parse.NodeTemplate:
+		templateNode := node.(*parse.TemplateNode)
+		return matchTemplateNode(templateNode, funcNames)
+	}
+	return false
+}
 
 func getConfdKV(fileData interface{}, keys []string) (map[string]string, error) {
 	vars := make(map[string]string)
