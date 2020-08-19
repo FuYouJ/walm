@@ -252,6 +252,7 @@ func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string, updat
 	}
 
 	// for pod getenv
+	/*
 	envMap := make(map[string]string)
 	for _, resource := range resourcesMap {
 		if  resource["kind"] == string(k8sModel.StatefulSetKind)  || resource["kind"] == string(k8sModel.DeploymentKind) {
@@ -275,6 +276,7 @@ func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string, updat
 
 		}
 	}
+	*/
 
 	resources = map[string][]byte{}
 	for fileName, resource := range resourcesMap {
@@ -284,7 +286,7 @@ func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string, updat
 				continue
 			}
 			data := resource["data"].(map[string]interface{})
-			newData, err := renderDataWithConfd(data, envMap)
+			newData, err := renderDataWithConfd(data)
 			if err != nil {
 				klog.Errorf("failed to render configmap template with confd")
 				return nil, err
@@ -358,10 +360,10 @@ func parseTemplateWithTLAString(templatePath string, tlaVar string, tlaValue str
 		klog.Errorf("failed to parse template %s, %s=%s, error: %+v", templatePath, tlaVar, tlaValue, err)
 		return "", err
 	}
-	return string(output), nil
+	return output, nil
 }
 
-func renderDataWithConfd(data map[string]interface{}, envMap map[string]string) (map[string]interface{}, error) {
+func renderDataWithConfd(data map[string]interface{}) (map[string]interface{}, error) {
 	tmplFiles := map[string]string{}
 	renderedFiles := map[string]interface{}{}
 	confdKV := make(map[string]string)
@@ -380,7 +382,7 @@ func renderDataWithConfd(data map[string]interface{}, envMap map[string]string) 
 	}
 	tmplRenderedFiles := map[string]interface{}{}
 	for k, v := range tmplFiles {
-		str, err := renderFileWithCfd(k, v, confdKV, envMap)
+		str, err := renderFileWithCfd(k, v, confdKV)
 		if err != nil {
 			if strings.Contains(err.Error(),"function \"getenv\" not defined") {
 				tmplRenderedFiles[k] = v
@@ -395,7 +397,7 @@ func renderDataWithConfd(data map[string]interface{}, envMap map[string]string) 
 	return renderedFiles, nil
 }
 
-func renderFileWithCfd(filename string, data string, confdkv interface{}, envMap map[string]string) (string, error) {
+func renderFileWithCfd(filename string, data string, confdkv interface{}) (string, error) {
 	var t *template.Template
 
 	store := memkv.New()
