@@ -190,7 +190,7 @@ type ReleaseResourceJob struct {
 }
 
 type ReleaseDryRunUpdateInfo struct {
-	Configmaps       []corev1.ConfigMap `json:"configmaps" description:"dryrun configmap results"`
+	Configmaps       []*corev1.ConfigMap `json:"configmaps" description:"dryrun configmap results"`
 	DependedReleases []DependedRelease `json:"dependedReleases" description:"releases depended on current release"`
 }
 
