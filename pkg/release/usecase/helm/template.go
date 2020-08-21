@@ -63,7 +63,7 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 		return nil, err
 	}
 
-	configmapList := []corev1.ConfigMap{}
+	configmapList := []*corev1.ConfigMap{}
 	for name, resource := range cmResources {
 		oldResource := oldcmResources[name]
 		oldResourceByte, err := json.Marshal(oldResource)
@@ -89,7 +89,8 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 			if err != nil {
 				return nil, err
 			}
-			configmapList = append(configmapList, configmap)
+			//k8sConfigMap, err := converter.ConvertConfigMapFromK8s(&configmap)
+			configmapList = append(configmapList, &configmap)
 		}
 	}
 	// compare outputValues
