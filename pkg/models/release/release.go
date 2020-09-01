@@ -192,6 +192,7 @@ type ReleaseResourceJob struct {
 type ReleaseDryRunUpdateInfo struct {
 	Configmaps       []*corev1.ConfigMap `json:"configmaps" description:"dryrun configmap results"`
 	DependedReleases []DependedRelease `json:"dependedReleases" description:"releases depended on current release"`
+	ReleaseConfig    *k8s.ReleaseConfig `json:"releaseConfig" description:"release config"`
 }
 
 type DependedRelease struct {

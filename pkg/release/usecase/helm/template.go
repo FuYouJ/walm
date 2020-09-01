@@ -1,15 +1,19 @@
 package helm
 
 import (
+	"WarpCloud/walm/pkg/k8s/converter"
 	"WarpCloud/walm/pkg/models/common"
 	errorModel "WarpCloud/walm/pkg/models/error"
 	"WarpCloud/walm/pkg/models/release"
 	"WarpCloud/walm/pkg/release/utils"
 	"encoding/json"
+	"github.com/pkg/errors"
 	"github.com/sergi/go-diff/diffmatchpatch"
 	"github.com/tidwall/gjson"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
+	"reflect"
+	"transwarp/release-config/pkg/apis/transwarp/v1beta1"
 )
 
 func (helm *Helm) DryRunRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) ([]map[string]interface{}, error) {
@@ -53,6 +57,35 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 		klog.Errorf("failed to build manifest objects : %s", err.Error())
 		return nil, err
 	}
+
+	// ReleaseConfig Diff
+	oldrsResource, err := getResourceConfigResource(oldresources)
+	if err != nil {
+		return nil, err
+	}
+	rsResource, err := getResourceConfigResource(resources)
+	if err != nil {
+		return nil, err
+	}
+
+	k8sReleaseConfig := &v1beta1.ReleaseConfig{}
+	oldSpec := oldrsResource["spec"]
+	newSpec := rsResource["spec"]
+	if !reflect.DeepEqual(oldSpec, newSpec) {
+		data, err := json.Marshal(rsResource)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal(data, k8sReleaseConfig)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		k8sReleaseConfig = nil
+	}
+
+	releaseConfig, _ := converter.ConvertReleaseConfigFromK8s(k8sReleaseConfig)
+	// ConfigMaps diff
 
 	oldcmResources, err := getConfigMapResources(oldresources)
 	if err != nil {
@@ -140,6 +173,7 @@ func (helm *Helm) DryRunUpdateRelease(namespace string, releaseRequest *release.
 	return &release.ReleaseDryRunUpdateInfo{
 		Configmaps:       configmapList,
 		DependedReleases: dependedReleases,
+		ReleaseConfig: releaseConfig,
 	}, nil
 }
 
@@ -156,6 +190,15 @@ func getConfigMapResources(resources []map[string]interface{}) (map[string]inter
 		}
 	}
 	return cmResources, nil
+}
+
+func getResourceConfigResource(resources []map[string]interface{}) (map[string]interface{}, error) {
+	for _, resource := range resources {
+		if resource["kind"] == "ReleaseConfig" {
+			return resource, nil
+		}
+	}
+	return nil, errors.Errorf("releaseConfig not found in resources build by manifest")
 }
 
 func (helm *Helm) ComputeResourcesByDryRunRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile) (*release.ReleaseResources, error) {
