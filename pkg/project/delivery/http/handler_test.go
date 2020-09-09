@@ -449,7 +449,7 @@ func TestProjectHandler_UpgradeReleaseInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("UpgradeReleaseInProject", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
+				mockUseCase.On("UpgradeReleaseInProject", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
 			},
 			body:       &release.ReleaseRequestV2{},
 			statusCode: 500,
@@ -457,7 +457,7 @@ func TestProjectHandler_UpgradeReleaseInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("UpgradeReleaseInProject", "testns", "testnm", mock.Anything, false, int64(0)).Return(nil)
+				mockUseCase.On("UpgradeReleaseInProject", "testns", "testnm", mock.Anything, false, false, int64(0)).Return(nil)
 			},
 			body:       &release.ReleaseRequestV2{},
 			statusCode: 200,
@@ -465,10 +465,10 @@ func TestProjectHandler_UpgradeReleaseInProject(t *testing.T) {
 		{
 			initMock: func() {
 				refreshMockUseCase()
-				mockUseCase.On("UpgradeReleaseInProject", "testns", "testnm", mock.Anything, true, int64(60)).Return(nil)
+				mockUseCase.On("UpgradeReleaseInProject", "testns", "testnm", mock.Anything, true, true, int64(60)).Return(nil)
 			},
 			body:       &release.ReleaseRequestV2{},
-			queryUrl:   "?async=true&timeoutSec=60",
+			queryUrl:   "?async=true&updateConfigMap=true&timeoutSec=60",
 			statusCode: 200,
 		},
 		{

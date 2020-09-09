@@ -1078,7 +1078,7 @@ func TestProject_UpgradeReleaseInProject(t *testing.T) {
 		test.initMock()
 		releaseRequest := &release.ReleaseRequestV2{}
 		releaseRequest.Name = "test-name"
-		err := mockProjectManager.UpgradeReleaseInProject("test-ns", "test-nm", releaseRequest, false, 0)
+		err := mockProjectManager.UpgradeReleaseInProject("test-ns", "test-nm", releaseRequest, false, true, 0)
 		assert.IsType(t, test.err, err)
 
 		mockProjectCache.AssertExpectations(t)

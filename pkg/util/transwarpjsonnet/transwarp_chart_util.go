@@ -249,7 +249,7 @@ func ProcessJsonnetChart(repo string, rawChart *chart.Chart, releaseNamespace,
 		k8sLabels["product-line"] = releaseLabels["product-line"]
 	}
 
-	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels, updateConfigMap)
+	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels)
 	if err != nil {
 		klog.Errorf("failed to build native chart templates : %s", err.Error())
 		return err
@@ -325,7 +325,7 @@ func ProcessJsonnetChartV1(
 	if releaseLabels["product-line"] != "" {
 		k8sLabels["product-line"] = releaseLabels["product-line"]
 	}
-	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels, updateConfigMap)
+	kubeResources, err := buildKubeResourcesByJsonStr(jsonStr, k8sLabels)
 	if err != nil {
 		klog.Errorf("failed to build native chart templates : %s", err.Error())
 		return err

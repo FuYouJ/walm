@@ -17,10 +17,10 @@ const (
 	defaultTimeoutSec int64 = 60 * 5
 )
 
-func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
+func (helm *Helm) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool,  updateConfigMap bool, timeoutSec int64) error {
 	retryTimes := 40
 	for {
-		err := helm.installUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, async, timeoutSec, false, true, true)
+		err := helm.installUpgradeReleaseWithStrict(namespace, releaseRequest, chartFiles, async, timeoutSec, false, updateConfigMap, true)
 		if err != nil {
 			if strings.Contains(err.Error(), releasei.WaitReleaseTaskMsgPrefix) && retryTimes > 0 {
 				klog.Warningf("retry to install or upgrade release %s/%s after 15 second", namespace, releaseRequest.Name)

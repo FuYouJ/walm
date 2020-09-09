@@ -116,7 +116,7 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Param(ws.QueryParameter("async", "异步与否").DataType("boolean").Required(false)).
 		Param(ws.QueryParameter("timeoutSec", "超时时间").DataType("integer").Required(false)).
 		Param(ws.QueryParameter("fullUpdate", "是否全量更新").DataType("boolean").Required(false)).
-		Param(ws.QueryParameter("updateConfigMap", "是否(强制)更新configmap").DataType("boolean").Required(false)).
+		Param(ws.QueryParameter("updateConfigMap", "是否(强制)更新configmap").DataType("boolean").Required(false).DefaultValue("true")).
 		Reads(releaseModel.ReleaseRequestV2{}).
 		Returns(200, "OK", http.WarnMessageResponse{}).
 		Returns(500, "Internal Error", http.ErrorMessageResponse{}))
@@ -127,7 +127,7 @@ func RegisterReleaseHandler(releaseHandler *ReleaseHandler) *restful.WebService 
 		Metadata(restfulspec.KeyOpenAPITags, tags).
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.FormParameter("release", "Release名字").DataType("string").Required(true)).
-		Param(ws.QueryParameter("updateConfigMap", "是否(强制)更新configmap").DataType("boolean").Required(false)).
+		Param(ws.QueryParameter("updateConfigMap", "是否(强制)更新configmap").DataType("boolean").Required(false).DefaultValue("true")).
 		Param(ws.FormParameter("chart", "chart").DataType("file").Required(true)).
 		Param(ws.FormParameter("body", "request").DataType("string")).
 		Returns(200, "OK", nil).

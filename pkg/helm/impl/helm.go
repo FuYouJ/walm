@@ -21,6 +21,7 @@ import (
 	"github.com/go-resty/resty"
 	"github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
+	"github.com/tidwall/gjson"
 	"helm.sh/helm/pkg/action"
 	"helm.sh/helm/pkg/chart"
 	"helm.sh/helm/pkg/chart/loader"
@@ -30,6 +31,8 @@ import (
 	helmRelease "helm.sh/helm/pkg/release"
 	"helm.sh/helm/pkg/storage"
 	"helm.sh/helm/pkg/storage/driver"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -200,7 +203,7 @@ func processMetaInfoParams(metaInfo *release.ChartMetaInfo, metaInfoParams *rele
 
 func (helmImpl *Helm) InstallOrCreateRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
 	dryRun bool, update bool, oldReleaseInfo *release.ReleaseInfoV2) (*release.ReleaseCache, error) {
-	return helmImpl.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, false, true,true)
+	return helmImpl.InstallOrCreateReleaseWithStrict(namespace, releaseRequest, chartFiles, dryRun, update, oldReleaseInfo, false, true, true)
 }
 
 func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile,
@@ -294,6 +297,13 @@ func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, release
 			return nil, err
 		}
 	}
+	if update && !updateConfigMap {
+		rawChart, err = helmImpl.processRawChartConfigMaps(rawChart, oldReleaseInfo)
+		if err != nil {
+			klog.Errorf("failed to process %s/%s rawchart with previous configmap", oldReleaseInfo.Namespace, oldReleaseInfo.Name)
+			return nil, err
+		}
+	}
 
 	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(namespace, releaseRequest.Name, rawChart, valueOverride, update, dryRun, releasePlugins)
 	if err != nil {
@@ -302,6 +312,51 @@ func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, release
 	}
 
 	return releaseCache, nil
+}
+
+func (helmImpl *Helm) processRawChartConfigMaps(rawChart *chart.Chart, oldReleaseInfo *release.ReleaseInfoV2) (*chart.Chart, error) {
+	configMaps := map[string][]byte{}
+	for _, configmap := range oldReleaseInfo.Status.ConfigMaps {
+		res, err := helmImpl.k8sCache.GetResource(k8sModel.ConfigMapKind, oldReleaseInfo.Namespace, configmap.Name)
+		if err != nil {
+			return nil, err
+		}
+		newRes := res.(*k8sModel.ConfigMap)
+		k8sConfigMap := v1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: chart.APIVersionV1,
+				Kind:       "ConfigMap",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      newRes.Labels,
+				Name:        newRes.Name,
+				Namespace:   newRes.Namespace,
+				Annotations: newRes.Annotations,
+			},
+			Data: newRes.Data,
+		}
+		resourceBytes, err := yaml.Marshal(k8sConfigMap)
+		if err != nil {
+			return nil, err
+		}
+		configMaps[configmap.Name] = resourceBytes
+	}
+	for idx, file := range rawChart.Templates {
+		fileData, err := yaml.YAMLToJSON(file.Data)
+		if err != nil {
+			return nil, err
+		}
+		if gjson.GetBytes(fileData, "kind").String() != "ConfigMap" {
+			continue
+		}
+		configMapName := gjson.GetBytes(fileData, "metadata.name").String()
+		if configMaps[configMapName] != nil {
+			rawChart.Templates[idx].Data = configMaps[configMapName]
+		} else {
+			return nil, errors.Errorf("configmap %s already not exist", configMapName)
+		}
+	}
+	return rawChart, nil
 }
 
 func addDefaultPlugins(releasePlugins []*k8sModel.ReleasePlugin) []*k8sModel.ReleasePlugin {
@@ -433,7 +488,11 @@ func (helmImpl *Helm) PauseOrRecoverRelease(paused bool, oldReleaseInfo *release
 
 	valueOverride := helmRel.Config
 	valueOverride[plugins.WalmPluginConfigKey] = releasePlugins
-
+	rawChart, err = helmImpl.processRawChartConfigMaps(rawChart, oldReleaseInfo)
+	if err != nil {
+		klog.Errorf("failed to process %s/%s rawchart with previous configmap", oldReleaseInfo.Namespace, oldReleaseInfo.Name)
+		return nil, err
+	}
 	releaseCache, err := helmImpl.doInstallUpgradeReleaseFromChart(oldReleaseInfo.Namespace, oldReleaseInfo.Name, rawChart, valueOverride, true, false, releasePlugins)
 	if err != nil {
 		klog.Errorf("failed to update release from chart : %s", err.Error())
@@ -695,8 +754,8 @@ func (helmImpl *Helm) getDeleteAction(namespace string) (*action.Uninstall, erro
 	return action.NewUninstall(config), nil
 }
 
-func (helm *Helm) mergeIsomateResources(namespace string, manifests map[string]string, defaultIsomateName string) ([]*chart.File, error) {
-	_, kubeClient := helm.kubeClients.GetKubeClient(namespace)
+func (helmImpl *Helm) mergeIsomateResources(namespace string, manifests map[string]string, defaultIsomateName string) ([]*chart.File, error) {
+	_, kubeClient := helmImpl.kubeClients.GetKubeClient(namespace)
 	resourceMap := map[string]*resource.Info{}
 	for isomateName, manifest := range manifests {
 		resources, err := kubeClient.Build(bytes.NewBufferString(manifest))

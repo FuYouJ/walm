@@ -13,6 +13,7 @@ func ConvertConfigMapFromK8s(oriConfigMap *corev1.ConfigMap) (*k8s.ConfigMap, er
 
 	return &k8s.ConfigMap{
 		Meta: k8s.NewMeta(k8s.ConfigMapKind, configMap.Namespace, configMap.Name, k8s.NewState("Ready", "", "") ),
+		Labels:   configMap.Labels,
 		Data:     configMap.Data,
 	}, nil
 }

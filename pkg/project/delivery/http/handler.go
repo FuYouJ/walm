@@ -122,6 +122,7 @@ func RegisterProjectHandler(handler *ProjectHandler) *restful.WebService {
 		Param(ws.PathParameter("namespace", "租户名字").DataType("string")).
 		Param(ws.PathParameter("project", "Project名字").DataType("string")).
 		Param(ws.QueryParameter("async", "异步与否").DataType("boolean").Required(false)).
+		Param(ws.QueryParameter("updateConfigMap","是否(强制)更新configmap").DataType("boolean").Required(false).DefaultValue("true")).
 		Param(ws.QueryParameter("timeoutSec", "超时时间").DataType("integer").Required(false)).
 		Reads(release.ReleaseRequestV2{}).
 		Returns(200, "OK", nil).
@@ -354,6 +355,11 @@ func (handler *ProjectHandler) UpgradeReleaseInProject(request *restful.Request,
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("query param async value is not valid : %s", err.Error()))
 		return
 	}
+	updateConfigMap, err := httpUtils.GetUpdateConfigMapParam(request)
+	if err != nil {
+		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("query param updateConfigMap value is not valid : %s", err.Error()))
+		return
+	}
 	timeoutSec, err := httpUtils.GetTimeoutSecQueryParam(request)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("query param timeoutSec value is not valid : %s", err.Error()))
@@ -365,7 +371,7 @@ func (handler *ProjectHandler) UpgradeReleaseInProject(request *restful.Request,
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to read request body: %s", err.Error()))
 		return
 	}
-	err = handler.usecase.UpgradeReleaseInProject(tenantName, projectName, releaseRequest, async, timeoutSec)
+	err = handler.usecase.UpgradeReleaseInProject(tenantName, projectName, releaseRequest, async, updateConfigMap, timeoutSec)
 	if err != nil {
 		httpUtils.WriteErrorResponse(response, -1, fmt.Sprintf("failed to upgrade release in project : %s", err.Error()))
 		return
