@@ -56,7 +56,7 @@ func (projectImpl *Project) doRemoveRelease(namespace, name, releaseName string,
 		}
 		for _, affectReleaseParams := range affectReleaseRequest {
 			klog.Infof("Update BecauseOf Dependency Modified: %v", *affectReleaseParams)
-			err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, affectReleaseParams, nil, false, 0)
+			err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, affectReleaseParams, nil, false, true,0)
 			if err != nil {
 				klog.Errorf("RemoveReleaseInProject Other Affected Release install release %s error %v\n", releaseParams.Name, err)
 				return err

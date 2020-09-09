@@ -115,7 +115,7 @@ func TestProject_doRemoveRelease(t *testing.T) {
 				}).Return(mockTaskState, nil)
 				mockTaskState.On("IsFinished").Return(true)
 				mockTaskState.On("IsSuccess").Return(true)
-				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 				mockReleaseUseCase.On("DeleteReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			err: nil,

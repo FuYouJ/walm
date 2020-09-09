@@ -253,7 +253,9 @@ type ConfigMapRequestBody struct {
 
 type ConfigMap struct {
 	Meta
+	Labels map[string]string `json:"labels" description:"configmap labels"`
 	Data map[string]string `json:"data" description:"config map data"`
+	Annotations map[string]string `json:"annotations" description:"configmap annotations"`
 }
 
 func (resource *ConfigMap) AddToResourceSet(resourceSet *ResourceSet) {

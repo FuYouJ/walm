@@ -14,6 +14,7 @@ const (
 type UpgradeReleaseTaskArgs struct {
 	Namespace     string
 	ProjectName   string
+	UpdateConfigMap bool
 	ReleaseParams *release.ReleaseRequestV2
 }
 
@@ -28,10 +29,10 @@ func (projectImpl *Project) UpgradeReleaseTask(upgradeReleaseTaskArgsStr string)
 		klog.Errorf("upgrade release task arg is not valid : %s", err.Error())
 		return err
 	}
-	return projectImpl.upgradeRelease(upgradeReleaseTaskArgs.Namespace, upgradeReleaseTaskArgs.ProjectName, upgradeReleaseTaskArgs.ReleaseParams)
+	return projectImpl.upgradeRelease(upgradeReleaseTaskArgs.Namespace, upgradeReleaseTaskArgs.ProjectName, upgradeReleaseTaskArgs.UpdateConfigMap, upgradeReleaseTaskArgs.ReleaseParams)
 }
 
-func (projectImpl *Project) upgradeRelease(namespace, projectName string, releaseParams *release.ReleaseRequestV2) (err error) {
+func (projectImpl *Project) upgradeRelease(namespace, projectName string, updateConfigMap bool, releaseParams *release.ReleaseRequestV2) (err error) {
 	projectExists := true
 	projectInfo, err := projectImpl.GetProjectInfo(namespace, projectName)
 	if err != nil {
@@ -45,7 +46,7 @@ func (projectImpl *Project) upgradeRelease(namespace, projectName string, releas
 
 	setPrjLabelToReleaseParams(projectExists, projectInfo, releaseParams, projectName)
 
-	err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams, nil, false, 0)
+	err = projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseParams, nil, false, updateConfigMap, 0)
 	if err != nil {
 		klog.Errorf("failed to upgrade release %s in project %s/%s : %s", releaseParams.Name, namespace, projectName, err.Error())
 		return

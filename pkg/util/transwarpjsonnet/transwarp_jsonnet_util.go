@@ -242,7 +242,7 @@ func BuildNotRenderedFileName(fileName string) (notRenderFileName string) {
 	return
 }
 
-func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string, updateConfigMap bool) (resources map[string][]byte, err error) {
+func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string) (resources map[string][]byte, err error) {
 	// key: resource.json, value: resource template(map)
 	resourcesMap := make(map[string]map[string]interface{})
 	err = json.Unmarshal([]byte(jsonStr), &resourcesMap)
@@ -282,9 +282,6 @@ func buildKubeResourcesByJsonStr(jsonStr string, labels map[string]string, updat
 	for fileName, resource := range resourcesMap {
 		// render with confd
 		if  resource["kind"] == string(k8sModel.ConfigMapKind) {
-			if !updateConfigMap {
-				continue
-			}
 			data := resource["data"].(map[string]interface{})
 			newData, err := renderDataWithConfd(data)
 			if err != nil {

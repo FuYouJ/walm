@@ -195,13 +195,13 @@ func (_m *UseCase) RemoveReleaseInProject(namespace string, projectName string, 
 	return r0
 }
 
-// UpgradeReleaseInProject provides a mock function with given fields: namespace, projectName, releaseParams, async, timeoutSec
-func (_m *UseCase) UpgradeReleaseInProject(namespace string, projectName string, releaseParams *release.ReleaseRequestV2, async bool, timeoutSec int64) error {
-	ret := _m.Called(namespace, projectName, releaseParams, async, timeoutSec)
+// UpgradeReleaseInProject provides a mock function with given fields: namespace, projectName, releaseParams, async, updateConfigMap, timeoutSec
+func (_m *UseCase) UpgradeReleaseInProject(namespace string, projectName string, releaseParams *release.ReleaseRequestV2, async bool, updateConfigMap bool, timeoutSec int64) error {
+	ret := _m.Called(namespace, projectName, releaseParams, async, updateConfigMap, timeoutSec)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string, *release.ReleaseRequestV2, bool, int64) error); ok {
-		r0 = rf(namespace, projectName, releaseParams, async, timeoutSec)
+	if rf, ok := ret.Get(0).(func(string, string, *release.ReleaseRequestV2, bool, bool, int64) error); ok {
+		r0 = rf(namespace, projectName, releaseParams, async, updateConfigMap, timeoutSec)
 	} else {
 		r0 = ret.Error(0)
 	}

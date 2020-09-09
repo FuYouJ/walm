@@ -78,6 +78,6 @@ func Test_getMainJsonnetFile(t *testing.T) {
 }
 
 func Test_buildKubeResourcesByJsonStr(t *testing.T) {
-	_, err := buildKubeResourcesByJsonStr("", map[string]string{}, true)
+	_, err := buildKubeResourcesByJsonStr("", map[string]string{})
 	assert.NotNil(t, err)
 }

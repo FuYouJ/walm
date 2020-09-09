@@ -79,7 +79,7 @@ func TestProject_doCreateProject(t *testing.T) {
 					}
 					return
 				}, nil)
-				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
+				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(errors.New(""))
 			},
 			projectParams: &project.ProjectParams{
 				Releases: []*release.ReleaseRequestV2{
@@ -109,7 +109,7 @@ func TestProject_doCreateProject(t *testing.T) {
 					}
 					return
 				}, nil)
-				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+				mockReleaseUseCase.On("InstallUpgradeReleaseWithRetry", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 			},
 			projectParams: &project.ProjectParams{
 				Releases: []*release.ReleaseRequestV2{

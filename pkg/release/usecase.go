@@ -28,7 +28,7 @@ type UseCase interface {
 	// 1. nil: maintain pause state
 	// 2. true: make release paused
 	// 3. false: make release recovered
-	InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error
+	InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, updateConfigMap bool, timeoutSec int64) error
 	InstallUpgradeRelease(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64, fullUpdate bool, updateConfigMap bool) error
 	ReloadRelease(namespace, name string) error
 	RestartRelease(namespace, releaseName string) error

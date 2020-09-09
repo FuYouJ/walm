@@ -376,7 +376,7 @@ func isV1Project(oldProjectTask *projectModel.ProjectTask) bool {
 }
 
 func (projectImpl *Project) UpgradeReleaseInProject(namespace string, projectName string,
-	releaseParams *releaseModel.ReleaseRequestV2, async bool, timeoutSec int64) error {
+	releaseParams *releaseModel.ReleaseRequestV2, async bool, updateConfigMap bool, timeoutSec int64) error {
 	oldProjectTask, err := projectImpl.validateProjectTask(namespace, projectName, false)
 	if err != nil {
 		if errorModel.IsNotFoundError(err) {
@@ -414,6 +414,7 @@ func (projectImpl *Project) UpgradeReleaseInProject(namespace string, projectNam
 	taskArgs := &UpgradeReleaseTaskArgs{
 		ProjectName:   projectName,
 		Namespace:     namespace,
+		UpdateConfigMap: updateConfigMap,
 		ReleaseParams: releaseParams,
 	}
 
@@ -653,7 +654,7 @@ func (projectImpl *Project) autoCreateReleaseDependencies(projectParams *project
 		}
 		if installRelease {
 			klog.V(2).Infof("start to create project release %s/%s", namespace, releaseRequest.Name)
-			err1 := projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseRequest, nil, false, 0)
+			err1 := projectImpl.releaseUseCase.InstallUpgradeReleaseWithRetry(namespace, releaseRequest, nil, false, true,0)
 			if err1 != nil {
 				klog.Errorf("failed to create project release %s/%s : %s", namespace, releaseRequest.Name, err1.Error())
 				err = err1

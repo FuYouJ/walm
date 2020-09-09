@@ -219,13 +219,13 @@ func (_m *UseCase) InstallUpgradeRelease(namespace string, releaseRequest *relea
 	return r0
 }
 
-// InstallUpgradeReleaseWithRetry provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, timeoutSec
-func (_m *UseCase) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, timeoutSec int64) error {
-	ret := _m.Called(namespace, releaseRequest, chartFiles, async, timeoutSec)
+// InstallUpgradeReleaseWithRetry provides a mock function with given fields: namespace, releaseRequest, chartFiles, async, updateConfigMap, timeoutSec
+func (_m *UseCase) InstallUpgradeReleaseWithRetry(namespace string, releaseRequest *release.ReleaseRequestV2, chartFiles []*common.BufferedFile, async bool, updateConfigMap bool, timeoutSec int64) error {
+	ret := _m.Called(namespace, releaseRequest, chartFiles, async, updateConfigMap, timeoutSec)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, int64) error); ok {
-		r0 = rf(namespace, releaseRequest, chartFiles, async, timeoutSec)
+	if rf, ok := ret.Get(0).(func(string, *release.ReleaseRequestV2, []*common.BufferedFile, bool, bool, int64) error); ok {
+		r0 = rf(namespace, releaseRequest, chartFiles, async, updateConfigMap, timeoutSec)
 	} else {
 		r0 = ret.Error(0)
 	}

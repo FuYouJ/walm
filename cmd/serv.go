@@ -455,7 +455,7 @@ func RouteLogging(req *restful.Request, resp *restful.Response, chain *restful.F
 	HTTPReqTotal.With(prometheus.Labels{
 		"method": req.Request.Method,
 		"path":   req.Request.URL.Path,
-		"status": string(resp.StatusCode()),
+		"status": string(rune(resp.StatusCode())),
 	}).Inc()
 
 	HTTPReqDuration.With(prometheus.Labels{

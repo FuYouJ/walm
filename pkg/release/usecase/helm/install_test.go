@@ -108,7 +108,7 @@ func TestHelm_InstallUpgradeReleaseWithRetry(t *testing.T) {
 
 	for _, test := range tests {
 		test.initMock()
-		err := mockReleaseManager.InstallUpgradeReleaseWithRetry("test-ns", test.releaseRequest, nil, false, 0)
+		err := mockReleaseManager.InstallUpgradeReleaseWithRetry("test-ns", test.releaseRequest, nil, false,true, 0)
 		assert.IsType(t, test.err, err)
 
 		mockReleaseCache.AssertExpectations(t)
