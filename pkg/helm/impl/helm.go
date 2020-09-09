@@ -316,44 +316,46 @@ func (helmImpl *Helm) InstallOrCreateReleaseWithStrict(namespace string, release
 
 func (helmImpl *Helm) processRawChartConfigMaps(rawChart *chart.Chart, oldReleaseInfo *release.ReleaseInfoV2) (*chart.Chart, error) {
 	configMaps := map[string][]byte{}
-	for _, configmap := range oldReleaseInfo.Status.ConfigMaps {
-		res, err := helmImpl.k8sCache.GetResource(k8sModel.ConfigMapKind, oldReleaseInfo.Namespace, configmap.Name)
-		if err != nil {
-			return nil, err
+	if oldReleaseInfo.Status != nil {
+		for _, configmap := range oldReleaseInfo.Status.ConfigMaps {
+			res, err := helmImpl.k8sCache.GetResource(k8sModel.ConfigMapKind, oldReleaseInfo.Namespace, configmap.Name)
+			if err != nil {
+				return nil, err
+			}
+			newRes := res.(*k8sModel.ConfigMap)
+			k8sConfigMap := v1.ConfigMap{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: chart.APIVersionV1,
+					Kind:       "ConfigMap",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels:      newRes.Labels,
+					Name:        newRes.Name,
+					Namespace:   newRes.Namespace,
+					Annotations: newRes.Annotations,
+				},
+				Data: newRes.Data,
+			}
+			resourceBytes, err := yaml.Marshal(k8sConfigMap)
+			if err != nil {
+				return nil, err
+			}
+			configMaps[configmap.Name] = resourceBytes
 		}
-		newRes := res.(*k8sModel.ConfigMap)
-		k8sConfigMap := v1.ConfigMap{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: chart.APIVersionV1,
-				Kind:       "ConfigMap",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      newRes.Labels,
-				Name:        newRes.Name,
-				Namespace:   newRes.Namespace,
-				Annotations: newRes.Annotations,
-			},
-			Data: newRes.Data,
-		}
-		resourceBytes, err := yaml.Marshal(k8sConfigMap)
-		if err != nil {
-			return nil, err
-		}
-		configMaps[configmap.Name] = resourceBytes
-	}
-	for idx, file := range rawChart.Templates {
-		fileData, err := yaml.YAMLToJSON(file.Data)
-		if err != nil {
-			return nil, err
-		}
-		if gjson.GetBytes(fileData, "kind").String() != "ConfigMap" {
-			continue
-		}
-		configMapName := gjson.GetBytes(fileData, "metadata.name").String()
-		if configMaps[configMapName] != nil {
-			rawChart.Templates[idx].Data = configMaps[configMapName]
-		} else {
-			return nil, errors.Errorf("configmap %s already not exist", configMapName)
+		for idx, file := range rawChart.Templates {
+			fileData, err := yaml.YAMLToJSON(file.Data)
+			if err != nil {
+				return nil, err
+			}
+			if gjson.GetBytes(fileData, "kind").String() != "ConfigMap" {
+				continue
+			}
+			configMapName := gjson.GetBytes(fileData, "metadata.name").String()
+			if configMaps[configMapName] != nil {
+				rawChart.Templates[idx].Data = configMaps[configMapName]
+			} else {
+				return nil, errors.Errorf("configmap %s already not exist", configMapName)
+			}
 		}
 	}
 	return rawChart, nil
