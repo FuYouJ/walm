@@ -15,9 +15,13 @@ Walm supports finely grained authentication and authorization, that would make o
 Walm uses a message system(Kafka) to synchronize the application's status in real-time. Once the application's status changes, Walm would produce an event to Kafka in real-time, and the Walm client would get the latest application status in real-time by consuming the Kafka event .
 
 ## Architecture
+
 ![arch][1]
 
+![arch2](https://i.loli.net/2020/09/14/zLwqMihVK6x4oDA.png)
+
 ## Advantage
+
 - Walm supports rest api to manage the lifecycle of applications.
 - Walm supports the orchestration and deployment of complex applications.
 - Walm supports the dynamic dependencies management.
@@ -88,4 +92,3 @@ walmctl --help
 
 # Road Map
 - Authentication & Authorization
-- Release Status Real-Time Synchronization
