@@ -95,3 +95,6 @@ Jsonnet 使用场景主要集中在配置管理上. 社区的实践主要是用 
   - 资源配置 （container资源信息，jvm）
 - 存储卷
 - 网络
+
+## 流程图
+![image.png](https://i.loli.net/2020/09/15/XTfLoIvZYFSuCa5.png)
