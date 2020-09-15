@@ -231,9 +231,9 @@ func (c *WalmctlClient) GetRelease(namespace string, releaseName string) (resp *
 	return resp, err
 }
 
-func (c *WalmctlClient) UpdateRelease(namespace string, newConfigStr string, async bool, timeoutSec int64) (resp *resty.Response, err error) {
+func (c *WalmctlClient) UpdateRelease(namespace string, newConfigStr string, async bool, timeoutSec int64, updateconfigmap bool) (resp *resty.Response, err error) {
 	fullUrl := c.baseURL + "/release/" + namespace + "?async=" + strconv.FormatBool(async) +
-		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10)
+		"&timeoutSec=" + strconv.FormatInt(timeoutSec, 10) + "&updateConfigMap=" + strconv.FormatBool(updateconfigmap)
 
 	resp, err = c.client.R().SetHeader("Content-Type", "application/json").
 		SetBody(newConfigStr).
@@ -247,10 +247,10 @@ func (c *WalmctlClient) UpdateRelease(namespace string, newConfigStr string, asy
 	return resp, err
 }
 
-func (c *WalmctlClient) UpdateReleaseWithChart(namespace string, releaseName string, file string, newConfigStr string) (resp *resty.Response, err error) {
-	fullUrl := c.baseURL + "/release/" + namespace + "/withchart"
+func (c *WalmctlClient) UpdateReleaseWithChart(namespace string, releaseName string, file string, newConfigStr string, updateconfigmap bool) (resp *resty.Response, err error) {
+	fullUrl := c.baseURL + "/release/" + namespace + "/withchart" + "?updateConfigMap=" + strconv.FormatBool(updateconfigmap)
 
-	resp, err = c.client.R().SetHeader("Content-Type", "multipart/form-data", ).
+	resp, err = c.client.R().SetHeader("Content-Type", "multipart/form-data").
 		SetFile("chart", file).
 		SetFormData(map[string]string{"release": releaseName, "body": newConfigStr}).
 		Put(fullUrl)

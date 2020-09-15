@@ -31,6 +31,7 @@ type updateCmd struct {
 	sourceName    string
 	withchart     string
 	setproperties string
+	updateconfigmap bool
 	file          string
 	timeoutSec    int64
 	async         bool
@@ -71,6 +72,7 @@ func newUpdateCmd(out io.Writer) *cobra.Command {
 	cmd.PersistentFlags().BoolVar(&uc.async, "async", false, "whether asynchronous, available only when update release without local chart.")
 	cmd.PersistentFlags().StringVar(&uc.setproperties, "set-string", "", "set values on the command line (can specify multiple or separate values with commas: pathA=valA,pathB.1=valB,...")
 	cmd.PersistentFlags().StringVarP(&uc.file, "file", "f", "", "absolutely or relative path to source file")
+	cmd.PersistentFlags().BoolVar(&uc.updateconfigmap, "updateconfigmap", true, "whether update configmap, default true")
 	return cmd
 }
 
@@ -185,13 +187,13 @@ func (uc *updateCmd) run() error {
 			return err
 		}
 		if uc.withchart == "" {
-			resp, err = client.UpdateRelease(namespace, string(releaseRequestByte), uc.async, uc.timeoutSec)
+			resp, err = client.UpdateRelease(namespace, string(releaseRequestByte), uc.async, uc.timeoutSec, uc.updateconfigmap)
 		} else {
 			uc.withchart, err = filepath.Abs(uc.withchart)
 			if err != nil {
 				return err
 			}
-			resp, err = client.UpdateReleaseWithChart(namespace, uc.sourceName, uc.withchart, string(releaseRequestByte))
+			resp, err = client.UpdateReleaseWithChart(namespace, uc.sourceName, uc.withchart, string(releaseRequestByte), uc.updateconfigmap)
 		}
 		if err != nil {
 			return errors.Errorf("update release failed, %s", err.Error())
