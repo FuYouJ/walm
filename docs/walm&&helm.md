@@ -85,13 +85,13 @@ Jsonnet 使用场景主要集中在配置管理上. 社区的实践主要是用 
 ## 解决复杂的应用模版
 
 应用模板内容
-       编排信息
-               资源使用情况（request vs limit）
-               调度偏好
-                        affinity， anti-affinity，node selector
-       容器环境变量
-               依赖信息
-               用户配置 **（最复杂）**
-      资源配置 （container资源信息，jvm）
-      存储卷
-      网络
+- 编排信息
+  - 资源使用情况（request vs limit）
+  - 调度偏好
+    - affinity， anti-affinity，node selector
+- 容器环境变量
+  - 依赖信息
+  - 用户配置 **（最复杂）**
+  - 资源配置 （container资源信息，jvm）
+- 存储卷
+- 网络
