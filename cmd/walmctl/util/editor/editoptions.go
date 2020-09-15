@@ -199,7 +199,7 @@ func (o *EditOptions) Run() error {
 			return err
 		}
 
-		resp, err = client.UpdateRelease(o.Namespace, string(StripComments(edited)), false, 0)
+		resp, err = client.UpdateRelease(o.Namespace, string(StripComments(edited)), false, 0, true)
 		if err != nil {
 			return err
 		}

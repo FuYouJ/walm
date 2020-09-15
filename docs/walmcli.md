@@ -15,7 +15,7 @@ export WALM_HOST=0.0.0.0:9001
 
 ### :rocket: Commands
 
-#### :one: 创建资源： `create`
+#### ​ 创建资源： `create`
 
 - 根据 json/yaml 文件创建一个名称为releaseName的release
 
@@ -39,7 +39,7 @@ walmctl -n/--namespace xxx create project projectName -f xxx.json/xxx.yaml
 walmctl -n xxx create project projectName -f xxx.json --async false --timeoutSec 600
 ```
 
-#### :two: 删除资源:   `delete`
+####  删除资源:   `delete`
 
 - 删除一个 project
 
@@ -71,7 +71,7 @@ walmctl -n xxx delete release releaseName -p/--project projectName
 walmctl -n xxx delete release releaseName --async true --timeoutSec 0 --deletePvcs false
 ```
 
-#### :three: 列举资源:   `list`
+####  列举资源:   `list`
 
 - 列举 namespace 下的所有release (:warning: **labelSelector will be support in the future**) 
 
@@ -91,7 +91,7 @@ walmctl -n xxx list project
 walmctl -n xxx list release -p/--project projectName
 ```
 
-#### :four: 获取资源详细信息:   `get`
+####  获取资源详细信息:   `get`
 
 - 获取某个release 信息
 
@@ -113,7 +113,7 @@ walmctl -n xxx get project projectName -o yaml
 walmctl -n xxx get release releaseName -o/--output json
 ```
 
-#### :five: 更新已有的资源：  `update`
+####  更新已有的资源：  `update`
 
 :warning: 更新资源是在已有资源的基础上根据configPath 和 本地 chart 对 资源进行更新
 
@@ -209,7 +209,7 @@ Advanced:
 walmctl -n xxx update release releaseName --withchart /Users/corndai/Desktop/txsql-6.0.0.tgz --set-string config_values.App.txsql.resources.cpu_limit=4
 ```
 
-#### :six: 格式检查 && dryrun： `lint`
+####  格式检查 && dryrun： `lint`
 
 **check:**
 - metainfo是否符合yaml格式
@@ -225,24 +225,30 @@ walmctl -n xxx update release releaseName --withchart /Users/corndai/Desktop/txs
 
 **dryrun:**
 模拟charts 是否能够正常安装
-```
+```shell
 walmctl lint --chartPath transwarp-native-charts/$chart
 ```
-#### :seven: charts打包： `package`
+####  charts打包： `package`
 
 提供charts的打包功能， 对于开源的charts，可以通过 `helm package`完成，非开源charts 可通过 `walmctl package`完成。
 以[application-helmcharts](https://github.com/WarpCloud/walm-charts)中的charts为例。
 对于transwarp-jsonnetcharts， 通过以下命令进行打包， 其中 `destination`指输出路径， 若不填代表charts打包输出在当前目录下。
-```
+```shell
 walmctl package --chartPath transwarp-jsonnetcharts/${transwarpchart}/${appVersion} --destination ${OUTPUTDIR}
 ```
 
-#### :eight: 编辑服务端资源： `edit`
+####  编辑服务端资源： `edit`
 目前仅限编辑release资源
-```
+```shell
 walmctl -s xxx -n edit release releaseName -o yaml/json
 ```
 
+####  暂停或恢复服务：`pause/recover`
+
+```shell
+walmctl -s xxx -n ${namespace} pause release ${releaseName}
+walmctl -s xxx -n ${namespace} recover release ${releaseName}
+```
 
 ### :apple: Todo
 
